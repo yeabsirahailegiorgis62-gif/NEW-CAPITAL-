@@ -77,47 +77,62 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
     >
       <div className="space-y-6">
         {/* Status Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
           <div>
-            <span className="text-xs text-slate-500 block">Current Status</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 block">Current Status</span>
             <div className="mt-1">
               <Badge status={booking.status} size="md" />
             </div>
           </div>
           <div className="text-right">
-            <span className="text-xs text-slate-500 block">Requested By</span>
-            <span className="text-sm font-semibold text-slate-900 block">
+            <span className="text-xs text-slate-500 dark:text-slate-400 block">Requested By</span>
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 block">
               {booking.requester?.name || 'Staff Member'}
             </span>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               {booking.requester?.department?.name || 'Capital Real Estate'}
             </span>
           </div>
         </div>
 
+        {/* Pending Review Guidance Banner */}
+        {booking.status === 'PENDING_APPROVAL' && (
+          <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 flex items-start gap-3">
+            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-xs leading-relaxed space-y-1">
+              <strong className="block font-semibold text-sm text-amber-900 dark:text-amber-100">
+                Request Awaiting Logistics Review
+              </strong>
+              <p className="text-amber-800 dark:text-amber-300">
+                Your trip request has been submitted to the Logistics Department queue. You will receive an automatic notification once an officer approves your trip and assigns a company vehicle and driver.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Rejection Alert if rejected */}
         {booking.status === 'REJECTED' && (
-          <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-900 text-sm">
+          <div className="p-4 rounded-xl border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-950/30 text-red-900 dark:text-red-200 text-sm">
             <div className="flex items-center gap-2 font-semibold">
-              <XCircle className="w-4 h-4 text-red-600" />
+              <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
               Rejection Reason:
             </div>
-            <p className="mt-1 text-xs text-red-800">{booking.rejectionReason || 'No reason specified'}</p>
+            <p className="mt-1 text-xs text-red-800 dark:text-red-300">{booking.rejectionReason || 'No reason specified'}</p>
           </div>
         )}
 
         {/* Trip Details Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-          <div className="p-4 rounded-xl border border-slate-100 bg-white space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <MapPin className="w-4 h-4 text-brand-600" />
+          <div className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <MapPin className="w-4 h-4 text-brand-600 dark:text-brand-400" />
               Destination & Purpose
             </div>
-            <div className="font-semibold text-slate-900">{booking.destination}</div>
-            <p className="text-xs text-slate-600 leading-relaxed">{booking.purpose}</p>
+            <div className="font-semibold text-slate-900 dark:text-slate-100">{booking.destination}</div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{booking.purpose}</p>
           </div>
 
-          <div className="p-4 rounded-xl border border-slate-100 bg-white space-y-2">
+          <div className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <Calendar className="w-4 h-4 text-brand-600" />
               Requested Schedule (EAT)

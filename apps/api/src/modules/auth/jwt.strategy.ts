@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { JWT_SECRET } from './auth.constants';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -9,7 +10,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'capital_fleet_super_secure_jwt_secret_change_in_production_2026',
+      secretOrKey: JWT_SECRET,
     });
   }
 
