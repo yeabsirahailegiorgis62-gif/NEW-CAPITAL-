@@ -1,31 +1,36 @@
-import { useState, useEffect } from 'react';
-import { User, InAppNotification } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { User, Booking, Vehicle, InAppNotification } from '@/types';
 import { api } from '@/lib/api';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { AppShell } from '@/components/layout/AppShell';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { Truck, Clock, Car, Shield } from 'lucide-react';
+import { EmployeeDashboard } from '@/features/dashboard/EmployeeDashboard';
+import { LogisticsDashboard } from '@/features/dashboard/LogisticsDashboard';
+import { BookingRequestForm } from '@/features/bookings/BookingRequestForm';
+import { BookingDetailsModal } from '@/features/bookings/BookingDetailsModal';
+import { BookingsTable } from '@/features/bookings/BookingsTable';
+import { VehicleInventoryView } from '@/features/vehicles/VehicleInventoryView';
+import { AvailabilityCalendar } from '@/features/availability/AvailabilityCalendar';
+import { ReviewRequestsQueue } from '@/features/logistics/ReviewRequestsQueue';
+import { AssignVehicleModal } from '@/features/logistics/AssignVehicleModal';
+import { TripExecutionModal } from '@/features/logistics/TripExecutionModal';
+import { MaintenanceView } from '@/features/maintenance/MaintenanceView';
+import { UsersManagementView } from '@/features/admin/UsersManagementView';
+import { AuditLogsView } from '@/features/admin/AuditLogsView';
 
 export function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'login' | 'workspace'>('landing');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [notifications, setNotifications] = useState<InAppNotification[]>([
-    {
-      id: 'notif-1',
-      recipientId: 'user-1',
-      type: 'INFO',
-      title: 'Welcome to Capital Fleet',
-      message: 'System is configured for Capital Real Estate operations in Addis Ababa.',
-      createdAt: new Date().toISOString(),
-      readAt: null,
-    },
-  ]);
+  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
 
-  // Check existing authenticated session on mount
+  // Modal states
+  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
+  const [assigningBooking, setAssigningBooking] = useState<Booking | null>(null);
+  const [tripModalBooking, setTripModalBooking] = useState<{ booking: Booking; mode: 'start' | 'complete' } | null>(null);
+
+  // Check authenticated session on load
   useEffect(() => {
     const checkSession = async () => {
       const token = api.getToken();
@@ -34,9 +39,7 @@ export function App() {
           const user = await api.getProfile();
           setCurrentUser(user);
           setCurrentView('workspace');
-          // Fetch notifications
-          const notifs = await api.getNotifications();
-          setNotifications(notifs);
+          await refreshAllData();
         } catch {
           api.setToken(null);
         }
@@ -45,17 +48,26 @@ export function App() {
     checkSession();
   }, []);
 
-  // Real backend authentication
+  const refreshAllData = async () => {
+    try {
+      const [notifs, bookingsData] = await Promise.all([
+        api.getNotifications(),
+        api.getBookings(),
+      ]);
+      setNotifications(notifs);
+      setBookings(bookingsData);
+    } catch (err) {
+      console.error('Failed to refresh data', err);
+    }
+  };
+
   const handleLogin = async (identifier: string, pass: string): Promise<boolean> => {
     try {
       const res = await api.login(identifier, pass);
       setCurrentUser(res.user);
       setCurrentView('workspace');
       setActiveTab('dashboard');
-
-      // Fetch notifications
-      const notifs = await api.getNotifications();
-      setNotifications(notifs);
+      await refreshAllData();
       return true;
     } catch (err: any) {
       throw new Error(err.message || 'Invalid credentials or account inactive');
@@ -76,6 +88,37 @@ export function App() {
     );
   };
 
+  // Workflow Handlers
+  const handleApproveBooking = async (id: string) => {
+    try {
+      await api.approveBooking(id);
+      setSelectedBookingForDetails(null);
+      await refreshAllData();
+    } catch (err) {
+      console.error('Failed to approve', err);
+    }
+  };
+
+  const handleRejectBooking = async (id: string, reason: string) => {
+    try {
+      await api.rejectBooking(id, reason);
+      setSelectedBookingForDetails(null);
+      await refreshAllData();
+    } catch (err) {
+      console.error('Failed to reject', err);
+    }
+  };
+
+  const handleCancelBooking = async (id: string, reason?: string) => {
+    try {
+      await api.cancelBooking(id, reason);
+      setSelectedBookingForDetails(null);
+      await refreshAllData();
+    } catch (err) {
+      console.error('Failed to cancel', err);
+    }
+  };
+
   if (currentView === 'landing') {
     return <LandingPage onSignInClick={() => setCurrentView('login')} />;
   }
@@ -89,6 +132,10 @@ export function App() {
     );
   }
 
+  const isEmployee = currentUser?.role === 'EMPLOYEE';
+  const isLogistics = currentUser?.role === 'LOGISTICS_ADMIN';
+  const isSystemAdmin = currentUser?.role === 'SYSTEM_ADMIN';
+
   return (
     <AppShell
       currentUser={currentUser!}
@@ -98,68 +145,129 @@ export function App() {
       notifications={notifications}
       onMarkNotificationRead={handleMarkNotificationRead}
     >
-      <div className="space-y-6">
-        {/* Welcome Banner */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900">
-                Welcome back, {currentUser?.name}
-              </h1>
-              <Badge status={currentUser?.role === 'EMPLOYEE' ? 'Staff Employee' : currentUser?.role === 'LOGISTICS_ADMIN' ? 'Logistics Admin' : 'System Admin'} />
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              {currentUser?.department?.name} · Capital Real Estate Operations
-            </p>
-          </div>
-          {currentUser?.role === 'EMPLOYEE' && (
-            <Button
-              variant="primary"
-              onClick={() => setActiveTab('new-booking')}
-              leftIcon={<Truck className="w-4 h-4" />}
-            >
-              Book a Vehicle
-            </Button>
+      {/* Dynamic Tab Rendering */}
+      {activeTab === 'dashboard' && (
+        <>
+          {isEmployee ? (
+            <EmployeeDashboard
+              currentUser={currentUser!}
+              onNewBookingClick={() => setActiveTab('new-booking')}
+              onOpenBooking={(b) => setSelectedBookingForDetails(b)}
+              onNavigateTab={setActiveTab}
+            />
+          ) : (
+            <LogisticsDashboard
+              onNavigateTab={setActiveTab}
+              onOpenBooking={(b) => setSelectedBookingForDetails(b)}
+            />
           )}
+        </>
+      )}
+
+      {activeTab === 'new-booking' && (
+        <BookingRequestForm
+          onSuccess={(b) => {
+            refreshAllData();
+            setSelectedBookingForDetails(b);
+            setActiveTab(isEmployee ? 'my-bookings' : 'dashboard');
+          }}
+          onCancel={() => setActiveTab('dashboard')}
+        />
+      )}
+
+      {activeTab === 'my-bookings' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-slate-900">My Trip Bookings & History</h2>
+          </div>
+          <BookingsTable
+            bookings={bookings}
+            currentUser={currentUser!}
+            onSelectBooking={(b) => setSelectedBookingForDetails(b)}
+            onRefresh={refreshAllData}
+          />
         </div>
+      )}
 
-        {/* Phase 1 Baseline View */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-slate-700">Fleet Quick Status</CardTitle>
-              <Car className="w-4 h-4 text-brand-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">12 Vehicles</div>
-              <p className="text-xs text-slate-500 mt-1">9 Operational · 2 Assigned · 1 Maintenance</p>
-            </CardContent>
-          </Card>
+      {activeTab === 'requests-queue' && (
+        <ReviewRequestsQueue
+          currentUser={currentUser!}
+          onSelectBooking={(b) => setSelectedBookingForDetails(b)}
+          onAssignVehicle={(b) => setAssigningBooking(b)}
+          onApprove={handleApproveBooking}
+          onReject={handleRejectBooking}
+        />
+      )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-slate-700">Addis Ababa Time</CardTitle>
-              <Clock className="w-4 h-4 text-brand-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">UTC+3 (EAT)</div>
-              <p className="text-xs text-slate-500 mt-1">All trip reservations synchronized</p>
-            </CardContent>
-          </Card>
+      {activeTab === 'availability' && (
+        <AvailabilityCalendar
+          currentUser={currentUser!}
+          onSelectBooking={(b) => setSelectedBookingForDetails(b)}
+        />
+      )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-slate-700">Active Workspace</CardTitle>
-              <Shield className="w-4 h-4 text-brand-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-brand-700">Phase 1 Complete</div>
-              <p className="text-xs text-slate-500 mt-1">Design system and UI shell ready</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      {activeTab === 'vehicles' && (
+        <VehicleInventoryView
+          currentUser={currentUser!}
+          onReportIssue={() => setActiveTab('maintenance')}
+        />
+      )}
+
+      {activeTab === 'maintenance' && (
+        <MaintenanceView currentUser={currentUser!} />
+      )}
+
+      {activeTab === 'users' && isSystemAdmin && (
+        <UsersManagementView />
+      )}
+
+      {activeTab === 'audit-logs' && !isEmployee && (
+        <AuditLogsView />
+      )}
+
+      {/* Booking Details Modal */}
+      <BookingDetailsModal
+        isOpen={!!selectedBookingForDetails}
+        onClose={() => setSelectedBookingForDetails(null)}
+        booking={selectedBookingForDetails}
+        currentUser={currentUser!}
+        onApprove={handleApproveBooking}
+        onReject={handleRejectBooking}
+        onAssign={(b) => {
+          setSelectedBookingForDetails(null);
+          setAssigningBooking(b);
+        }}
+        onStartTrip={(b) => {
+          setSelectedBookingForDetails(null);
+          setTripModalBooking({ booking: b, mode: 'start' });
+        }}
+        onCompleteTrip={(b) => {
+          setSelectedBookingForDetails(null);
+          setTripModalBooking({ booking: b, mode: 'complete' });
+        }}
+        onCancelBooking={handleCancelBooking}
+      />
+
+      {/* Assign Vehicle Modal */}
+      <AssignVehicleModal
+        isOpen={!!assigningBooking}
+        onClose={() => setAssigningBooking(null)}
+        booking={assigningBooking}
+        onAssigned={refreshAllData}
+      />
+
+      {/* Trip Execution Telemetry Modal */}
+      {tripModalBooking && (
+        <TripExecutionModal
+          isOpen={!!tripModalBooking}
+          onClose={() => setTripModalBooking(null)}
+          booking={tripModalBooking.booking}
+          mode={tripModalBooking.mode}
+          onSuccess={refreshAllData}
+        />
+      )}
     </AppShell>
   );
 }
+
 export default App;
