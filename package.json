@@ -1,0 +1,28 @@
+{
+  "name": "capital-fleet-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "npm run start:dev --workspace=apps/api",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:api": "npm run build --workspace=apps/api",
+    "test:api": "npm run test --workspace=apps/api",
+    "test:e2e": "npm run test:e2e --workspace=apps/api",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run prisma:migrate --workspace=apps/api",
+    "db:seed": "npm run prisma:seed --workspace=apps/api"
+  },
+  "keywords": [
+    "fleet-management",
+    "vehicle-booking",
+    "logistics",
+    "capital-real-estate"
+  ],
+  "author": "Capital Real Estate",
+  "license": "UNLICENSED"
+}

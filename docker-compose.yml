@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: capital_fleet_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-capital_fleet_db}
+      TZ: Africa/Addis_Ababa
+    ports:
+      - "${POSTGRES_PORT:-5435}:5432"
+    volumes:
+      - capital_fleet_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d capital_fleet_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  capital_fleet_data:
+    driver: local
