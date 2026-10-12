@@ -56,6 +56,10 @@ async function main() {
       passwordHash: defaultPasswordHash,
       role: UserRole.EMPLOYEE,
       departmentId: deptEngineering.id,
+      phone: '+251 91 123 4567',
+      jobTitle: 'Senior Project Engineer',
+      licenseNumber: 'ET-DL-84912',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
     },
   });
 
@@ -67,6 +71,10 @@ async function main() {
       passwordHash: defaultPasswordHash,
       role: UserRole.EMPLOYEE,
       departmentId: deptSales.id,
+      phone: '+251 92 345 6789',
+      jobTitle: 'Real Estate Consultant',
+      licenseNumber: 'ET-DL-91823',
+      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
     },
   });
 
@@ -78,6 +86,10 @@ async function main() {
       passwordHash: defaultPasswordHash,
       role: UserRole.LOGISTICS_ADMIN,
       departmentId: deptLogistics.id,
+      phone: '+251 93 456 7890',
+      jobTitle: 'Head of Fleet & Logistics',
+      licenseNumber: 'ET-DL-74910',
+      avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&q=80',
     },
   });
 
@@ -89,6 +101,9 @@ async function main() {
       passwordHash: defaultPasswordHash,
       role: UserRole.SYSTEM_ADMIN,
       departmentId: deptExecutive.id,
+      phone: '+251 94 567 8901',
+      jobTitle: 'Chief Information Officer',
+      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
     },
   });
 
@@ -98,7 +113,7 @@ async function main() {
   console.log(' - Selamawit Tadesse (logistics@capitalre.com) -> LOGISTICS_ADMIN');
   console.log(' - Ermias Haile (admin@capitalre.com) -> SYSTEM_ADMIN');
 
-  // 4. Create Vehicles
+  // 4. Create Vehicles with rich images and telemetry
   const vPrado = await prisma.vehicle.create({
     data: {
       name: 'Land Cruiser Prado TX',
@@ -108,6 +123,11 @@ async function main() {
       category: VehicleCategory.SUV,
       passengerCapacity: 7,
       operationalStatus: VehicleOperationalStatus.ACTIVE,
+      imageUrl: '/vehicles/prado.png',
+      fuelLevel: 92,
+      mileage: 18450,
+      transmission: 'Automatic 4WD',
+      fuelType: 'Diesel',
       description: 'Executive 4WD suited for regional project sites and highway travel',
       notes: 'Fuel card allocated. Air conditioning operational.',
     },
@@ -122,6 +142,11 @@ async function main() {
       category: VehicleCategory.PICKUP,
       passengerCapacity: 5,
       operationalStatus: VehicleOperationalStatus.ACTIVE,
+      imageUrl: '/vehicles/hilux.png',
+      fuelLevel: 78,
+      mileage: 34200,
+      transmission: 'Manual 4x4',
+      fuelType: 'Diesel',
       description: 'Heavy duty construction site utility vehicle with cargo bed',
     },
   });
@@ -135,6 +160,11 @@ async function main() {
       category: VehicleCategory.MINIBUS,
       passengerCapacity: 14,
       operationalStatus: VehicleOperationalStatus.ACTIVE,
+      imageUrl: '/vehicles/hiace.png',
+      fuelLevel: 85,
+      mileage: 41900,
+      transmission: 'Manual',
+      fuelType: 'Diesel',
       description: 'Group transport for construction engineering crews and surveyors',
     },
   });
@@ -148,6 +178,11 @@ async function main() {
       category: VehicleCategory.SEDAN,
       passengerCapacity: 5,
       operationalStatus: VehicleOperationalStatus.ACTIVE,
+      imageUrl: '/vehicles/corolla.png',
+      fuelLevel: 65,
+      mileage: 12800,
+      transmission: 'CVT Automatic',
+      fuelType: 'Petrol',
       description: 'Urban pool vehicle for city meetings and document delivery',
     },
   });
@@ -161,6 +196,11 @@ async function main() {
       category: VehicleCategory.PICKUP,
       passengerCapacity: 5,
       operationalStatus: VehicleOperationalStatus.ACTIVE,
+      imageUrl: '/vehicles/ranger.png',
+      fuelLevel: 90,
+      mileage: 26500,
+      transmission: 'Automatic 4x4',
+      fuelType: 'Diesel',
       description: 'Field inspection pickup with off-road suspension package',
     },
   });
@@ -174,6 +214,11 @@ async function main() {
       category: VehicleCategory.PICKUP,
       passengerCapacity: 5,
       operationalStatus: VehicleOperationalStatus.MAINTENANCE,
+      imageUrl: '/vehicles/dmax.png',
+      fuelLevel: 45,
+      mileage: 58900,
+      transmission: 'Manual',
+      fuelType: 'Diesel',
       description: 'Scheduled for brake caliper and suspension servicing',
       notes: 'Under maintenance at Capital Fleet central workshop until end of week.',
     },

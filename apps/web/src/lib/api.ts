@@ -262,6 +262,23 @@ class ApiClient {
     return this.request<User[]>('/users');
   }
 
+  async getOwnProfile(): Promise<User> {
+    return this.request<User>('/users/profile/me');
+  }
+
+  async updateOwnProfile(data: {
+    name?: string;
+    phone?: string;
+    avatarUrl?: string;
+    jobTitle?: string;
+    licenseNumber?: string;
+  }): Promise<User> {
+    return this.request<User>('/users/profile/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   async updateUser(id: string, data: Partial<User>): Promise<User> {
     return this.request<User>(`/users/${id}`, {
       method: 'PATCH',
@@ -271,3 +288,4 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
+

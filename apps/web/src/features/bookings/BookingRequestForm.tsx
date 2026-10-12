@@ -225,7 +225,7 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="passengers" className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label htmlFor="passengers" className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">
                 Number of Passengers <span className="text-red-500">*</span>
               </label>
               <input
@@ -236,29 +236,100 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                 required
                 value={passengerCount}
                 onChange={(e) => setPassengerCount(parseInt(e.target.value, 10) || 1)}
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3.5 py-2.5 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-500"
                 disabled={isLoading}
               />
             </div>
+          </div>
 
-            <div>
-              <label htmlFor="prefVehicle" className="block text-sm font-medium text-slate-700 mb-1.5">
-                Vehicle Preference (Optional)
-              </label>
-              <select
-                id="prefVehicle"
-                value={preferredVehicleId}
-                onChange={(e) => setPreferredVehicleId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-                disabled={isLoading}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+              Vehicle Selection & Model Preference
+            </label>
+
+            {/* Visual Car Photo Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Option: No Preference */}
+              <div
+                onClick={() => setPreferredVehicleId('')}
+                className={`cursor-pointer rounded-xl border p-3.5 transition-all flex flex-col justify-between ${
+                  !preferredVehicleId
+                    ? 'border-brand-500 ring-2 ring-brand-500/20 bg-brand-50/50 dark:bg-brand-950/40 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
+                }`}
               >
-                <option value="">No preference (Logistics allocates)</option>
-                {vehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} ({v.category} · {v.passengerCapacity} seats)
-                  </option>
-                ))}
-              </select>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Auto-Allocate (Optimal)
+                    </span>
+                    {!preferredVehicleId && (
+                      <span className="w-2 h-2 rounded-full bg-brand-500 ring-4 ring-brand-500/20" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    Logistics Department selects the best available vehicle suited for passenger capacity and route.
+                  </p>
+                </div>
+                <div className="mt-3 text-[10px] font-semibold text-brand-600 dark:text-brand-400">
+                  Recommended for standard city trips
+                </div>
+              </div>
+
+              {/* Vehicle Cards with Photos */}
+              {vehicles.map((v) => {
+                const isSelected = preferredVehicleId === v.id;
+                const carImg = v.imageUrl || (
+                  v.category === 'SUV' ? '/vehicles/prado.png' :
+                  v.category === 'PICKUP' ? '/vehicles/hilux.png' :
+                  v.category === 'MINIBUS' ? '/vehicles/hiace.png' :
+                  '/vehicles/corolla.png'
+                );
+
+                return (
+                  <div
+                    key={v.id}
+                    onClick={() => setPreferredVehicleId(v.id)}
+                    className={`cursor-pointer rounded-xl border transition-all overflow-hidden flex flex-col justify-between group ${
+                      isSelected
+                        ? 'border-brand-500 ring-2 ring-brand-500/20 bg-brand-50/30 dark:bg-brand-950/30 shadow-md'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    {/* Car Photo Container */}
+                    <div className="relative aspect-[16/10] bg-gradient-to-b from-slate-100 to-slate-200/40 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center p-2.5 overflow-hidden">
+                      <img
+                        src={carImg}
+                        alt={v.name}
+                        className="w-full h-full object-contain transform transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <span className="absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-900/80 text-white backdrop-blur-xs">
+                        {v.category}
+                      </span>
+                      {isSelected && (
+                        <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-brand-500 ring-4 ring-brand-500/20" />
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div className="p-3">
+                      <div className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                        {v.name}
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">
+                        Plate: {v.registrationNumber}
+                      </div>
+
+                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
+                        <span>{v.passengerCapacity} Seats</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {v.fuelLevel ? `${v.fuelLevel}% Fuel` : 'Ready'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -268,14 +339,14 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                 type="checkbox"
                 checked={requiresDriver}
                 onChange={(e) => setRequiresDriver(e.target.checked)}
-                className="w-4 h-4 mt-0.5 rounded text-brand-600 border-slate-300 focus:ring-brand-500"
+                className="w-4 h-4 mt-0.5 rounded text-brand-600 border-slate-300 dark:border-slate-700 focus:ring-brand-500"
                 disabled={isLoading}
               />
               <div>
-                <span className="text-sm font-medium text-slate-900">
+                <span className="text-sm font-medium text-slate-900 dark:text-white">
                   Assign a Company Driver
                 </span>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Check if traveling outside normal city routes or if specialized commercial licensing is needed.
                 </p>
               </div>

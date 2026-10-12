@@ -38,7 +38,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({
   return (
     <div className="space-y-4">
       {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -46,7 +46,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({
             placeholder="Search by reference, destination, or staff..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
 
@@ -55,7 +55,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs sm:text-sm rounded-lg border border-slate-200 px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="text-xs sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="ALL">All Statuses</option>
             <option value="PENDING_APPROVAL">Pending approval</option>
@@ -70,17 +70,17 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({
       </div>
 
       {/* Table Card */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-subtle">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         {filteredBookings.length === 0 ? (
-          <div className="py-16 text-center text-slate-400">
-            <Car className="w-10 h-10 mx-auto mb-2 text-slate-300 stroke-1" />
+          <div className="py-16 text-center text-slate-400 dark:text-slate-500">
+            <Car className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600 stroke-1" />
             <p className="text-sm">No bookings found matching current filters.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs sm:text-sm">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
                   <th className="py-3 px-4">Ref #</th>
                   {isLogisticsOrAdmin && <th className="py-3 px-4">Requester</th>}
                   <th className="py-3 px-4">Destination & Purpose</th>
@@ -90,22 +90,22 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredBookings.map((b) => {
                   const assigned = b.assignments?.[0];
                   return (
                     <tr
                       key={b.id}
                       onClick={() => onSelectBooking(b)}
-                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
                     >
-                      <td className="py-3 px-4 font-mono font-semibold text-brand-700">
+                      <td className="py-3 px-4 font-mono font-semibold text-brand-600 dark:text-brand-400">
                         {b.bookingReference}
                       </td>
 
                       {isLogisticsOrAdmin && (
                         <td className="py-3 px-4">
-                          <span className="font-medium text-slate-900 block">{b.requester?.name}</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100 block">{b.requester?.name}</span>
                           <span className="text-[11px] text-slate-400">
                             {b.requester?.department?.name || 'Staff'}
                           </span>
@@ -113,14 +113,14 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({
                       )}
 
                       <td className="py-3 px-4 max-w-xs">
-                        <span className="font-semibold text-slate-900 block truncate">
+                        <span className="font-semibold text-slate-900 dark:text-slate-100 block truncate">
                           {b.destination}
                         </span>
-                        <span className="text-xs text-slate-500 truncate block">{b.purpose}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">{b.purpose}</span>
                       </td>
 
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <span className="text-xs text-slate-700 block">
+                        <span className="text-xs text-slate-700 dark:text-slate-300 block">
                           Dep: {formatEthiopianDateTime(b.departureAt)}
                         </span>
                         <span className="text-[11px] text-slate-400 block">
@@ -131,16 +131,16 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({
                       <td className="py-3 px-4">
                         {assigned?.vehicle ? (
                           <div>
-                            <span className="font-medium text-slate-900 block">
+                            <span className="font-medium text-slate-900 dark:text-slate-100 block">
                               {assigned.vehicle.name}
                             </span>
-                            <span className="text-[11px] text-slate-500 font-mono">
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                               {assigned.vehicle.registrationNumber}
                               {assigned.driverName && ` · ${assigned.driverName}`}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-slate-400 text-xs italic">Unallocated</span>
+                          <span className="text-slate-400 dark:text-slate-500 text-xs italic">Unallocated</span>
                         )}
                       </td>
 

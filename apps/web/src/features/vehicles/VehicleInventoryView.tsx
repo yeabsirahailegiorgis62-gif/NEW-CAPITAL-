@@ -145,72 +145,95 @@ export const VehicleInventoryView: React.FC<VehicleInventoryViewProps> = ({
 
       {/* Vehicle Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredVehicles.map((v) => (
-          <Card key={v.id} className="overflow-hidden flex flex-col justify-between">
-            <div>
-              <CardHeader className="bg-slate-50/50 pb-3">
-                <div className="flex items-start justify-between w-full">
-                  <div>
-                    <span className="text-[11px] font-semibold text-brand-700 tracking-wider uppercase">
+        {filteredVehicles.map((v) => {
+          const carImg = v.imageUrl || (
+            v.category === 'SUV' ? '/vehicles/prado.png' :
+            v.category === 'PICKUP' ? '/vehicles/hilux.png' :
+            v.category === 'MINIBUS' ? '/vehicles/hiace.png' :
+            '/vehicles/corolla.png'
+          );
+
+          return (
+            <Card key={v.id} className="overflow-hidden flex flex-col justify-between group">
+              <div>
+                {/* Car Photo Banner */}
+                <div className="relative aspect-[16/10] bg-gradient-to-b from-slate-100 to-slate-200/50 dark:from-slate-800 dark:to-slate-900 overflow-hidden flex items-center justify-center p-4">
+                  <img
+                    src={carImg}
+                    alt={v.name}
+                    className="w-full h-full object-contain transform transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute top-3 left-3">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-900/80 text-white backdrop-blur-xs">
                       {v.category}
                     </span>
-                    <h3 className="font-bold text-base text-slate-900 mt-0.5">{v.name}</h3>
                   </div>
-                  <Badge status={v.operationalStatus} size="sm" />
-                </div>
-              </CardHeader>
-
-              <CardContent className="pt-4 space-y-3">
-                <div className="flex items-center justify-between text-xs p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                  <span className="text-slate-500 font-mono">Plate Number:</span>
-                  <span className="font-mono font-bold text-slate-800">{v.registrationNumber}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                  <div>
-                    <span className="text-slate-400 block">Make & Model:</span>
-                    <span className="font-medium text-slate-800">{v.make} {v.model}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block">Passenger Capacity:</span>
-                    <span className="font-medium text-slate-800">{v.passengerCapacity} Seats</span>
+                  <div className="absolute top-3 right-3">
+                    <Badge status={v.operationalStatus} size="sm" />
                   </div>
                 </div>
 
-                {v.description && (
-                  <p className="text-xs text-slate-500 line-clamp-2 pt-1">{v.description}</p>
-                )}
-              </CardContent>
-            </div>
+                <CardHeader className="pb-2 pt-3">
+                  <div className="w-full">
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white group-hover:text-brand-500 transition-colors">
+                      {v.name}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{v.make} {v.model}</p>
+                  </div>
+                </CardHeader>
 
-            {/* Card Actions */}
-            {isLogisticsOrAdmin && (
-              <div className="p-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2">
-                {onReportIssue && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onReportIssue(v)}
-                    leftIcon={<Wrench className="w-3.5 h-3.5 text-slate-500" />}
-                  >
-                    Report Issue
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditingVehicle(v);
-                    setIsModalOpen(true);
-                  }}
-                  leftIcon={<Edit className="w-3.5 h-3.5" />}
-                >
-                  Edit
-                </Button>
+                <CardContent className="pt-2 space-y-3">
+                  <div className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400 font-mono">Plate Registration:</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-brand-300">{v.registrationNumber}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400">
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Passenger Capacity:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{v.passengerCapacity} Persons</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Transmission & Fuel:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{v.transmission || 'Automatic'} • {v.fuelLevel ? `${v.fuelLevel}% Fuel` : 'Diesel'}</span>
+                    </div>
+                  </div>
+
+                  {v.description && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 pt-1">{v.description}</p>
+                  )}
+                </CardContent>
               </div>
-            )}
-          </Card>
-        ))}
+
+              {/* Card Actions */}
+              {isLogisticsOrAdmin && (
+                <div className="p-3 bg-slate-50/80 dark:bg-slate-850/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+                  {onReportIssue && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onReportIssue(v)}
+                      leftIcon={<Wrench className="w-3.5 h-3.5 text-slate-500" />}
+                    >
+                      Report Issue
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingVehicle(v);
+                      setIsModalOpen(true);
+                    }}
+                    leftIcon={<Edit className="w-3.5 h-3.5" />}
+                  >
+                    Edit
+                  </Button>
+                </div>
+              )}
+            </Card>
+          );
+        })}
       </div>
 
       <VehicleModal

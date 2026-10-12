@@ -61,12 +61,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
   return (
     <div className="space-y-6">
       {/* Welcome & Primary Action Card */}
-      <div className="bg-gradient-to-r from-navy-900 to-navy-800 rounded-2xl p-6 sm:p-8 text-white shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 text-xs font-semibold tracking-wide uppercase">
-            Official Travel Portal
+      <div className="bg-gradient-to-r from-navy-900 via-brand-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl border border-brand-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+        <div className="space-y-2 z-10">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 text-xs font-semibold tracking-wide uppercase border border-brand-400/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Official Travel Portal • Capital Real Estate
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">
+          <h2 className="text-2xl font-black tracking-tight">
             Ready to plan your next site visit?
           </h2>
           <p className="text-sm text-slate-300 max-w-xl">
@@ -78,7 +79,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
           size="lg"
           variant="primary"
           onClick={onNewBookingClick}
-          className="bg-brand-500 hover:bg-brand-400 text-white shadow-lg shrink-0"
+          className="bg-brand-500 hover:bg-brand-400 text-white shadow-lg shadow-brand-500/30 shrink-0 z-10"
           leftIcon={<PlusCircle className="w-5 h-5" />}
         >
           Book a Company Vehicle
@@ -87,38 +88,38 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
 
       {/* Trips Summary Highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider">
+            <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
               Pending Requests
             </span>
-            <div className="text-2xl font-bold text-slate-900 mt-1">{pendingBookings.length}</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{pendingBookings.length}</div>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-200 dark:border-amber-800/80">
             <Clock className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider">
+            <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
               Upcoming Trips
             </span>
-            <div className="text-2xl font-bold text-slate-900 mt-1">{upcomingBookings.length}</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{upcomingBookings.length}</div>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-800/80">
             <Calendar className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
               Active Trips
             </span>
-            <div className="text-2xl font-bold text-slate-900 mt-1">{activeBookings.length}</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{activeBookings.length}</div>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-800/80">
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>

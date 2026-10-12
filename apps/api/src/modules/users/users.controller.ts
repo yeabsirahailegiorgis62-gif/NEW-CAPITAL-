@@ -1,10 +1,11 @@
 import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto } from './users.dto';
+import { CreateUserDto, UpdateUserDto, UpdateProfileDto } from './users.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('Users')
@@ -13,6 +14,18 @@ import { UserRole } from '@prisma/client';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Get('profile/me')
+  @ApiOperation({ summary: 'Get current authenticated user profile' })
+  getOwnProfile(@CurrentUser() user: any) {
+    return this.usersService.findOne(user.id || user.sub);
+  }
+
+  @Patch('profile/me')
+  @ApiOperation({ summary: 'Update profile of currently authenticated user' })
+  updateOwnProfile(@CurrentUser() user: any, @Body() dto: UpdateProfileDto) {
+    return this.usersService.updateProfile(user.id || user.sub, dto);
+  }
 
   @Get()
   @Roles(UserRole.SYSTEM_ADMIN, UserRole.LOGISTICS_ADMIN)

@@ -17,6 +17,7 @@ import { TripExecutionModal } from '@/features/logistics/TripExecutionModal';
 import { MaintenanceView } from '@/features/maintenance/MaintenanceView';
 import { UsersManagementView } from '@/features/admin/UsersManagementView';
 import { AuditLogsView } from '@/features/admin/AuditLogsView';
+import { ProfileModal } from '@/components/layout/ProfileModal';
 
 export function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'login' | 'workspace'>('landing');
@@ -29,6 +30,7 @@ export function App() {
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
   const [assigningBooking, setAssigningBooking] = useState<Booking | null>(null);
   const [tripModalBooking, setTripModalBooking] = useState<{ booking: Booking; mode: 'start' | 'complete' } | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Check authenticated session on load
   useEffect(() => {
@@ -144,6 +146,7 @@ export function App() {
       onLogout={handleLogout}
       notifications={notifications}
       onMarkNotificationRead={handleMarkNotificationRead}
+      onOpenProfile={() => setIsProfileOpen(true)}
     >
       {/* Dynamic Tab Rendering */}
       {activeTab === 'dashboard' && (
@@ -264,6 +267,20 @@ export function App() {
           booking={tripModalBooking.booking}
           mode={tripModalBooking.mode}
           onSuccess={refreshAllData}
+        />
+      )}
+
+      {/* User Profile & Avatar Settings Modal */}
+      {currentUser && (
+        <ProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          currentUser={currentUser}
+          onProfileUpdated={(updated) => setCurrentUser(updated)}
+          onSave={async (data) => {
+            const updated = await api.updateOwnProfile(data);
+            return updated;
+          }}
         />
       )}
     </AppShell>

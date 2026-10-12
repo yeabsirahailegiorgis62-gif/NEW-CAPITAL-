@@ -1,140 +1,256 @@
+import React, { useState } from 'react';
 import {
-  Truck,
   Calendar,
   Shield,
   ArrowRight,
   ClipboardList,
+  Sun,
+  Moon,
+  Sparkles,
+  Gauge,
+  Fuel,
+  Users,
+  CheckCircle2,
+  MapPin,
+  ChevronRight,
+  Cpu,
+  Radio,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { useTheme } from '@/context/ThemeContext';
 
 interface LandingPageProps {
   onSignInClick: () => void;
 }
 
+const FLEET_SHOWCASE = [
+  {
+    name: 'Land Cruiser Prado TX',
+    category: 'SUV',
+    image: '/vehicles/prado.png',
+    capacity: '7 Seats',
+    fuel: '92% Fuel',
+    transmission: 'Automatic 4WD',
+    purpose: 'Executive Site Inspections & Highway Missions',
+    status: 'ACTIVE',
+  },
+  {
+    name: 'Hilux Double Cab',
+    category: 'PICKUP',
+    image: '/vehicles/hilux.png',
+    capacity: '5 Seats',
+    fuel: '78% Fuel',
+    transmission: 'Manual 4x4',
+    purpose: 'Heavy Construction & Site Survey Logistics',
+    status: 'ACTIVE',
+  },
+  {
+    name: 'HiAce High Roof Commuter',
+    category: 'MINIBUS',
+    image: '/vehicles/hiace.png',
+    capacity: '14 Seats',
+    fuel: '85% Fuel',
+    transmission: 'Manual',
+    purpose: 'Engineering Crew & Departmental Transport',
+    status: 'ACTIVE',
+  },
+  {
+    name: 'Corolla Altis Sedan',
+    category: 'SEDAN',
+    image: '/vehicles/corolla.png',
+    capacity: '5 Seats',
+    fuel: '65% Fuel',
+    transmission: 'CVT Automatic',
+    purpose: 'Urban Client Relations & Document Delivery',
+    status: 'ACTIVE',
+  },
+];
+
 export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
+  const { theme, toggleTheme } = useTheme();
+  const [selectedCar, setSelectedCar] = useState(0);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans flex flex-col transition-colors selection:bg-brand-500 selection:text-white">
+      {/* Top Banner */}
+      <div className="bg-gradient-to-r from-navy-950 via-brand-900 to-navy-900 text-white text-xs py-2 px-4 text-center font-medium border-b border-brand-800/40 flex items-center justify-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        <span>Capital Fleet 2026 Logistics Engine • Headquarters Addis Ababa, Ethiopia (UTC+3)</span>
+      </div>
+
       {/* Navigation */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-navy-900 flex items-center justify-center text-white shadow-sm">
-              <Truck className="w-5 h-5 text-brand-400" />
+            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-navy-950 flex items-center justify-center text-white shadow-md shadow-brand-500/20 ring-1 ring-brand-400/30">
+              <span className="font-extrabold text-sm tracking-widest text-brand-300">CF</span>
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400" />
             </div>
             <div>
-              <span className="text-base font-bold tracking-tight text-navy-900">CAPITAL FLEET</span>
-              <span className="hidden sm:inline-block text-[11px] font-medium text-slate-500 ml-2 uppercase">
-                Capital Real Estate
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">
+                  CAPITAL FLEET
+                </span>
+                <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800">
+                  REAL ESTATE LOGISTICS
+                </span>
+              </div>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="#overview" className="hover:text-slate-900 transition-colors">Overview</a>
-            <a href="#how-it-works" className="hover:text-slate-900 transition-colors">How It Works</a>
-            <a href="#features" className="hover:text-slate-900 transition-colors">Features</a>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-300">
+            <a href="#command-center" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+              3D Command Center
+            </a>
+            <a href="#vehicles" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+              Fleet Inventory
+            </a>
+            <a href="#how-it-works" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+              Workflow
+            </a>
+            <a href="#features" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+              Features
+            </a>
           </nav>
 
-          <div className="flex items-center gap-3">
-            <Button variant="secondary" size="sm" onClick={onSignInClick}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Theme Toggle */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200/60 dark:border-slate-800"
+              title={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-700" />
+              )}
+            </button>
+
+            <Button variant="primary" size="sm" onClick={onSignInClick} rightIcon={<ArrowRight className="w-4 h-4" />}>
               Sign In
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section id="overview" className="relative pt-12 pb-20 md:pt-20 md:pb-28 overflow-hidden bg-gradient-to-b from-white to-slate-50 border-b border-slate-200">
+      {/* Hero Section with 3D Holographic Visual */}
+      <section id="command-center" className="relative pt-10 pb-16 md:pt-16 md:pb-24 overflow-hidden border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-semibold text-brand-700 uppercase tracking-wider mb-6">
-              CAPITAL REAL ESTATE · LOGISTICS
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800/80 text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-5">
+              <Sparkles className="w-3.5 h-3.5 text-brand-500" />
+              <span>Next-Gen Corporate Fleet Coordination OS</span>
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-navy-900 leading-[1.15]">
-              Company travel, coordinated.
+
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.12]">
+              Corporate travel,{' '}
+              <span className="bg-gradient-to-r from-brand-600 via-amber-500 to-brand-500 bg-clip-text text-transparent">
+                orchestrated seamlessly.
+              </span>
             </h1>
-            <p className="mt-6 text-lg sm:text-xl text-slate-600 leading-relaxed font-normal">
-              Request company vehicles, check availability, and coordinate official trips through one centralized platform.
+
+            <p className="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
+              Book corporate vehicles, monitor real-time availability in Addis Ababa, prevent scheduling conflicts, and track telemetry across Capital Real Estate projects.
             </p>
+
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button size="lg" onClick={onSignInClick} rightIcon={<ArrowRight className="w-4 h-4" />}>
-                Sign In to Platform
+                Launch Capital Fleet Portal
               </Button>
               <a
-                href="#how-it-works"
-                className="inline-flex items-center justify-center font-medium rounded-lg px-5 py-2.5 min-h-[48px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors text-base"
+                href="#vehicles"
+                className="inline-flex items-center justify-center font-semibold rounded-xl px-5 py-2.5 min-h-[44px] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm border border-slate-200 dark:border-slate-800"
               >
-                Explore How It Works
+                Inspect Fleet & Telemetry
               </a>
             </div>
           </div>
 
-          {/* Product Preview Card */}
-          <div className="mt-14 max-w-5xl mx-auto rounded-2xl border border-slate-200 bg-white shadow-floating overflow-hidden">
-            <div className="bg-slate-900 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                <span className="text-xs text-slate-400 font-mono ml-2">portal.capitalfleet.internal / fleet-schedule</span>
-              </div>
-              <span className="text-xs text-slate-400 font-medium">Addis Ababa Operations HQ</span>
-            </div>
-
-            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50">
-              {/* Card 1: Sample Request */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-medium text-slate-400">#CR-2026-0412</span>
-                  <Badge status="ASSIGNED" size="sm" />
+          {/* 3D Visual Showcase Container */}
+          <div className="relative mx-auto max-w-5xl rounded-3xl p-2 sm:p-3 bg-gradient-to-b from-brand-500/20 via-slate-200/50 to-transparent dark:from-brand-500/10 dark:via-slate-800/30 shadow-2xl">
+            <div className="relative rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 bg-slate-950 group">
+              {/* Header Bar */}
+              <div className="bg-slate-900/90 backdrop-blur-md px-4 py-3 border-b border-slate-800 flex items-center justify-between z-20 relative">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                  <span className="text-xs text-slate-400 font-mono ml-2">
+                    ops.capitalfleet.internal // 3D Digital Twin Command HUD
+                  </span>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-slate-900 text-sm">Site Visit: Bole Boulevard Project</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">Civil Engineering & Survey Team</p>
-                </div>
-                <div className="pt-2 border-t border-slate-100 text-xs space-y-1 text-slate-600">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Departure:</span>
-                    <span className="font-medium text-slate-800">14 Oct, 08:30 AM</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Vehicle:</span>
-                    <span className="font-medium text-brand-700">Toyota Land Cruiser (3-A12490)</span>
-                  </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                  <Radio className="w-3.5 h-3.5 animate-pulse" />
+                  <span>Telemetry Live</span>
                 </div>
               </div>
 
-              {/* Card 2: Availability Schedule */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700">Fleet Availability Today</span>
-                  <span className="text-xs text-emerald-600 font-medium">9 of 12 Ready</span>
-                </div>
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50 border border-slate-100">
-                    <span className="font-medium text-slate-800">Toyota HiAce (14 seats)</span>
-                    <Badge status="AVAILABLE" size="sm" />
+              {/* 3D Image Visual */}
+              <div className="relative aspect-[16/10] sm:aspect-[16/9] w-full overflow-hidden bg-slate-950">
+                <img
+                  src="/assets/fleet-command-3d.png"
+                  alt="Capital Fleet 3D Command Center"
+                  className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
+                />
+
+                {/* Ambient holographic gradient over image */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent pointer-events-none" />
+
+                {/* Floating Holographic Badge 1 */}
+                <div className="absolute top-6 left-6 p-3 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-brand-500/30 text-white shadow-xl animate-bounce-subtle hidden sm:block">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-brand-500/20 border border-brand-400 flex items-center justify-center text-brand-300">
+                      <Cpu className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">Smart Allocation Engine</div>
+                      <div className="text-[10px] text-slate-400">0 Overlap Conflicts Guaranteed</div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50 border border-slate-100">
-                    <span className="font-medium text-slate-800">Ford Ranger Pickup</span>
-                    <Badge status="IN_PROGRESS" size="sm" />
+                </div>
+
+                {/* Floating Holographic Badge 2 */}
+                <div className="absolute bottom-6 right-6 p-3 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-amber-500/30 text-white shadow-xl hidden sm:block">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-300">
+                      <Gauge className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">Addis Ababa GPS Telemetry</div>
+                      <div className="text-[10px] text-slate-400">Odometer Progression Verified</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Overlay Summary */}
+                <div className="absolute bottom-4 left-4 right-4 sm:left-6 sm:right-6 sm:bottom-6 flex flex-wrap items-center justify-between gap-3 text-white z-10 sm:hidden">
+                  <div className="p-2.5 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700 text-xs font-bold">
+                    3D Digital Twin Command Center
                   </div>
                 </div>
               </div>
 
-              {/* Card 3: Logistics Coordination */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700">Logistics Oversight</span>
-                  <span className="text-xs text-brand-600 font-medium">Addis HQ</span>
+              {/* Bottom Quick Metric Pills */}
+              <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-800 bg-slate-900/90 text-white">
+                <div className="p-4 text-center">
+                  <div className="text-2xl font-black text-brand-400">6</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Corporate Vehicles</div>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Real-time schedule conflict prevention with atomic database assignment locks.
-                </p>
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Overlaps Prevented</span>
-                  <span className="font-semibold text-emerald-600">100% Guaranteed</span>
+                <div className="p-4 text-center">
+                  <div className="text-2xl font-black text-emerald-400">100%</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Conflict Prevention</div>
+                </div>
+                <div className="p-4 text-center">
+                  <div className="text-2xl font-black text-amber-400">3-Step</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Guided Request Form</div>
+                </div>
+                <div className="p-4 text-center">
+                  <div className="text-2xl font-black text-indigo-400">UTC+3</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Addis Ababa Timezone</div>
                 </div>
               </div>
             </div>
@@ -142,104 +258,131 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
         </div>
       </section>
 
-      {/* How it Works Section */}
-      <section id="how-it-works" className="py-20 bg-white border-b border-slate-200">
+      {/* Fleet Inventory & Car Photos Showcase */}
+      <section id="vehicles" className="py-16 md:py-24 bg-white dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-xs font-bold text-brand-600 uppercase tracking-wider">Streamlined Operations</h2>
-            <h3 className="mt-2 text-3xl font-bold text-navy-900 tracking-tight sm:text-4xl">
-              How Capital Fleet Coordinates Trips
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <h2 className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider">
+              Executive Fleet Showcase
+            </h2>
+            <h3 className="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight sm:text-4xl">
+              Equipped for Every Company Mission
             </h3>
-            <p className="mt-4 text-base text-slate-600">
-              From the initial booking request to vehicle return, every step is organized and transparent.
+            <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-400">
+              Select vehicles with verified operational status, full telemetry, and seating capacity tailored to your mission.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="relative p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="w-10 h-10 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm">
-                1
-              </div>
-              <h4 className="text-base font-semibold text-slate-900">Request a Vehicle</h4>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Employees specify destination, purpose, departure/return dates, and passenger requirements.
-              </p>
-            </div>
+          {/* Vehicle Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {FLEET_SHOWCASE.map((car, idx) => (
+              <div
+                key={idx}
+                onClick={() => setSelectedCar(idx)}
+                className={`group cursor-pointer rounded-2xl border transition-all duration-300 overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-900 ${
+                  selectedCar === idx
+                    ? 'border-brand-500 ring-2 ring-brand-500/20 shadow-xl dark:shadow-brand-500/10 scale-[1.02]'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                }`}
+              >
+                {/* Car Photo */}
+                <div className="relative aspect-[4/3] bg-gradient-to-b from-slate-200/50 to-slate-300/40 dark:from-slate-800 dark:to-slate-950 overflow-hidden flex items-center justify-center p-4">
+                  <img
+                    src={car.image}
+                    alt={car.name}
+                    className="w-full h-full object-contain transform transition-transform duration-500 group-hover:scale-108"
+                  />
+                  <div className="absolute top-3 left-3">
+                    <Badge status={car.status} size="sm" />
+                  </div>
+                  <div className="absolute top-3 right-3">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900/80 text-white">
+                      {car.category}
+                    </span>
+                  </div>
+                </div>
 
-            <div className="relative p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="w-10 h-10 rounded-lg bg-navy-900 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm">
-                2
-              </div>
-              <h4 className="text-base font-semibold text-slate-900">Logistics Review</h4>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                The Logistics Department evaluates priorities, operational needs, and schedules before approval.
-              </p>
-            </div>
+                {/* Details */}
+                <div className="p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-brand-500 transition-colors">
+                      {car.name}
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                      {car.purpose}
+                    </p>
+                  </div>
 
-            <div className="relative p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="w-10 h-10 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm">
-                3
+                  <div className="mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                      <span>{car.capacity}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Fuel className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>{car.fuel}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h4 className="text-base font-semibold text-slate-900">Vehicle Assignment</h4>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Logistics allocates an operational, available vehicle. System guarantees no double-booking.
-              </p>
-            </div>
-
-            <div className="relative p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm">
-                4
-              </div>
-              <h4 className="text-base font-semibold text-slate-900">Trip Recorded</h4>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Departure and return are logged with actual timestamps and mileage records for auditability.
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-slate-50 border-b border-slate-200">
+      {/* Workflow Section */}
+      <section id="how-it-works" className="py-16 md:py-24 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-xs font-bold text-brand-600 uppercase tracking-wider">Enterprise Capabilities</h2>
-            <h3 className="mt-2 text-3xl font-bold text-navy-900 tracking-tight sm:text-4xl">
-              Built for Practical Company Needs
+            <h2 className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider">
+              Operational Protocol
+            </h2>
+            <h3 className="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight sm:text-4xl">
+              End-to-End Trip Lifecycle
             </h3>
-            <p className="mt-4 text-base text-slate-600">
-              Eliminating phone tag, double-bookings, and scheduling ambiguity across all departments.
+            <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-400">
+              From reservation submission to return inspection, every step is captured with verifiable telemetry.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-subtle space-y-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-50 text-brand-600 flex items-center justify-center">
-                <Calendar className="w-5 h-5" />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm relative">
+              <div className="w-10 h-10 rounded-xl bg-brand-500 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-brand-500/30">
+                01
               </div>
-              <h4 className="text-base font-semibold text-slate-900">Availability Calendar</h4>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Visual fleet timeline showing active bookings, maintenance windows, and free time slots in Addis Ababa time.
+              <h4 className="text-base font-bold text-slate-900 dark:text-white">Guided Booking</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
+                3-section structured request covering destination, travel window, passenger count, and preferred car.
               </p>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-subtle space-y-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-50 text-brand-600 flex items-center justify-center">
-                <Shield className="w-5 h-5" />
+            <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm relative">
+              <div className="w-10 h-10 rounded-xl bg-navy-900 dark:bg-slate-800 text-brand-400 flex items-center justify-center font-bold text-sm mb-4">
+                02
               </div>
-              <h4 className="text-base font-semibold text-slate-900">Controlled Allocation</h4>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Approvals and assignments remain strictly in the hands of the Logistics Department with role-based governance.
+              <h4 className="text-base font-bold text-slate-900 dark:text-white">Logistics Approval</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
+                Logistics managers verify departmental priorities. Rejections require mandatory written justification.
               </p>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-subtle space-y-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-50 text-brand-600 flex items-center justify-center">
-                <ClipboardList className="w-5 h-5" />
+            <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm relative">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-amber-500/30">
+                03
               </div>
-              <h4 className="text-base font-semibold text-slate-900">Complete Audit Trail</h4>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Immutable record of who requested, approved, assigned, and signed off on every trip and vehicle issue.
+              <h4 className="text-base font-bold text-slate-900 dark:text-white">Conflict-Free Assignment</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
+                Atomic database transaction validates [departure, return) timeline to eliminate double-booking.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm relative">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-emerald-500/30">
+                04
+              </div>
+              <h4 className="text-base font-bold text-slate-900 dark:text-white">Trip Dispatch & Check-in</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
+                Departure odometer logging, return check-in, and auto-generated maintenance tickets for any reported defects.
               </p>
             </div>
           </div>
@@ -247,20 +390,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-navy-900 text-white">
+      <section className="py-16 md:py-20 bg-gradient-to-br from-navy-950 via-slate-950 to-navy-900 text-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-white">
-            Ready to coordinate your next trip?
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/20 text-brand-300 text-xs font-semibold">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>Operational & Ready for Capital Real Estate Teams</span>
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
+            Ready to reserve your vehicle?
           </h2>
-          <p className="text-slate-300 max-w-xl mx-auto text-base">
-            Sign in with your company credentials to request vehicles or coordinate logistics schedules.
+
+          <p className="text-slate-300 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
+            Sign in with your company email or employee ID to submit trip requests, review schedules, or inspect fleet availability.
           </p>
-          <div className="pt-2">
-            <Button
-              size="lg"
-              onClick={onSignInClick}
-              className="bg-brand-500 hover:bg-brand-600 text-white font-semibold"
-            >
+
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button size="lg" onClick={onSignInClick} rightIcon={<ArrowRight className="w-4 h-4" />}>
               Sign In to Capital Fleet
             </Button>
           </div>
@@ -268,15 +414,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-950 text-slate-400 py-10 border-t border-slate-800 text-sm">
+      <footer className="bg-slate-950 text-slate-400 py-10 border-t border-slate-800 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-brand-400" />
-            <span className="font-bold text-white tracking-wide">CAPITAL FLEET</span>
-            <span className="text-xs text-slate-500">| Capital Real Estate Logistics System</span>
+            <span className="font-extrabold text-white tracking-widest text-sm">CAPITAL FLEET</span>
+            <span className="text-slate-600">|</span>
+            <span>Capital Real Estate Corporate Transport System</span>
           </div>
-          <div className="text-xs text-slate-500">
-            Internal Operations Platform · Addis Ababa, Ethiopia
+          <div className="flex items-center gap-4 text-slate-500">
+            <span>Addis Ababa, Ethiopia</span>
+            <span>•</span>
+            <span>Confidential & Internal</span>
           </div>
         </div>
       </footer>

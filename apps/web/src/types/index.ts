@@ -7,6 +7,10 @@ export interface User {
   email: string;
   role: UserRole;
   departmentId?: string | null;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  jobTitle?: string | null;
+  licenseNumber?: string | null;
   department?: {
     id: string;
     name: string;
@@ -28,6 +32,11 @@ export interface Vehicle {
   category: VehicleCategory;
   passengerCapacity: number;
   operationalStatus: VehicleOperationalStatus;
+  imageUrl?: string | null;
+  fuelLevel?: number | null;
+  mileage?: number | null;
+  transmission?: string | null;
+  fuelType?: string | null;
   description?: string | null;
   notes?: string | null;
   createdAt: string;

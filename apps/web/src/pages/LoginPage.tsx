@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Truck, ArrowLeft, Shield } from 'lucide-react';
+import React, { useState } from 'react';
+import { Truck, ArrowLeft, Shield, Sun, Moon, Key } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { useTheme } from '@/context/ThemeContext';
 
 interface LoginPageProps {
   onBackToLanding: () => void;
@@ -15,6 +16,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onLoginSubmit,
   isLoading = false,
 }) => {
+  const { theme, toggleTheme } = useTheme();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  // Quick fill demo helper for local testing
   const handleQuickFill = (roleEmail: string) => {
     setIdentifier(roleEmail);
     setPassword('CapitalFleet2026!');
@@ -50,46 +51,66 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans transition-colors relative">
+      {/* Top action bar */}
+      <div className="absolute top-6 left-6 right-6 flex items-center justify-between max-w-4xl mx-auto">
         <button
           type="button"
           onClick={onBackToLanding}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors mb-6"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Overview
+          <span>Back to Overview</span>
         </button>
 
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors border border-slate-200/80 dark:border-slate-800"
+          title={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? (
+            <Sun className="w-4 h-4 text-amber-400" />
+          ) : (
+            <Moon className="w-4 h-4 text-slate-700" />
+          )}
+        </button>
+      </div>
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md mt-6">
         <div className="flex items-center justify-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-navy-900 flex items-center justify-center text-white shadow-sm">
-            <Truck className="w-6 h-6 text-brand-400" />
+          <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-600 to-navy-950 flex items-center justify-center text-white shadow-lg shadow-brand-500/20 ring-1 ring-brand-400/40">
+            <span className="font-extrabold text-base tracking-widest text-brand-300">CF</span>
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-navy-900">CAPITAL FLEET</h1>
-            <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-              Capital Real Estate
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              CAPITAL FLEET
+            </h1>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold">
+              Capital Real Estate Logistics
             </p>
           </div>
         </div>
 
-        <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-slate-900">
-          Sign in to your account
+        <h2 className="mt-6 text-center text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+          Sign In to Portal
         </h2>
-        <p className="mt-1 text-center text-xs text-slate-500">
-          Enter your company credentials to access vehicle bookings and logistics
+        <p className="mt-1 text-center text-xs text-slate-500 dark:text-slate-400">
+          Enter your company email or employee ID
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-card sm:rounded-2xl sm:px-10 border border-slate-200/80">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
+        <div className="bg-white dark:bg-slate-900 py-8 px-5 shadow-2xl sm:rounded-2xl sm:px-10 border border-slate-200/80 dark:border-slate-800 backdrop-blur-md">
           {error && (
             <Alert type="error" className="mb-6" onDismiss={() => setError(null)}>
               {error}
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               id="identifier"
               label="Company Email or Employee ID"
@@ -108,7 +129,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               type="password"
               autoComplete="current-password"
               required
-              placeholder="Enter your account password"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
@@ -121,47 +142,73 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               className="w-full mt-2"
               isLoading={isLoading}
             >
-              Sign In
+              Sign In to Fleet OS
             </Button>
           </form>
 
-          {/* Development Quick-Fill Accounts Helper */}
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wider">
-              <Shield className="w-3.5 h-3.5 text-brand-600" />
-              Quick-Fill Test Accounts:
+          {/* Quick-Fill Demo Helpers */}
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider">
+              <Key className="w-3.5 h-3.5 text-brand-500" />
+              <span>Instant Quick-Fill Credentials</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+
+            <div className="space-y-2">
               <button
                 type="button"
                 onClick={() => handleQuickFill('employee@capitalre.com')}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-center transition-colors"
+                className="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all flex items-center justify-between group"
               >
-                Employee
+                <div>
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-brand-500 transition-colors">
+                    Abebe Girma (Employee)
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    employee@capitalre.com • EMP-101
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950/80 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                  Select
+                </span>
               </button>
+
               <button
                 type="button"
                 onClick={() => handleQuickFill('logistics@capitalre.com')}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-center transition-colors"
+                className="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all flex items-center justify-between group"
               >
-                Logistics Admin
+                <div>
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-brand-500 transition-colors">
+                    Almaz Bekele (Logistics Admin)
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    logistics@capitalre.com • LOG-201
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/80 text-amber-600 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                  Select
+                </span>
               </button>
+
               <button
                 type="button"
                 onClick={() => handleQuickFill('admin@capitalre.com')}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-center transition-colors"
+                className="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all flex items-center justify-between group"
               >
-                System Admin
+                <div>
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-brand-500 transition-colors">
+                    Dawit Tadesse (System Admin)
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    admin@capitalre.com • SYS-001
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  Select
+                </span>
               </button>
             </div>
-            <p className="text-[11px] text-slate-400 mt-2 text-center">
-              Password for all seeded accounts: <code className="font-mono text-slate-600">CapitalFleet2026!</code>
-            </p>
           </div>
-        </div>
-
-        <div className="mt-6 text-center text-xs text-slate-400">
-          Authorized internal personnel only · Capital Real Estate
         </div>
       </div>
     </div>

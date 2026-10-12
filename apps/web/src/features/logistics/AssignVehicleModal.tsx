@@ -170,14 +170,28 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                         onChange={() => setSelectedVehicleId(v.id)}
                         className="text-brand-600 focus:ring-brand-500"
                       />
+                      <div className="w-12 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-700 p-0.5">
+                        <img
+                          src={
+                            v.imageUrl || (
+                              v.category === 'SUV' ? '/vehicles/prado.png' :
+                              v.category === 'PICKUP' ? '/vehicles/hilux.png' :
+                              v.category === 'MINIBUS' ? '/vehicles/hiace.png' :
+                              '/vehicles/corolla.png'
+                            )
+                          }
+                          alt={v.name}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900">{v.name}</span>
-                          <span className="font-mono text-[11px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                          <span className="font-bold text-slate-900 dark:text-white">{v.name}</span>
+                          <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                             {v.registrationNumber}
                           </span>
                         </div>
-                        <span className="text-slate-500 text-[11px] mt-0.5 block">
+                        <span className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 block">
                           {v.category} · {v.passengerCapacity} seats · {v.make} {v.model}
                         </span>
                       </div>

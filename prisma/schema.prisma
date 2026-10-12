@@ -64,16 +64,20 @@ model Department {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  employeeId   String?   @unique
-  name         String
-  email        String    @unique
-  passwordHash String
-  role         UserRole  @default(EMPLOYEE)
-  departmentId String?
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  employeeId    String?   @unique
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          UserRole  @default(EMPLOYEE)
+  departmentId  String?
+  phone         String?
+  avatarUrl     String?
+  jobTitle      String?
+  licenseNumber String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   department   Department? @relation(fields: [departmentId], references: [id])
   bookings     Booking[]   @relation("RequesterBookings")
@@ -93,6 +97,11 @@ model Vehicle {
   category           VehicleCategory          @default(SEDAN)
   passengerCapacity  Int                      @default(4)
   operationalStatus  VehicleOperationalStatus @default(ACTIVE)
+  imageUrl           String?
+  fuelLevel          Int?                     @default(85)
+  mileage            Float?                   @default(15000)
+  transmission       String?                  @default("Automatic")
+  fuelType           String?                  @default("Petrol")
   description        String?
   notes              String?
   createdAt          DateTime                 @default(now())

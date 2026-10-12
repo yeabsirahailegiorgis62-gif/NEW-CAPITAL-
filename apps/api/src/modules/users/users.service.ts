@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateUserDto, UpdateUserDto } from './users.dto';
+import { CreateUserDto, UpdateUserDto, UpdateProfileDto } from './users.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -65,7 +65,29 @@ export class UsersService {
         name: dto.name,
         role: dto.role,
         departmentId: dto.departmentId,
+        phone: dto.phone,
+        avatarUrl: dto.avatarUrl,
+        jobTitle: dto.jobTitle,
+        licenseNumber: dto.licenseNumber,
         isActive: dto.isActive,
+      },
+      include: { department: true },
+    });
+
+    const { passwordHash, ...safeUser } = user;
+    return safeUser;
+  }
+
+  async updateProfile(id: string, dto: UpdateProfileDto) {
+    await this.findOne(id);
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: {
+        name: dto.name,
+        phone: dto.phone,
+        avatarUrl: dto.avatarUrl,
+        jobTitle: dto.jobTitle,
+        licenseNumber: dto.licenseNumber,
       },
       include: { department: true },
     });
