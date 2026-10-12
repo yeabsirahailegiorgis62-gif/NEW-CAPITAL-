@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, InAppNotification } from '@/types';
+import { api } from '@/lib/api';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { AppShell } from '@/components/layout/AppShell';
@@ -24,50 +25,52 @@ export function App() {
     },
   ]);
 
-  // Auth mock for Phase 1 UI baseline (replaced with real API client in Phase 2)
-  const handleLogin = async (identifier: string, pass: string): Promise<boolean> => {
-    // In Phase 1, preview login allows switching into the application shell with simulated profiles
-    let role: User['role'] = 'EMPLOYEE';
-    let name = 'Dawit Kebede';
-    let empId = 'EMP-101';
-
-    if (identifier.includes('logistics') || identifier.includes('LOG')) {
-      role = 'LOGISTICS_ADMIN';
-      name = 'Selamawit Tadesse';
-      empId = 'LOG-201';
-    } else if (identifier.includes('admin') || identifier.includes('SYS')) {
-      role = 'SYSTEM_ADMIN';
-      name = 'Ermias Haile';
-      empId = 'SYS-001';
-    }
-
-    const mockUser: User = {
-      id: 'u-' + Math.random().toString(36).substring(2, 9),
-      employeeId: empId,
-      name,
-      email: identifier.includes('@') ? identifier : `${identifier.toLowerCase()}@capitalre.com`,
-      role,
-      department: {
-        id: 'dept-1',
-        name: role === 'EMPLOYEE' ? 'Project Engineering' : 'Logistics & Fleet Operations',
-      },
-      isActive: true,
-      createdAt: new Date().toISOString(),
+  // Check existing authenticated session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const token = api.getToken();
+      if (token) {
+        try {
+          const user = await api.getProfile();
+          setCurrentUser(user);
+          setCurrentView('workspace');
+          // Fetch notifications
+          const notifs = await api.getNotifications();
+          setNotifications(notifs);
+        } catch {
+          api.setToken(null);
+        }
+      }
     };
+    checkSession();
+  }, []);
 
-    setCurrentUser(mockUser);
-    setCurrentView('workspace');
-    setActiveTab('dashboard');
-    return true;
+  // Real backend authentication
+  const handleLogin = async (identifier: string, pass: string): Promise<boolean> => {
+    try {
+      const res = await api.login(identifier, pass);
+      setCurrentUser(res.user);
+      setCurrentView('workspace');
+      setActiveTab('dashboard');
+
+      // Fetch notifications
+      const notifs = await api.getNotifications();
+      setNotifications(notifs);
+      return true;
+    } catch (err: any) {
+      throw new Error(err.message || 'Invalid credentials or account inactive');
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await api.logout();
     setCurrentUser(null);
     setCurrentView('landing');
     setActiveTab('dashboard');
   };
 
-  const handleMarkNotificationRead = (id: string) => {
+  const handleMarkNotificationRead = async (id: string) => {
+    await api.markNotificationRead(id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
     );
