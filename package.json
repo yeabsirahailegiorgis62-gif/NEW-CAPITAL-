@@ -6,11 +6,14 @@
     "apps/*"
   ],
   "scripts": {
+    "predev": "fuser -k 4100/tcp 2>/dev/null || true && fuser -k 5173/tcp 2>/dev/null || true",
+    "dev": "concurrently --kill-others --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"cd apps/api && node dist/main.js\" \"cd apps/web && npm run dev\"",
+    "fresh": "npm run build:api && npm run dev",
     "dev:web": "npm run dev --workspace=apps/web",
-    "dev:api": "npm run build --workspace=apps/api && npm run start --workspace=apps/api",
-    "start:api": "npm run start --workspace=apps/api",
+    "dev:api": "npm run start --workspace=apps/api",
     "build:web": "npm run build --workspace=apps/web",
     "build:api": "npm run build --workspace=apps/api",
+    "start:api": "npm run start --workspace=apps/api",
     "test:api": "npm run test --workspace=apps/api",
     "test:e2e": "npm run test:e2e --workspace=apps/api",
     "db:up": "docker compose up -d postgres",
@@ -25,5 +28,8 @@
     "capital-real-estate"
   ],
   "author": "Capital Real Estate",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
 }
