@@ -13,13 +13,12 @@ import {
   CheckCircle2,
   MapPin,
   ChevronRight,
-  Cpu,
-  Radio,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useTheme } from '@/context/ThemeContext';
+import { DynamicFleetRouteSimulation } from '@/components/telematics/DynamicFleetRouteSimulation';
 
 interface LandingPageProps {
   onSignInClick: () => void;
@@ -156,90 +155,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
             </div>
           </div>
 
-          {/* 3D Visual Showcase Container */}
+          {/* Dynamic 3D Telematics Route Simulation Container */}
           <div className="relative mx-auto max-w-5xl rounded-3xl p-2 sm:p-3 bg-gradient-to-b from-brand-500/20 via-slate-200/50 to-transparent dark:from-brand-500/10 dark:via-slate-800/30 shadow-2xl">
-            <div className="relative rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 bg-slate-950 group">
-              {/* Header Bar */}
-              <div className="bg-slate-900/90 backdrop-blur-md px-4 py-3 border-b border-slate-800 flex items-center justify-between z-20 relative">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                  <span className="text-xs text-slate-400 font-mono ml-2">
-                    ops.capitalfleet.internal // 3D Digital Twin Command HUD
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
-                  <Radio className="w-3.5 h-3.5 animate-pulse" />
-                  <span>Telemetry Live</span>
-                </div>
-              </div>
-
-              {/* 3D Image Visual */}
-              <div className="relative aspect-[16/10] sm:aspect-[16/9] w-full overflow-hidden bg-slate-950">
-                <img
-                  src="/assets/fleet-command-3d.png"
-                  alt="Capital Fleet 3D Command Center"
-                  className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
-                />
-
-                {/* Ambient holographic gradient over image */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent pointer-events-none" />
-
-                {/* Floating Holographic Badge 1 */}
-                <div className="absolute top-6 left-6 p-3 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-brand-500/30 text-white shadow-xl animate-bounce-subtle hidden sm:block">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-brand-500/20 border border-brand-400 flex items-center justify-center text-brand-300">
-                      <Cpu className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold">Smart Allocation Engine</div>
-                      <div className="text-[10px] text-slate-400">0 Overlap Conflicts Guaranteed</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Floating Holographic Badge 2 */}
-                <div className="absolute bottom-6 right-6 p-3 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-amber-500/30 text-white shadow-xl hidden sm:block">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-300">
-                      <Gauge className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold">Addis Ababa GPS Telemetry</div>
-                      <div className="text-[10px] text-slate-400">Odometer Progression Verified</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Overlay Summary */}
-                <div className="absolute bottom-4 left-4 right-4 sm:left-6 sm:right-6 sm:bottom-6 flex flex-wrap items-center justify-between gap-3 text-white z-10 sm:hidden">
-                  <div className="p-2.5 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700 text-xs font-bold">
-                    3D Digital Twin Command Center
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottom Quick Metric Pills */}
-              <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-800 bg-slate-900/90 text-white">
-                <div className="p-4 text-center">
-                  <div className="text-2xl font-black text-brand-400">6</div>
-                  <div className="text-xs text-slate-400 mt-0.5">Corporate Vehicles</div>
-                </div>
-                <div className="p-4 text-center">
-                  <div className="text-2xl font-black text-emerald-400">100%</div>
-                  <div className="text-xs text-slate-400 mt-0.5">Conflict Prevention</div>
-                </div>
-                <div className="p-4 text-center">
-                  <div className="text-2xl font-black text-amber-400">3-Step</div>
-                  <div className="text-xs text-slate-400 mt-0.5">Guided Request Form</div>
-                </div>
-                <div className="p-4 text-center">
-                  <div className="text-2xl font-black text-indigo-400">UTC+3</div>
-                  <div className="text-xs text-slate-400 mt-0.5">Addis Ababa Timezone</div>
-                </div>
-              </div>
-            </div>
+            <DynamicFleetRouteSimulation />
           </div>
         </div>
       </section>
