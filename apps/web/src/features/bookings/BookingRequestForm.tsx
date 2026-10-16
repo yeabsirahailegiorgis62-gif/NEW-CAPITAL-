@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
+import { useToast } from '@/components/ui/Toast';
 import {
   MapPin,
   Calendar,
@@ -15,6 +16,8 @@ import {
   AlertCircle,
   Clock,
   ArrowRight,
+  CheckCircle,
+  ClipboardList,
 } from 'lucide-react';
 
 interface BookingRequestFormProps {
@@ -26,6 +29,7 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const toast = useToast();
   const [destination, setDestination] = useState('');
   const [purpose, setPurpose] = useState('');
   const [departureDate, setDepartureDate] = useState('');
@@ -40,6 +44,7 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submittedBooking, setSubmittedBooking] = useState<Booking | null>(null);
 
   // Initialize dates to tomorrow by default
   useEffect(() => {
@@ -101,7 +106,12 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
         additionalNotes: additionalNotes.trim() || undefined,
       });
 
-      onSuccess(booking);
+      setSubmittedBooking(booking);
+      // Immediate toast — fires before success screen renders
+      toast.success(
+        'Request submitted!',
+        `Booking ${booking.bookingReference} is now pending Logistics review.`
+      );
     } catch (err: any) {
       setError(err?.message || 'Failed to submit booking request. Please check inputs.');
     } finally {
@@ -109,12 +119,55 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
     }
   };
 
+  // Show success state after submission
+  if (submittedBooking) {
+    return (
+      <div className="max-w-xl mx-auto">
+        <div className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl p-8 text-center shadow-lg">
+          <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2">Request Submitted Successfully</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+            Your booking request has been sent to the Logistics Department queue for review. You will receive an in-app notification once it is approved and a vehicle is assigned.
+          </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-sm font-mono font-bold text-brand-700 dark:text-brand-400 mb-6">
+            <ClipboardList className="w-4 h-4" />
+            Ref: {submittedBooking.bookingReference}
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 justify-center">
+            <Button
+              variant="primary"
+              onClick={() => onSuccess(submittedBooking)}
+            >
+              View My Bookings
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSubmittedBooking(null);
+                setDestination('');
+                setPurpose('');
+                setAdditionalNotes('');
+                setPreferredVehicleId('');
+                setRequiresDriver(false);
+                setPassengerCount(1);
+              }}
+            >
+              Submit Another Request
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Request a Company Vehicle</h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Request a Company Vehicle</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Complete the trip details below. The Logistics Department will review and allocate a vehicle.
           </p>
         </div>
@@ -146,14 +199,14 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
           />
 
           <div className="space-y-1.5">
-            <label htmlFor="purpose" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="purpose" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
               Trip Purpose <span className="text-red-500">*</span>
             </label>
             <textarea
               id="purpose"
               required
               rows={2}
-              className="block w-full rounded-lg border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="e.g. Concrete compressive strength inspection and client handover review"
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
@@ -365,13 +418,13 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
         </CardHeader>
         <CardContent>
           <div className="space-y-1.5">
-            <label htmlFor="notes" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="notes" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
               Special Instructions or Route Notes
             </label>
             <textarea
               id="notes"
               rows={2}
-              className="block w-full rounded-lg border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="e.g. Unpaved access road; security pass required at Gate 2."
               value={additionalNotes}
               onChange={(e) => setAdditionalNotes(e.target.value)}

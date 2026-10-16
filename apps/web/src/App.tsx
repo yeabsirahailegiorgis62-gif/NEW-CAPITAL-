@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Booking, Vehicle, InAppNotification } from '@/types';
 import { api } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { AppShell } from '@/components/layout/AppShell';
@@ -20,6 +21,8 @@ import { AuditLogsView } from '@/features/admin/AuditLogsView';
 import { ProfileModal } from '@/components/layout/ProfileModal';
 
 export function App() {
+  const toast = useToast();
+
   const [currentView, setCurrentView] = useState<'landing' | 'login' | 'workspace'>('landing');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -69,7 +72,20 @@ export function App() {
       setCurrentUser(res.user);
       setCurrentView('workspace');
       setActiveTab('dashboard');
-      await refreshAllData();
+      const [notifs, bookingsData] = await Promise.all([
+        api.getNotifications(),
+        api.getBookings(),
+      ]);
+      setNotifications(notifs);
+      setBookings(bookingsData);
+      // Show a welcome toast if there are unread notifications
+      const unread = notifs.filter((n) => !n.readAt);
+      if (unread.length > 0) {
+        toast.info(
+          `Welcome back, ${res.user.name.split(' ')[0]}!`,
+          `You have ${unread.length} unread notification${unread.length > 1 ? 's' : ''}.`
+        );
+      }
       return true;
     } catch (err: any) {
       throw new Error(err.message || 'Invalid credentials or account inactive');
@@ -79,15 +95,42 @@ export function App() {
   const handleLogout = async () => {
     await api.logout();
     setCurrentUser(null);
+    setNotifications([]);
+    setBookings([]);
     setCurrentView('landing');
     setActiveTab('dashboard');
   };
 
   const handleMarkNotificationRead = async (id: string) => {
-    await api.markNotificationRead(id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
-    );
+    try {
+      await api.markNotificationRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  // Called by AppShell polling to keep notifications fresh
+  const handleNotificationsRefresh = (fresh: InAppNotification[]) => {
+    setNotifications((prev) => {
+      // Check if there are any new unread notifications compared to what we had
+      const prevUnreadIds = new Set(prev.filter((n) => !n.readAt).map((n) => n.id));
+      const newUnread = fresh.filter((n) => !n.readAt && !prevUnreadIds.has(n.id));
+      if (newUnread.length > 0) {
+        // Show a subtle toast for each new notification (max 3 to avoid flooding)
+        newUnread.slice(0, 3).forEach((n) => {
+          const type = n.type === 'BOOKING_APPROVED' || n.type === 'VEHICLE_ASSIGNED'
+            ? 'success'
+            : n.type === 'BOOKING_REJECTED'
+            ? 'error'
+            : 'info';
+          toast.showToast({ type, title: n.title, message: n.message, duration: 6000 });
+        });
+      }
+      return fresh;
+    });
   };
 
   // Workflow Handlers
@@ -95,9 +138,10 @@ export function App() {
     try {
       await api.approveBooking(id);
       setSelectedBookingForDetails(null);
+      toast.success('Booking approved', 'The employee will be notified.');
       await refreshAllData();
-    } catch (err) {
-      console.error('Failed to approve', err);
+    } catch (err: any) {
+      toast.error('Approval failed', err.message);
     }
   };
 
@@ -105,9 +149,10 @@ export function App() {
     try {
       await api.rejectBooking(id, reason);
       setSelectedBookingForDetails(null);
+      toast.info('Booking rejected', 'The employee has been notified.');
       await refreshAllData();
-    } catch (err) {
-      console.error('Failed to reject', err);
+    } catch (err: any) {
+      toast.error('Rejection failed', err.message);
     }
   };
 
@@ -115,9 +160,10 @@ export function App() {
     try {
       await api.cancelBooking(id, reason);
       setSelectedBookingForDetails(null);
+      toast.warning('Booking cancelled');
       await refreshAllData();
-    } catch (err) {
-      console.error('Failed to cancel', err);
+    } catch (err: any) {
+      toast.error('Cancel failed', err.message);
     }
   };
 
@@ -135,7 +181,6 @@ export function App() {
   }
 
   const isEmployee = currentUser?.role === 'EMPLOYEE';
-  const isLogistics = currentUser?.role === 'LOGISTICS_ADMIN';
   const isSystemAdmin = currentUser?.role === 'SYSTEM_ADMIN';
 
   return (
@@ -147,6 +192,7 @@ export function App() {
       notifications={notifications}
       onMarkNotificationRead={handleMarkNotificationRead}
       onOpenProfile={() => setIsProfileOpen(true)}
+      onNotificationsRefresh={handleNotificationsRefresh}
     >
       {/* Dynamic Tab Rendering */}
       {activeTab === 'dashboard' && (
@@ -181,7 +227,7 @@ export function App() {
       {activeTab === 'my-bookings' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-900">My Trip Bookings & History</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">My Trip Bookings & History</h2>
           </div>
           <BookingsTable
             bookings={bookings}
@@ -256,7 +302,10 @@ export function App() {
         isOpen={!!assigningBooking}
         onClose={() => setAssigningBooking(null)}
         booking={assigningBooking}
-        onAssigned={refreshAllData}
+        onAssigned={() => {
+          refreshAllData();
+          toast.success('Vehicle assigned!', 'The employee will be notified of their assigned vehicle.');
+        }}
       />
 
       {/* Trip Execution Telemetry Modal */}
@@ -266,7 +315,13 @@ export function App() {
           onClose={() => setTripModalBooking(null)}
           booking={tripModalBooking.booking}
           mode={tripModalBooking.mode}
-          onSuccess={refreshAllData}
+          onSuccess={() => {
+            refreshAllData();
+            toast.success(
+              tripModalBooking.mode === 'start' ? 'Trip started' : 'Trip completed',
+              tripModalBooking.mode === 'start' ? 'Odometer logged and trip is now in progress.' : 'Trip record closed successfully.'
+            );
+          }}
         />
       )}
 
@@ -279,6 +334,7 @@ export function App() {
           onProfileUpdated={(updated) => setCurrentUser(updated)}
           onSave={async (data) => {
             const updated = await api.updateOwnProfile(data);
+            toast.success('Profile updated', 'Your changes have been saved.');
             return updated;
           }}
         />

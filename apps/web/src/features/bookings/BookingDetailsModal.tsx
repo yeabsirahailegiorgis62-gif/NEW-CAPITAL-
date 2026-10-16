@@ -150,21 +150,21 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
 
         {/* Vehicle & Passenger Requirements */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div className="p-3 rounded-lg border border-slate-100 bg-slate-50">
-            <span className="text-slate-400 block">Passengers:</span>
-            <span className="font-semibold text-slate-900 text-sm">{booking.passengerCount} Persons</span>
+          <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
+            <span className="text-slate-400 dark:text-slate-500 block">Passengers:</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{booking.passengerCount} Persons</span>
           </div>
 
-          <div className="p-3 rounded-lg border border-slate-100 bg-slate-50">
-            <span className="text-slate-400 block">Driver Status:</span>
-            <span className="font-semibold text-slate-900 text-sm">
+          <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
+            <span className="text-slate-400 dark:text-slate-500 block">Driver Status:</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
               {booking.requiresDriver ? 'Company Driver Required' : 'Self-Driven / None'}
             </span>
           </div>
 
-          <div className="p-3 rounded-lg border border-slate-100 bg-slate-50">
-            <span className="text-slate-400 block">Vehicle Preference:</span>
-            <span className="font-semibold text-slate-900 text-sm">
+          <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
+            <span className="text-slate-400 dark:text-slate-500 block">Vehicle Preference:</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
               {booking.preferredVehicle?.name || 'No Preference'}
             </span>
           </div>
@@ -238,8 +238,8 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
 
         {/* Additional Notes */}
         {booking.additionalNotes && (
-          <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-            <strong className="text-slate-700 block mb-1">Additional Notes:</strong>
+          <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+            <strong className="text-slate-700 dark:text-slate-300 block mb-1">Additional Notes:</strong>
             {booking.additionalNotes}
           </div>
         )}
