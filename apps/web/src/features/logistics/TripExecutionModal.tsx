@@ -142,7 +142,7 @@ export const TripExecutionModal: React.FC<TripExecutionModalProps> = ({
           <Button variant="outline" type="button" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
-          <Button variant="primary" type="submit" isLoading={isLoading}>
+          <Button variant={isStart ? 'success' : 'primary'} type="submit" isLoading={isLoading}>
             {isStart ? 'Confirm Vehicle Departure' : 'Finalize Trip Return'}
           </Button>
         </div>

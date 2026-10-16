@@ -257,7 +257,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
             Cancel
           </Button>
           <Button
-            variant="primary"
+            variant="success"
             type="submit"
             isLoading={isSubmitting}
             disabled={!selectedVehicleId}

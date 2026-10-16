@@ -292,6 +292,10 @@ export class BookingsService {
    * Logistics Review: Reject Request
    */
   async reject(id: string, actor: any, dto: RejectBookingDto) {
+    if (!dto?.rejectionReason || !dto.rejectionReason.trim()) {
+      throw new BadRequestException('Rejection reason is required');
+    }
+
     const booking = await this.prisma.booking.findUnique({ where: { id } });
     if (!booking) throw new NotFoundException('Booking not found');
 

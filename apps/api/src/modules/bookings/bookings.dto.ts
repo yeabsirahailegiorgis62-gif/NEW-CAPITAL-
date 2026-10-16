@@ -32,9 +32,10 @@ export class CreateBookingDto {
   @IsString()
   preferredVehicleId?: string;
 
-  @ApiProperty({ example: true, default: false })
+  @ApiPropertyOptional({ example: true, default: false })
+  @IsOptional()
   @IsBoolean()
-  requiresDriver: boolean;
+  requiresDriver?: boolean;
 
   @ApiPropertyOptional({ example: 'Special site passes required at checkpoint' })
   @IsOptional()

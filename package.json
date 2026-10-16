@@ -6,6 +6,8 @@
     "apps/*"
   ],
   "scripts": {
+    "start": "bash start.sh",
+    "build": "npm run build:api && npm run build:web",
     "predev": "fuser -k 4100/tcp 2>/dev/null || true && fuser -k 5173/tcp 2>/dev/null || true",
     "dev": "concurrently --kill-others --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"cd apps/api && node dist/main.js\" \"cd apps/web && npm run dev\"",
     "fresh": "npm run build:api && npm run dev",

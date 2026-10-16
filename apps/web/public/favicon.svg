@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="cfRed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="50%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#991b1b"/>
+    </linearGradient>
+  </defs>
+  <!-- Red Rounded Shield Base -->
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#cfRed)" stroke="#ffffff" stroke-width="2" stroke-opacity="0.3"/>
+  <!-- CF Monogram in Crisp Pure White -->
+  <text x="32" y="38" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="24" fill="#ffffff" text-anchor="middle" letter-spacing="1">CF</text>
+  <!-- Emerald Green Operational Beacon -->
+  <circle cx="52" cy="12" r="7" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/>
+</svg>

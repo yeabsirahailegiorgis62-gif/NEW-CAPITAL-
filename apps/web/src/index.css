@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #0070c6;
+  --color-primary: #dc2626;
+  --color-secondary: #16a34a;
   --color-navy: #0f172a;
   --color-surface: #ffffff;
   --color-muted: #f8fafc;
@@ -19,38 +20,22 @@ body {
   color: #0f172a;
 }
 
-/* Custom scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
 /* Accessible focus ring */
 *:focus-visible {
-  outline: 2px solid #0070c6;
+  outline: 2px solid #dc2626;
   outline-offset: 2px;
 }
 
 /* Badges and tags */
 .badge-available {
-  background-color: #ecfdf5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
 }
 .badge-assigned {
-  background-color: #eff6ff;
-  color: #1e40af;
-  border: 1px solid #bfdbfe;
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
 }
 .badge-pending {
   background-color: #fffbeb;

@@ -3,6 +3,7 @@ import { User } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { Bell, LogOut, Menu, Moon, Sun, UserCheck, Clock, Settings, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 
 interface NavbarProps {
   currentUser: User | null;
@@ -71,30 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            <div className="flex items-center gap-3">
-              <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-navy-950 flex items-center justify-center text-white shadow-md shadow-brand-500/20 ring-1 ring-brand-400/30">
-                <span className="font-extrabold text-sm tracking-widest text-brand-300">CF</span>
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">
-                    CAPITAL FLEET
-                  </span>
-                  <span className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800">
-                    LOGISTICS OS
-                  </span>
-                </div>
-                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                  <span>Capital Real Estate Corp</span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1 font-mono text-[10px] text-amber-600 dark:text-amber-400">
-                    <Clock className="w-3 h-3" />
-                    {currentTime} EAT
-                  </span>
-                </div>
-              </div>
-            </div>
+            <BrandLogo size="md" />
           </div>
 
           {/* Right Actions */}

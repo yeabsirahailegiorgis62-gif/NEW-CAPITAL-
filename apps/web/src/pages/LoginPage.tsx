@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { useTheme } from '@/context/ThemeContext';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 
 interface LoginPageProps {
   onBackToLanding: () => void;
@@ -78,21 +79,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </button>
       </div>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md mt-6">
-        <div className="flex items-center justify-center gap-3">
-          <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-600 to-navy-950 flex items-center justify-center text-white shadow-lg shadow-brand-500/20 ring-1 ring-brand-400/40">
-            <span className="font-extrabold text-base tracking-widest text-brand-300">CF</span>
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              CAPITAL FLEET
-            </h1>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold">
-              Capital Real Estate Logistics
-            </p>
-          </div>
-        </div>
+      <div className="sm:mx-auto sm:w-full sm:max-w-md mt-6 flex flex-col items-center">
+        <BrandLogo size="lg" className="justify-center" />
 
         <h2 className="mt-6 text-center text-2xl font-black tracking-tight text-slate-900 dark:text-white">
           Sign In to Portal
@@ -157,17 +145,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <button
                 type="button"
                 onClick={() => handleQuickFill('employee@capitalre.com')}
-                className="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all flex items-center justify-between group"
+                className="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-all flex items-center justify-between group"
               >
                 <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-brand-500 transition-colors">
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                     Abebe Girma (Employee)
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                     employee@capitalre.com • EMP-101
                   </div>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950/80 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                   Select
                 </span>
               </button>
@@ -175,17 +163,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <button
                 type="button"
                 onClick={() => handleQuickFill('logistics@capitalre.com')}
-                className="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all flex items-center justify-between group"
+                className="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-brand-50/50 dark:hover:bg-brand-950/20 transition-all flex items-center justify-between group"
               >
                 <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-brand-500 transition-colors">
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                     Almaz Bekele (Logistics Admin)
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                     logistics@capitalre.com • LOG-201
                   </div>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/80 text-amber-600 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/80 text-brand-700 dark:text-brand-300 border border-brand-300 dark:border-brand-800">
                   Select
                 </span>
               </button>
@@ -193,17 +181,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <button
                 type="button"
                 onClick={() => handleQuickFill('admin@capitalre.com')}
-                className="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all flex items-center justify-between group"
+                className="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all flex items-center justify-between group"
               >
                 <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-brand-500 transition-colors">
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
                     Dawit Tadesse (System Admin)
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                     admin@capitalre.com • SYS-001
                   </div>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                   Select
                 </span>
               </button>

@@ -80,8 +80,8 @@ export const VehicleInventoryView: React.FC<VehicleInventoryViewProps> = ({
       {/* Header with Title and Add Action */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Fleet Inventory & Management</h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Fleet Inventory & Management</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Browse company vehicles, review maintenance readiness, and configure fleet units.
           </p>
         </div>

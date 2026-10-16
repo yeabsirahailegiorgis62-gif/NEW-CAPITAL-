@@ -321,10 +321,10 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           <div className="flex items-center gap-2">
             {isLogisticsOrAdmin && booking.status === 'PENDING_APPROVAL' && !rejecting && (
               <>
-                <Button variant="outline" size="sm" onClick={() => setRejecting(true)}>
+                <Button variant="danger" size="sm" onClick={() => setRejecting(true)}>
                   Reject
                 </Button>
-                <Button variant="primary" size="sm" onClick={() => onApprove && onApprove(booking.id)}>
+                <Button variant="success" size="sm" onClick={() => onApprove && onApprove(booking.id)}>
                   Approve Request
                 </Button>
               </>
@@ -344,7 +344,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                   </Button>
                 )}
                 {onStartTrip && (
-                  <Button variant="primary" size="sm" onClick={() => onStartTrip(booking)}>
+                  <Button variant="success" size="sm" onClick={() => onStartTrip(booking)}>
                     Record Departure (Start Trip)
                   </Button>
                 )}

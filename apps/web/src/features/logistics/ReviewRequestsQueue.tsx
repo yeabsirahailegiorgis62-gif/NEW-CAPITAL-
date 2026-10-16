@@ -165,14 +165,17 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
                   {activeTab === 'pending' && (
                     <>
                       <Button
-                        variant="outline"
+                        variant="danger"
                         size="sm"
-                        className="text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
                         onClick={() => setRejectingBooking(b)}
                       >
                         Reject
                       </Button>
-                      <Button variant="primary" size="sm" onClick={() => onApprove(b.id)}>
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={() => onApprove(b.id)}
+                      >
                         Approve
                       </Button>
                     </>

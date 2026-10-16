@@ -83,14 +83,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={link.id}
               onClick={() => handleSelect(link.id)}
               className={cn(
-                'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all text-left',
+                'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-left relative group',
                 isActive
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-md shadow-brand-900/40 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
               )}
             >
-              <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-white' : 'text-slate-400')} />
-              <span>{link.label}</span>
+              <div className="flex items-center gap-3">
+                <Icon className={cn('w-4 h-4 shrink-0 transition-colors', isActive ? 'text-white' : 'text-slate-400 group-hover:text-brand-400')} />
+                <span>{link.label}</span>
+              </div>
+              {isActive && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-white/30 animate-pulse" />
+              )}
             </button>
           );
         })}

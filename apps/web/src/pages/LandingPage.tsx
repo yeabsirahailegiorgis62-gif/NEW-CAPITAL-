@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useTheme } from '@/context/ThemeContext';
 
 interface LandingPageProps {
@@ -80,24 +81,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
       </div>
 
       {/* Navigation */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
+      <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-navy-950 flex items-center justify-center text-white shadow-md shadow-brand-500/20 ring-1 ring-brand-400/30">
-              <span className="font-extrabold text-sm tracking-widest text-brand-300">CF</span>
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">
-                  CAPITAL FLEET
-                </span>
-                <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800">
-                  REAL ESTATE LOGISTICS
-                </span>
-              </div>
-            </div>
-          </div>
+          <BrandLogo size="md" />
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-300">
             <a href="#command-center" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
@@ -141,14 +127,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
       <section id="command-center" className="relative pt-10 pb-16 md:pt-16 md:pb-24 overflow-hidden border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-12">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800/80 text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-5">
-              <Sparkles className="w-3.5 h-3.5 text-brand-500" />
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800/80 text-xs font-bold text-brand-700 dark:text-brand-300 uppercase tracking-wider mb-5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Next-Gen Corporate Fleet Coordination OS</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.12]">
               Corporate travel,{' '}
-              <span className="bg-gradient-to-r from-brand-600 via-amber-500 to-brand-500 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-brand-600 via-emerald-600 to-brand-700 bg-clip-text text-transparent">
                 orchestrated seamlessly.
               </span>
             </h1>
@@ -158,12 +144,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" onClick={onSignInClick} rightIcon={<ArrowRight className="w-4 h-4" />}>
+              <Button size="lg" variant="primary" onClick={onSignInClick} rightIcon={<ArrowRight className="w-4 h-4" />}>
                 Launch Capital Fleet Portal
               </Button>
               <a
                 href="#vehicles"
-                className="inline-flex items-center justify-center font-semibold rounded-xl px-5 py-2.5 min-h-[44px] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm border border-slate-200 dark:border-slate-800"
+                className="inline-flex items-center justify-center font-semibold rounded-xl px-5 py-2.5 min-h-[44px] text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100/80 dark:hover:bg-emerald-950/80 border border-emerald-300/80 dark:border-emerald-800/80 transition-all text-sm shadow-sm"
               >
                 Inspect Fleet & Telemetry
               </a>
@@ -347,7 +333,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm relative">
-              <div className="w-10 h-10 rounded-xl bg-brand-500 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-brand-500/30">
+              <div className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-brand-500/30">
                 01
               </div>
               <h4 className="text-base font-bold text-slate-900 dark:text-white">Guided Booking</h4>
@@ -357,7 +343,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
             </div>
 
             <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm relative">
-              <div className="w-10 h-10 rounded-xl bg-navy-900 dark:bg-slate-800 text-brand-400 flex items-center justify-center font-bold text-sm mb-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-emerald-500/30">
                 02
               </div>
               <h4 className="text-base font-bold text-slate-900 dark:text-white">Logistics Approval</h4>
@@ -367,7 +353,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
             </div>
 
             <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm relative">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-amber-500/30">
+              <div className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-brand-500/30">
                 03
               </div>
               <h4 className="text-base font-bold text-slate-900 dark:text-white">Conflict-Free Assignment</h4>
@@ -377,7 +363,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
             </div>
 
             <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm relative">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-emerald-500/30">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm shadow-emerald-500/30">
                 04
               </div>
               <h4 className="text-base font-bold text-slate-900 dark:text-white">Trip Dispatch & Check-in</h4>
@@ -390,9 +376,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 md:py-20 bg-gradient-to-br from-navy-950 via-slate-950 to-navy-900 text-white">
+      <section className="py-16 md:py-20 bg-gradient-to-br from-slate-950 via-brand-950 to-slate-950 text-white border-t border-b border-brand-900/30">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/20 text-brand-300 text-xs font-semibold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <span>Operational & Ready for Capital Real Estate Teams</span>
           </div>
@@ -406,7 +392,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button size="lg" onClick={onSignInClick} rightIcon={<ArrowRight className="w-4 h-4" />}>
+            <Button size="lg" variant="primary" onClick={onSignInClick} rightIcon={<ArrowRight className="w-4 h-4" />}>
               Sign In to Capital Fleet
             </Button>
           </div>
@@ -416,15 +402,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
       {/* Footer */}
       <footer className="bg-slate-950 text-slate-400 py-10 border-t border-slate-800 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold text-white tracking-widest text-sm">CAPITAL FLEET</span>
-            <span className="text-slate-600">|</span>
-            <span>Capital Real Estate Corporate Transport System</span>
-          </div>
-          <div className="flex items-center gap-4 text-slate-500">
-            <span>Addis Ababa, Ethiopia</span>
+          <BrandLogo size="sm" showSubtitle={false} />
+          <div className="flex items-center gap-4 text-slate-400">
+            <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              All Systems Operational
+            </span>
             <span>•</span>
-            <span>Confidential & Internal</span>
+            <span>Addis Ababa (UTC+3)</span>
+            <span>•</span>
+            <span>Capital Real Estate Corporate</span>
           </div>
         </div>
       </footer>
