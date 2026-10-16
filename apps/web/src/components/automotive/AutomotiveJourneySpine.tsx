@@ -57,16 +57,16 @@ export const AutomotiveJourneySpine: React.FC<AutomotiveJourneySpineProps> = ({
         aria-hidden="true"
       >
         {/* Continuous Highway Line / Asphalt Ribbon */}
-        <div className="relative w-6 h-full rounded-full bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden flex flex-col items-center">
+        <div className="relative w-6 h-full rounded-full bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col items-center">
           {/* Animated Road Center Dashes */}
           <div
-            className="w-0.5 h-full border-r-2 border-dashed border-brand-500/60 anim-road-dash"
+            className="w-0.5 h-full border-r-2 border-dashed border-brand-500/70 anim-road-dash"
             style={{ strokeDasharray: '6 8' }}
           />
 
           {/* Road Glow Trails */}
-          <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand-600/40 via-emerald-500/30 to-brand-600/40" />
-          <div className="absolute inset-y-0 right-0 w-1 bg-gradient-to-b from-brand-600/40 via-emerald-500/30 to-brand-600/40" />
+          <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand-600/30 via-emerald-500/20 to-brand-600/30" />
+          <div className="absolute inset-y-0 right-0 w-1 bg-gradient-to-b from-brand-600/30 via-emerald-500/20 to-brand-600/30" />
 
           {/* Active Lead Car Traveling Along Spine with Headlights */}
           <div
@@ -118,15 +118,15 @@ export const AutomotiveJourneySpine: React.FC<AutomotiveJourneySpineProps> = ({
                       ? 'bg-brand-600 text-white ring-4 ring-brand-500/30 shadow-brand-500/50'
                       : isPassed
                       ? 'bg-emerald-600 text-white border border-emerald-400'
-                      : 'bg-slate-900 text-slate-400 border border-slate-700 hover:text-white'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {station.icon}
                 </div>
 
                 {/* Hover Milestone Tooltip */}
-                <div className="absolute left-8 px-2.5 py-1 rounded-lg bg-slate-900/95 backdrop-blur-md border border-slate-700 text-white text-[11px] font-sans font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl z-30">
-                  <span className="text-brand-400 font-mono mr-1">KM {station.km}</span>
+                <div className="absolute left-8 px-2.5 py-1 rounded-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-[11px] font-sans font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl z-30">
+                  <span className="text-brand-600 dark:text-brand-400 font-mono mr-1">KM {station.km}</span>
                   {station.title}
                 </div>
               </button>
@@ -137,7 +137,7 @@ export const AutomotiveJourneySpine: React.FC<AutomotiveJourneySpineProps> = ({
 
       {/* ── Mobile & Laptop Cockpit Waypoint Floating HUD ── */}
       <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-40 max-w-sm w-full mx-auto sm:mx-0 pointer-events-auto">
-        <div className="rounded-2xl bg-slate-900/95 backdrop-blur-md border border-slate-800 p-3 shadow-2xl text-white select-none transition-all">
+        <div className="rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 p-3 shadow-2xl text-slate-900 dark:text-white select-none transition-all">
           <div className="flex items-center justify-between gap-3">
             {/* Active Waypoint Info */}
             <div className="flex items-center gap-2.5 min-w-0">
@@ -146,14 +146,14 @@ export const AutomotiveJourneySpine: React.FC<AutomotiveJourneySpineProps> = ({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                     KM {currentKm}
                   </span>
-                  <span className="text-xs font-black text-white truncate">
+                  <span className="text-xs font-black text-slate-900 dark:text-white truncate">
                     {STATIONS[activeStation].title}
                   </span>
                 </div>
-                <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                   {STATIONS[activeStation].sub}
                 </div>
               </div>
@@ -179,7 +179,7 @@ export const AutomotiveJourneySpine: React.FC<AutomotiveJourneySpineProps> = ({
           </div>
 
           {/* Mini Journey Highway Progress Ribbon */}
-          <div className="mt-2.5 pt-2 border-t border-slate-800 flex items-center justify-between gap-1 text-[9px] font-mono">
+          <div className="mt-2.5 pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-1 text-[9px] font-mono">
             {STATIONS.map((s, idx) => (
               <button
                 key={s.id}
@@ -191,7 +191,7 @@ export const AutomotiveJourneySpine: React.FC<AutomotiveJourneySpineProps> = ({
                 className={`flex-1 py-1 text-center rounded transition-all truncate ${
                   activeStation === idx
                     ? 'bg-brand-600 text-white font-bold'
-                    : 'text-slate-500 hover:text-slate-300 bg-slate-800/40'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800/40'
                 }`}
               >
                 {s.icon}

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { useTheme } from '@/context/ThemeContext';
 
 export interface VehicleSim {
   id: string;
@@ -198,7 +199,7 @@ const HUBS = [
   {
     id: 'hub-bole',
     name: 'Bole Airport Logistics Hub',
-    subtext: 'Cargo Terminal & VIP VIP Gateway',
+    subtext: 'Cargo Terminal & VIP Gateway',
     code: 'ADD-BOLE',
     x: 180,
     y: 440,
@@ -248,13 +249,14 @@ const HUBS = [
 ];
 
 export const DynamicFleetRouteSimulation: React.FC = () => {
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark';
+
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('prado');
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('ALL');
   const [isSimRunning, setIsSimRunning] = useState<boolean>(true);
   const [simSpeed, setSimSpeed] = useState<number>(1);
   const [headlightMode, setHeadlightMode] = useState<'high' | 'normal' | 'off'>('high');
-  const [themeAtmosphere, setThemeAtmosphere] = useState<'midnight' | 'dusk'>('midnight');
-  const [showHubTags, setShowHubTags] = useState<boolean>(true);
 
   // Animation state progression references (0 to 1 loop along path)
   const progressRef = useRef<{ [key: string]: number }>({
@@ -278,7 +280,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
     let lastTimestamp = performance.now();
 
     const loop = (timestamp: number) => {
-      const delta = Math.min(timestamp - lastTimestamp, 50); // clamp delta
+      const delta = Math.min(timestamp - lastTimestamp, 50);
       lastTimestamp = timestamp;
 
       if (isSimRunning && svgRef.current) {
@@ -291,7 +293,6 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           if (pathEl) {
             const totalLen = pathEl.getTotalLength();
             if (totalLen > 0) {
-              // Increment progress along path
               const speedFactor = v.speedMultiplier * simSpeed * (delta / 16.67);
               let prog = (progressRef.current[v.id] || 0) + speedFactor;
               if (prog >= 1) prog -= 1;
@@ -300,12 +301,10 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
               const dist = prog * totalLen;
               const pt = pathEl.getPointAtLength(dist);
 
-              // Calculate angle facing forward along the curve
               const nextDist = (dist + 3) % totalLen;
               const nextPt = pathEl.getPointAtLength(nextDist);
               const angle = Math.atan2(nextPt.y - pt.y, nextPt.x - pt.x) * (180 / Math.PI);
 
-              // Realistically fluctuate speed during sharp curves
               const angleRad = (angle * Math.PI) / 180;
               const curveDrag = Math.abs(Math.sin(angleRad * 2)) * 7;
               const curSpeed = Math.round(v.speed - curveDrag);
@@ -340,31 +339,38 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
       ? VEHICLES
       : VEHICLES.filter((v) => v.category === activeCategoryFilter);
 
-  // Render automotive top-down chassis based on vehicle category
+  // Render automotive top-down chassis with theme-aware outlines and shadows
   const renderCarChassis = (v: VehicleSim, isSelected: boolean) => {
     const halfL = v.length / 2;
     const halfW = v.width / 2;
 
+    // In light mode, white cars need high-contrast perimeter strokes so they never vanish
+    const chassisStroke = isSelected
+      ? v.accentColor
+      : isDarkMode
+      ? '#475569'
+      : '#0f172a';
+
+    const tireColor = isDarkMode ? '#090d16' : '#1e293b';
+    const tireStroke = isDarkMode ? '#334155' : '#475569';
+    const shadowColor = isDarkMode ? 'rgba(0, 0, 0, 0.75)' : 'rgba(15, 23, 42, 0.35)';
+
     return (
       <g>
         {/* Four Corner Tires/Wheels extending from under chassis */}
-        {/* Front Left */}
-        <rect x={halfL - 9} y={-halfW - 2.5} width="8" height="3" rx="1.5" fill="#090d16" stroke="#334155" strokeWidth="0.5" />
-        {/* Front Right */}
-        <rect x={halfL - 9} y={halfW - 0.5} width="8" height="3" rx="1.5" fill="#090d16" stroke="#334155" strokeWidth="0.5" />
-        {/* Rear Left */}
-        <rect x={-halfL + 3} y={-halfW - 2.5} width="8" height="3" rx="1.5" fill="#090d16" stroke="#334155" strokeWidth="0.5" />
-        {/* Rear Right */}
-        <rect x={-halfL + 3} y={halfW - 0.5} width="8" height="3" rx="1.5" fill="#090d16" stroke="#334155" strokeWidth="0.5" />
+        <rect x={halfL - 9} y={-halfW - 2.5} width="8" height="3" rx="1.5" fill={tireColor} stroke={tireStroke} strokeWidth="0.5" />
+        <rect x={halfL - 9} y={halfW - 0.5} width="8" height="3" rx="1.5" fill={tireColor} stroke={tireStroke} strokeWidth="0.5" />
+        <rect x={-halfL + 3} y={-halfW - 2.5} width="8" height="3" rx="1.5" fill={tireColor} stroke={tireStroke} strokeWidth="0.5" />
+        <rect x={-halfL + 3} y={halfW - 0.5} width="8" height="3" rx="1.5" fill={tireColor} stroke={tireStroke} strokeWidth="0.5" />
 
-        {/* Chassis Drop Shadow */}
+        {/* Chassis Realistic Drop Shadow */}
         <rect
           x={-halfL + 1.5}
           y={-halfW + 1.5}
           width={v.length}
           height={v.width}
           rx="5"
-          fill="rgba(0, 0, 0, 0.75)"
+          fill={shadowColor}
         />
 
         {/* Outer Painted Hull Body */}
@@ -375,27 +381,26 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           height={v.width}
           rx={v.category === 'SEDAN' ? '6' : '4.5'}
           fill={v.color}
-          stroke={isSelected ? v.accentColor : '#475569'}
-          strokeWidth={isSelected ? '2' : '1'}
+          stroke={chassisStroke}
+          strokeWidth={isSelected ? '2' : isDarkMode ? '1' : '1.2'}
         />
 
         {/* Front Hood Contours / Creases */}
         <path
           d={`M ${halfL - 2} ${-halfW + 4} L ${halfL - 10} ${-halfW + 5} M ${halfL - 2} ${halfW - 4} L ${halfL - 10} ${halfW - 5}`}
-          stroke="rgba(0, 0, 0, 0.25)"
+          stroke={isDarkMode ? 'rgba(0, 0, 0, 0.35)' : 'rgba(15, 23, 42, 0.45)'}
           strokeWidth="1"
         />
 
         {/* Distinctive Silhouette Features by Vehicle Category */}
         {v.category === 'SUV' && (
-          // SUV: Roof rails, Sunroof, Rear wiper/spoiler
           <>
             {/* Front Windshield Glass */}
             <path
               d={`M ${halfL - 9} ${-halfW + 3} L ${halfL - 13} ${-halfW + 4} L ${halfL - 13} ${halfW - 4} L ${halfL - 9} ${halfW - 3} Z`}
               fill="#090f1d"
               stroke="#38bdf8"
-              strokeWidth="0.6"
+              strokeWidth="0.7"
             />
             {/* Dark Tinted Cabin Roof */}
             <rect x={-halfL + 7} y={-halfW + 3.5} width={v.length - 17} height={v.width - 7} rx="2.5" fill="#0f172a" />
@@ -404,20 +409,19 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             {/* Dual Roof Rack Rails */}
             <line x1={-halfL + 9} y1={-halfW + 3} x2={halfL - 13} y2={-halfW + 3} stroke="#94a3b8" strokeWidth="1.2" strokeLinecap="round" />
             <line x1={-halfL + 9} y1={halfW - 3} x2={halfL - 13} y2={halfW - 3} stroke="#94a3b8" strokeWidth="1.2" strokeLinecap="round" />
-            {/* Rear Spare Tire Outline or Rear Spoiler */}
+            {/* Rear Spare Tire Outline */}
             <rect x={-halfL} y={-halfW + 4} width="2.5" height={v.width - 8} rx="1" fill="#334155" />
           </>
         )}
 
         {v.category === 'PICKUP' && (
-          // PICKUP: Front Cab + Open Truck Bed with Cargo Ribs
           <>
             {/* Front Windshield */}
             <path
               d={`M ${halfL - 8} ${-halfW + 3} L ${halfL - 12} ${-halfW + 3.5} L ${halfL - 12} ${halfW - 3.5} L ${halfL - 8} ${halfW - 3} Z`}
               fill="#090f1d"
               stroke="#38bdf8"
-              strokeWidth="0.6"
+              strokeWidth="0.7"
             />
             {/* Cab Roof */}
             <rect x={-halfL + 16} y={-halfW + 3.5} width="12" height={v.width - 7} rx="2" fill="#0f172a" />
@@ -425,9 +429,9 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             <line x1={-halfL + 16} y1={-halfW + 4} x2={-halfL + 16} y2={halfW - 4} stroke="#38bdf8" strokeWidth="0.8" />
             {/* Sports Bar / Roll Bar */}
             <line x1={-halfL + 15} y1={-halfW + 3} x2={-halfL + 15} y2={halfW - 3} stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
-            {/* Open Truck Bed Liner (dark textured) */}
+            {/* Open Truck Bed Liner */}
             <rect x={-halfL + 2} y={-halfW + 3} width="12" height={v.width - 6} rx="1" fill="#111827" stroke="#374151" strokeWidth="0.6" />
-            {/* Truck Bed Longitudinal Ribs */}
+            {/* Truck Bed Ribs */}
             <line x1={-halfL + 4} y1={-halfW + 5.5} x2={-halfL + 12} y2={-halfW + 5.5} stroke="#374151" strokeWidth="0.8" />
             <line x1={-halfL + 4} y1={0} x2={-halfL + 12} y2={0} stroke="#374151" strokeWidth="0.8" />
             <line x1={-halfL + 4} y1={halfW - 5.5} x2={-halfL + 12} y2={halfW - 5.5} stroke="#374151" strokeWidth="0.8" />
@@ -435,40 +439,35 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
         )}
 
         {v.category === 'MINIBUS' && (
-          // MINIBUS: Long Passenger Van with Skylight Panels
           <>
-            {/* Extended Front Panoramic Windshield */}
+            {/* Panoramic Front Windshield */}
             <path
               d={`M ${halfL - 4} ${-halfW + 3} L ${halfL - 9} ${-halfW + 3.5} L ${halfL - 9} ${halfW - 3.5} L ${halfL - 4} ${halfW - 3} Z`}
               fill="#090f1d"
               stroke="#38bdf8"
-              strokeWidth="0.7"
+              strokeWidth="0.8"
             />
-            {/* Long Passenger Cabin */}
+            {/* Passenger Cabin */}
             <rect x={-halfL + 5} y={-halfW + 3} width={v.length - 15} height={v.width - 6} rx="2" fill="#0f172a" stroke="#1e293b" strokeWidth="0.5" />
-            {/* Passenger Skylight Panels */}
+            {/* Skylight Panels */}
             <rect x={halfL - 18} y={-halfW + 5.5} width="6" height={v.width - 11} rx="1" fill="#1e293b" stroke="#38bdf8" strokeWidth="0.5" />
             <rect x={halfL - 27} y={-halfW + 5.5} width="6" height={v.width - 11} rx="1" fill="#1e293b" stroke="#38bdf8" strokeWidth="0.5" />
             <rect x={halfL - 36} y={-halfW + 5.5} width="6" height={v.width - 11} rx="1" fill="#1e293b" stroke="#38bdf8" strokeWidth="0.5" />
-            {/* Side Mirrors */}
-            <rect x={halfL - 8} y={-halfW - 2} width="3" height="1.8" rx="0.5" fill="#334155" />
-            <rect x={halfL - 8} y={halfW + 0.2} width="3" height="1.8" rx="0.5" fill="#334155" />
           </>
         )}
 
         {v.category === 'SEDAN' && (
-          // SEDAN: Sleek fastback profile, hood creases, trunk deck lid
           <>
-            {/* Sloped Windshield */}
+            {/* Aerodynamic Windshield */}
             <path
               d={`M ${halfL - 8} ${-halfW + 3} L ${halfL - 13} ${-halfW + 3.5} L ${halfL - 13} ${halfW - 3.5} L ${halfL - 8} ${halfW - 3} Z`}
               fill="#090f1d"
               stroke="#38bdf8"
-              strokeWidth="0.7"
+              strokeWidth="0.8"
             />
             {/* Cabin Roof */}
             <rect x={-halfL + 9} y={-halfW + 3.5} width={v.length - 18} height={v.width - 7} rx="2" fill="#0f172a" />
-            {/* Sloped Rear Windshield */}
+            {/* Sloped Rear Glass */}
             <path
               d={`M ${-halfL + 9} ${-halfW + 3.5} L ${-halfL + 6} ${-halfW + 3.5} L ${-halfL + 6} ${halfW - 3.5} L ${-halfL + 9} ${halfW - 3.5} Z`}
               fill="#090f1d"
@@ -480,11 +479,11 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           </>
         )}
 
-        {/* Dual Aerodynamic Side-View Mirrors */}
-        <rect x={halfL - 11} y={-halfW - 2.5} width="3.5" height="2" rx="0.8" fill={v.color} stroke="#475569" strokeWidth="0.5" />
-        <rect x={halfL - 11} y={halfW + 0.5} width="3.5" height="2" rx="0.8" fill={v.color} stroke="#475569" strokeWidth="0.5" />
+        {/* Dual Side-View Mirrors */}
+        <rect x={halfL - 11} y={-halfW - 2.5} width="3.5" height="2" rx="0.8" fill={v.color} stroke={chassisStroke} strokeWidth="0.5" />
+        <rect x={halfL - 11} y={halfW + 0.5} width="3.5" height="2" rx="0.8" fill={v.color} stroke={chassisStroke} strokeWidth="0.5" />
 
-        {/* Dual Projector Headlight Lenses (White/Cyan Crystal Optics) */}
+        {/* Dual Projector Headlight Lenses */}
         <circle cx={halfL - 1} cy={-halfW + 3.5} r="2" fill="#ffffff" stroke="#38bdf8" strokeWidth="0.5" />
         <circle cx={halfL - 1} cy={halfW - 3.5} r="2" fill="#ffffff" stroke="#38bdf8" strokeWidth="0.5" />
 
@@ -500,29 +499,28 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 text-white shadow-2xl select-none font-sans">
+    <div className="relative w-full overflow-hidden select-none font-sans transition-colors duration-300">
       {/* ========================================================= */}
-      {/* TOP COMMAND HUD CONTROL BAR                              */}
+      {/* 1. FLOATING MINIMALIST COCKPIT CONTROLS (UNBOXED HUD)      */}
       {/* ========================================================= */}
-      <div className="bg-slate-900/95 backdrop-blur-md px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 z-30 relative">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400/50" />
-            <span className="text-xs font-black tracking-wider uppercase text-emerald-400 font-mono">
-              GPS TELEMATICS SIMULATION
-            </span>
-          </div>
-          <span className="text-slate-600 hidden sm:inline">|</span>
-          <span className="text-xs text-slate-300 font-mono hidden md:inline flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-brand-400" />
-            Addis Ababa Corporate Corridor (UTC+3)
+      <div className="mx-auto max-w-4xl px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-800/90 shadow-xl flex flex-wrap items-center justify-between gap-2.5 z-30 relative mb-4">
+        {/* Left Status Indicator */}
+        <div className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50" />
+          <span className="text-xs font-black tracking-wider uppercase text-slate-800 dark:text-emerald-400 font-mono">
+            GPS TELEMATICS CORRIDOR
+          </span>
+          <span className="text-slate-400 dark:text-slate-600 hidden sm:inline">|</span>
+          <span className="text-xs text-slate-500 dark:text-slate-300 font-mono hidden md:inline flex items-center gap-1">
+            <MapPin className="w-3.5 h-3.5 text-brand-500" />
+            Addis Ababa Network (UTC+3)
           </span>
         </div>
 
-        {/* Interactive Controls & Filters */}
+        {/* Right Action Controls */}
         <div className="flex items-center gap-2">
-          {/* Category Filter Pills */}
-          <div className="hidden lg:flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/80 text-[11px]">
+          {/* Category Filter Chips */}
+          <div className="hidden lg:flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700/80 text-[11px]">
             {['ALL', 'SUV', 'PICKUP', 'MINIBUS', 'SEDAN'].map((cat) => (
               <button
                 key={cat}
@@ -531,7 +529,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
                 className={`px-2.5 py-1 rounded-md font-bold transition-all ${
                   activeCategoryFilter === cat
                     ? 'bg-brand-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {cat}
@@ -539,33 +537,35 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             ))}
           </div>
 
-          {/* Simulation Speed Control */}
-          <div className="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/80 text-xs">
+          {/* Simulation Speed Toggle */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs">
             <button
               type="button"
               onClick={() => setIsSimRunning(!isSimRunning)}
-              className="p-1.5 rounded-md hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-              title={isSimRunning ? 'Pause Simulation' : 'Resume Simulation'}
+              className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+              title={isSimRunning ? 'Pause Highway Simulation' : 'Resume Highway Simulation'}
             >
               {isSimRunning ? (
-                <Pause className="w-3.5 h-3.5 text-amber-400" />
+                <Pause className="w-3.5 h-3.5 text-amber-500" />
               ) : (
-                <Play className="w-3.5 h-3.5 text-emerald-400" />
+                <Play className="w-3.5 h-3.5 text-emerald-500" />
               )}
             </button>
             <button
               type="button"
               onClick={() => setSimSpeed(simSpeed === 1 ? 2 : 1)}
               className={`px-2 py-1 rounded-md font-mono font-bold transition-colors ${
-                simSpeed === 2 ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white'
+                simSpeed === 2
+                  ? 'bg-brand-600 text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
-              title="Simulation Speed Toggle"
+              title="Simulation Speed Multiplier"
             >
               {simSpeed}x
             </button>
           </div>
 
-          {/* Headlight Beam Toggle */}
+          {/* Adaptive Headlights Mode */}
           <button
             type="button"
             onClick={() => {
@@ -575,39 +575,29 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             }}
             className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 ${
               headlightMode !== 'off'
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/10'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/40 shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
             }`}
             title="Toggle Adaptive Path Lighting"
           >
-            <Zap className={`w-3.5 h-3.5 ${headlightMode === 'high' ? 'text-emerald-400 animate-pulse' : ''}`} />
+            <Zap className={`w-3.5 h-3.5 ${headlightMode === 'high' ? 'text-emerald-500 animate-pulse' : ''}`} />
             <span className="hidden sm:inline">
               {headlightMode === 'high' ? 'High Beams' : headlightMode === 'normal' ? 'Low Beams' : 'Lights Off'}
             </span>
-          </button>
-
-          {/* Atmosphere Lighting Toggle */}
-          <button
-            type="button"
-            onClick={() => setThemeAtmosphere(themeAtmosphere === 'midnight' ? 'dusk' : 'midnight')}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hover:text-white transition-all"
-            title="Toggle Night / Dusk Ambience"
-          >
-            {themeAtmosphere === 'midnight' ? <Moon className="w-3.5 h-3.5 text-indigo-400" /> : <SunMedium className="w-3.5 h-3.5 text-amber-400" />}
           </button>
         </div>
       </div>
 
       {/* ========================================================= */}
-      {/* MAIN INTERACTIVE MAP CANVAS WITH DYNAMIC VEHICLES        */}
+      {/* 2. OPEN INTEGRATED HIGHWAY CANVAS (NO RESTRICTIVE BOX)     */}
       {/* ========================================================= */}
-      <div
-        className={`relative aspect-[16/10] sm:aspect-[16/9] w-full overflow-hidden transition-colors duration-1000 ${
-          themeAtmosphere === 'midnight'
-            ? 'bg-gradient-to-b from-[#040812] via-[#070e1c] to-[#03060d]'
-            : 'bg-gradient-to-b from-[#0b1329] via-[#0e1933] to-[#080d1d]'
-        }`}
-      >
+      <div className="relative w-full aspect-[16/10] sm:aspect-[16/9] max-h-[600px] overflow-hidden transition-colors duration-300">
+        {/* Soft edge blending gradients so the road integrates into the surrounding page seamlessly */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-slate-100 dark:from-[#03060e] to-transparent z-10 opacity-60" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-100 dark:from-[#040813] to-transparent z-10 opacity-60" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-slate-100 dark:from-[#03060e] to-transparent z-10 opacity-60" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-slate-100 dark:from-[#040813] to-transparent z-10 opacity-60" />
+
         <svg
           ref={svgRef}
           viewBox="0 0 1000 560"
@@ -615,23 +605,33 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
-            {/* Topographic Map Grid Pattern */}
-            <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.03)" strokeWidth="1" />
-              <circle cx="40" cy="40" r="1" fill="rgba(255, 255, 255, 0.08)" />
+            {/* Cartographic Grid Pattern */}
+            <pattern id="openGridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path
+                d="M 40 0 L 0 0 0 40"
+                fill="none"
+                stroke={isDarkMode ? 'rgba(255, 255, 255, 0.035)' : 'rgba(15, 23, 42, 0.04)'}
+                strokeWidth="1"
+              />
+              <circle
+                cx="40"
+                cy="40"
+                r="1"
+                fill={isDarkMode ? 'rgba(255, 255, 255, 0.09)' : 'rgba(15, 23, 42, 0.08)'}
+              />
             </pattern>
 
-            {/* Neon Route Glow Filter */}
-            <filter id="routeGlow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
+            {/* Route Centerline Glow Filter */}
+            <filter id="routeGlowFilter" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation={isDarkMode ? '5' : '3'} result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
 
-            {/* Headlight Beam Glow (Volumetric Beam Cones) */}
-            <linearGradient id="headlightBeamGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+            {/* Headlight Beam Volumetric Gradient */}
+            <linearGradient id="headlightBeamCone" x1="0%" y1="50%" x2="100%" y2="50%">
               <stop offset="0%" stopColor="#ffffff" stopOpacity={headlightMode === 'high' ? 0.95 : 0.7} />
               <stop offset="20%" stopColor="#38bdf8" stopOpacity={headlightMode === 'high' ? 0.6 : 0.4} />
               <stop offset="60%" stopColor="#38bdf8" stopOpacity={headlightMode === 'high' ? 0.22 : 0.12} />
@@ -639,46 +639,69 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             </linearGradient>
 
             {/* Ground Asphalt Illuminated Pool */}
-            <radialGradient id="asphaltGroundLightGrad">
-              <stop offset="0%" stopColor="#e0f2fe" stopOpacity="0.45" />
-              <stop offset="45%" stopColor="#38bdf8" stopOpacity="0.2" />
+            <radialGradient id="asphaltIllumPool">
+              <stop offset="0%" stopColor="#e0f2fe" stopOpacity={isDarkMode ? 0.45 : 0.6} />
+              <stop offset="45%" stopColor="#38bdf8" stopOpacity={isDarkMode ? 0.2 : 0.25} />
               <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
             </radialGradient>
 
-            {/* Red Taillight Velocity Trail Glow */}
-            <linearGradient id="taillightTrailGrad" x1="100%" y1="50%" x2="0%" y2="50%">
+            {/* Red Taillight Velocity Streak */}
+            <linearGradient id="taillightStreakGrad" x1="100%" y1="50%" x2="0%" y2="50%">
               <stop offset="0%" stopColor="#dc2626" stopOpacity="0.9" />
               <stop offset="40%" stopColor="#ef4444" stopOpacity="0.35" />
               <stop offset="100%" stopColor="#dc2626" stopOpacity="0" />
             </linearGradient>
-
-            {/* Green Pulse Gradient for Bole Hub */}
-            <radialGradient id="hubBeaconGreen">
-              <stop offset="0%" stopColor="#16a34a" stopOpacity="0.8" />
-              <stop offset="60%" stopColor="#16a34a" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#16a34a" stopOpacity="0" />
-            </radialGradient>
-
-            {/* Red Pulse Gradient for Kazanchis HQ */}
-            <radialGradient id="hubBeaconRed">
-              <stop offset="0%" stopColor="#dc2626" stopOpacity="0.8" />
-              <stop offset="60%" stopColor="#dc2626" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#dc2626" stopOpacity="0" />
-            </radialGradient>
           </defs>
 
-          {/* Background Cartographic Grid */}
-          <rect width="1000" height="560" fill="url(#gridPattern)" />
+          {/* Background Cartographic Surface */}
+          <rect
+            width="1000"
+            height="560"
+            fill={isDarkMode ? '#060a15' : '#f1f5f9'}
+          />
+          <rect width="1000" height="560" fill="url(#openGridPattern)" />
 
           {/* Radar Sector Circles & Azimuth Lines */}
-          <circle cx="500" cy="280" r="280" fill="none" stroke="rgba(255,255,255,0.02)" strokeDasharray="4 8" />
-          <circle cx="500" cy="280" r="180" fill="none" stroke="rgba(255,255,255,0.03)" strokeDasharray="3 6" />
-          <circle cx="500" cy="280" r="80" fill="none" stroke="rgba(255,255,255,0.04)" strokeDasharray="2 4" />
-          <line x1="500" y1="10" x2="500" y2="550" stroke="rgba(255,255,255,0.02)" strokeDasharray="4 8" />
-          <line x1="10" y1="280" x2="990" y2="280" stroke="rgba(255,255,255,0.02)" strokeDasharray="4 8" />
+          <circle
+            cx="500"
+            cy="280"
+            r="280"
+            fill="none"
+            stroke={isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(15,23,42,0.04)'}
+            strokeDasharray="4 8"
+          />
+          <circle
+            cx="500"
+            cy="280"
+            r="180"
+            fill="none"
+            stroke={isDarkMode ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.05)'}
+            strokeDasharray="3 6"
+          />
+          <line
+            x1="500"
+            y1="10"
+            x2="500"
+            y2="550"
+            stroke={isDarkMode ? 'rgba(255,255,255,0.025)' : 'rgba(15,23,42,0.04)'}
+            strokeDasharray="4 8"
+          />
+          <line
+            x1="10"
+            y1="280"
+            x2="990"
+            y2="280"
+            stroke={isDarkMode ? 'rgba(255,255,255,0.025)' : 'rgba(15,23,42,0.04)'}
+            strokeDasharray="4 8"
+          />
 
-          {/* Sub-City Zone Typography & Coordinates */}
-          <g fill="rgba(255,255,255,0.18)" fontSize="11" fontWeight="900" letterSpacing="3">
+          {/* Sub-City Zone Typography (High contrast in both light & dark) */}
+          <g
+            fill={isDarkMode ? 'rgba(255,255,255,0.22)' : 'rgba(15,23,42,0.4)'}
+            fontSize="11"
+            fontWeight="900"
+            letterSpacing="3"
+          >
             <text x="520" y="85">KAZANCHIS FINANCIAL CORRIDOR</text>
             <text x="140" y="500">BOLE AIRPORT & CARGO CORRIDOR</text>
             <text x="130" y="130">SARBET ENGINEERING DEPOT</text>
@@ -687,7 +710,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           </g>
 
           {/* ========================================================= */}
-          {/* HIGHWAY ASPHALT & ARTERIAL ROADS (CURVED BEZIER NETWORKS) */}
+          {/* HIGHWAY ASPHALT & ARTERIAL ROADS                          */}
           {/* ========================================================= */}
 
           {/* Route 1: Bole -> Gotera -> Kazanchis HQ (Red Corporate Route) */}
@@ -695,7 +718,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             id="route-bole-kazanchis"
             d="M 180 440 C 260 410, 360 375, 500 340 C 560 330, 560 240, 520 140"
             fill="none"
-            stroke="#1e293b"
+            stroke={isDarkMode ? '#1e293b' : '#334155'}
             strokeWidth="22"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -703,7 +726,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 180 440 C 260 410, 360 375, 500 340 C 560 330, 560 240, 520 140"
             fill="none"
-            stroke="#0a101d"
+            stroke={isDarkMode ? '#0a101d' : '#1e293b'}
             strokeWidth="17"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -711,10 +734,10 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 180 440 C 260 410, 360 375, 500 340 C 560 330, 560 240, 520 140"
             fill="none"
-            stroke="rgba(220, 38, 38, 0.55)"
+            stroke={isDarkMode ? 'rgba(220, 38, 38, 0.65)' : 'rgba(220, 38, 38, 0.85)'}
             strokeWidth="3"
             strokeDasharray="6 8"
-            filter="url(#routeGlow)"
+            filter="url(#routeGlowFilter)"
           />
 
           {/* Route 2: Sarbet -> Gotera -> CMC Site 4 (Green Logistics Highway) */}
@@ -722,7 +745,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             id="route-sarbet-cmc"
             d="M 210 190 C 310 240, 400 310, 500 340 C 640 340, 750 310, 870 330"
             fill="none"
-            stroke="#1e293b"
+            stroke={isDarkMode ? '#1e293b' : '#334155'}
             strokeWidth="22"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -730,7 +753,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 210 190 C 310 240, 400 310, 500 340 C 640 340, 750 310, 870 330"
             fill="none"
-            stroke="#0a101d"
+            stroke={isDarkMode ? '#0a101d' : '#1e293b'}
             strokeWidth="17"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -738,10 +761,10 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 210 190 C 310 240, 400 310, 500 340 C 640 340, 750 310, 870 330"
             fill="none"
-            stroke="rgba(22, 163, 74, 0.55)"
+            stroke={isDarkMode ? 'rgba(22, 163, 74, 0.65)' : 'rgba(22, 163, 74, 0.85)'}
             strokeWidth="3"
             strokeDasharray="6 8"
-            filter="url(#routeGlow)"
+            filter="url(#routeGlowFilter)"
           />
 
           {/* Route 3: CMC -> Southern Ring Road -> Bole Hub (Cyan Commuter Express) */}
@@ -749,7 +772,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             id="route-cmc-bole"
             d="M 870 330 C 810 440, 650 490, 490 490 C 330 490, 240 480, 180 440"
             fill="none"
-            stroke="#1e293b"
+            stroke={isDarkMode ? '#1e293b' : '#334155'}
             strokeWidth="22"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -757,7 +780,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 870 330 C 810 440, 650 490, 490 490 C 330 490, 240 480, 180 440"
             fill="none"
-            stroke="#0a101d"
+            stroke={isDarkMode ? '#0a101d' : '#1e293b'}
             strokeWidth="17"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -765,10 +788,10 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 870 330 C 810 440, 650 490, 490 490 C 330 490, 240 480, 180 440"
             fill="none"
-            stroke="rgba(2, 132, 199, 0.55)"
+            stroke={isDarkMode ? 'rgba(2, 132, 199, 0.65)' : 'rgba(2, 132, 199, 0.85)'}
             strokeWidth="3"
             strokeDasharray="6 8"
-            filter="url(#routeGlow)"
+            filter="url(#routeGlowFilter)"
           />
 
           {/* Route 4: Kazanchis -> Central Loop -> Sarbet (Amber Courier Route) */}
@@ -776,7 +799,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             id="route-kazanchis-sarbet"
             d="M 520 140 C 440 120, 310 130, 210 190"
             fill="none"
-            stroke="#1e293b"
+            stroke={isDarkMode ? '#1e293b' : '#334155'}
             strokeWidth="22"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -784,7 +807,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 520 140 C 440 120, 310 130, 210 190"
             fill="none"
-            stroke="#0a101d"
+            stroke={isDarkMode ? '#0a101d' : '#1e293b'}
             strokeWidth="17"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -792,10 +815,10 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 520 140 C 440 120, 310 130, 210 190"
             fill="none"
-            stroke="rgba(245, 158, 11, 0.55)"
+            stroke={isDarkMode ? 'rgba(245, 158, 11, 0.65)' : 'rgba(245, 158, 11, 0.85)'}
             strokeWidth="3"
             strokeDasharray="6 8"
-            filter="url(#routeGlow)"
+            filter="url(#routeGlowFilter)"
           />
 
           {/* Route 5: Gotera Flyover -> Bole Cargo Bypass (Orange Ranger Route) */}
@@ -803,7 +826,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             id="route-gotera-bole"
             d="M 500 340 C 420 380, 300 420, 180 440"
             fill="none"
-            stroke="#1e293b"
+            stroke={isDarkMode ? '#1e293b' : '#334155'}
             strokeWidth="20"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -811,7 +834,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 500 340 C 420 380, 300 420, 180 440"
             fill="none"
-            stroke="#0a101d"
+            stroke={isDarkMode ? '#0a101d' : '#1e293b'}
             strokeWidth="15"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -819,10 +842,10 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 500 340 C 420 380, 300 420, 180 440"
             fill="none"
-            stroke="rgba(234, 88, 12, 0.55)"
+            stroke="rgba(234, 88, 12, 0.75)"
             strokeWidth="3"
             strokeDasharray="6 8"
-            filter="url(#routeGlow)"
+            filter="url(#routeGlowFilter)"
           />
 
           {/* Route 6: Sarbet -> North Kazanchis Spur (Emerald D-Max Route) */}
@@ -830,7 +853,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
             id="route-sarbet-kazanchis"
             d="M 210 190 C 280 150, 420 170, 520 140"
             fill="none"
-            stroke="#1e293b"
+            stroke={isDarkMode ? '#1e293b' : '#334155'}
             strokeWidth="18"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -838,7 +861,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 210 190 C 280 150, 420 170, 520 140"
             fill="none"
-            stroke="#0a101d"
+            stroke={isDarkMode ? '#0a101d' : '#1e293b'}
             strokeWidth="13"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -846,54 +869,49 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           <path
             d="M 210 190 C 280 150, 420 170, 520 140"
             fill="none"
-            stroke="rgba(16, 185, 129, 0.55)"
+            stroke="rgba(16, 185, 129, 0.75)"
             strokeWidth="2.5"
             strokeDasharray="5 7"
-            filter="url(#routeGlow)"
+            filter="url(#routeGlowFilter)"
           />
 
           {/* ========================================================= */}
-          {/* LOGISTICS HUBS & STATIONS (PULSING RADAR BEACONS)         */}
+          {/* LOGISTICS HUBS & STATIONS                                 */}
           {/* ========================================================= */}
           {HUBS.map((hub) => (
             <g key={hub.id} transform={`translate(${hub.x}, ${hub.y})`}>
-              {/* Radar wave pulse expansion */}
               <circle r="22" fill="none" stroke={hub.color} strokeWidth="1.5" strokeOpacity="0.4">
                 <animate attributeName="r" values="10;32;42" dur="3s" repeatCount="indefinite" />
                 <animate attributeName="stroke-opacity" values="0.8;0.2;0" dur="3s" repeatCount="indefinite" />
               </circle>
-              {/* Outer glowing halo ring */}
               <circle r="13" fill={hub.color} fillOpacity="0.25" stroke={hub.color} strokeWidth="1.5" />
-              {/* Core jewel */}
               <circle r="6" fill="#ffffff" stroke={hub.color} strokeWidth="2.5" />
 
-              {/* Hub Identification Callout */}
-              {showHubTags && (
-                <g>
-                  <rect
-                    x="-42"
-                    y="-30"
-                    width="84"
-                    height="18"
-                    rx="5"
-                    fill="rgba(15, 23, 42, 0.95)"
-                    stroke={hub.color}
-                    strokeWidth="1"
-                  />
-                  <text
-                    x="0"
-                    y="-18"
-                    textAnchor="middle"
-                    fill="#ffffff"
-                    fontSize="9"
-                    fontWeight="900"
-                    letterSpacing="0.8"
-                    fontFamily="monospace"
-                  >
-                    {hub.code}
-                  </text>
-                </g>
-              )}
+              <g>
+                <rect
+                  x="-42"
+                  y="-30"
+                  width="84"
+                  height="18"
+                  rx="5"
+                  fill={isDarkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)'}
+                  stroke={hub.color}
+                  strokeWidth="1"
+                  filter={isDarkMode ? undefined : 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'}
+                />
+                <text
+                  x="0"
+                  y="-18"
+                  textAnchor="middle"
+                  fill={isDarkMode ? '#ffffff' : '#0f172a'}
+                  fontSize="9"
+                  fontWeight="900"
+                  letterSpacing="0.8"
+                  fontFamily="monospace"
+                >
+                  {hub.code}
+                </text>
+              </g>
             </g>
           ))}
 
@@ -913,47 +931,39 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
                 onClick={() => setSelectedVehicleId(v.id)}
                 className="cursor-pointer transition-transform duration-75 group"
               >
-                {/* 1. DYNAMIC FORWARD PATH LIGHT BEAMS (HEADLIGHT ILLUMINATION) */}
+                {/* 1. DYNAMIC FORWARD PATH LIGHT BEAMS */}
                 {headlightMode !== 'off' && (
                   <g pointerEvents="none">
-                    {/* Road Surface Illuminated Ground Light Pool (Where beam strikes asphalt) */}
                     <ellipse
                       cx={v.length / 2 + beamDist * 0.65}
                       cy="0"
                       rx={beamDist * 0.45}
                       ry={28}
-                      fill="url(#asphaltGroundLightGrad)"
+                      fill="url(#asphaltIllumPool)"
                     />
-
-                    {/* Wide Volumetric Headlight Cones projecting forward */}
                     <polygon
                       points={`${v.length / 2 - 2}, -5  ${v.length / 2 + beamDist}, -36  ${v.length / 2 + beamDist}, 36  ${v.length / 2 - 2}, 5`}
-                      fill="url(#headlightBeamGrad)"
+                      fill="url(#headlightBeamCone)"
                     />
-
-                    {/* High-Intensity Inner Focus Beam */}
                     <polygon
                       points={`${v.length / 2}, -2  ${v.length / 2 + beamDist * 1.15}, -14  ${v.length / 2 + beamDist * 1.15}, 14  ${v.length / 2}, 2`}
-                      fill="url(#headlightBeamGrad)"
+                      fill="url(#headlightBeamCone)"
                       opacity={headlightMode === 'high' ? '0.8' : '0.4'}
                     />
-
-                    {/* High-Intensity Dual LED Bulbs on front bumper */}
-                    <circle cx={v.length / 2} cy="-4" r="2.5" fill="#ffffff" filter="url(#routeGlow)" />
-                    <circle cx={v.length / 2} cy="4" r="2.5" fill="#ffffff" filter="url(#routeGlow)" />
+                    <circle cx={v.length / 2} cy="-4" r="2.5" fill="#ffffff" filter="url(#routeGlowFilter)" />
+                    <circle cx={v.length / 2} cy="4" r="2.5" fill="#ffffff" filter="url(#routeGlowFilter)" />
                   </g>
                 )}
 
-                {/* 2. DYNAMIC RED TAILLIGHT AFTERGLOW (Velocity streak) */}
+                {/* 2. DYNAMIC RED TAILLIGHT AFTERGLOW */}
                 <g pointerEvents="none">
                   <polygon
                     points={`${-v.length / 2}, -6  ${-v.length / 2 - 40}, -15  ${-v.length / 2 - 40}, 15  ${-v.length / 2}, 6`}
-                    fill="url(#taillightTrailGrad)"
+                    fill="url(#taillightStreakGrad)"
                     opacity="0.8"
                   />
-                  {/* Glowing Red Tail Bulbs */}
-                  <circle cx={-v.length / 2} cy="-4.5" r="2.2" fill="#ef4444" filter="url(#routeGlow)" />
-                  <circle cx={-v.length / 2} cy="4.5" r="2.2" fill="#ef4444" filter="url(#routeGlow)" />
+                  <circle cx={-v.length / 2} cy="-4.5" r="2.2" fill="#ef4444" filter="url(#routeGlowFilter)" />
+                  <circle cx={-v.length / 2} cy="4.5" r="2.2" fill="#ef4444" filter="url(#routeGlowFilter)" />
                 </g>
 
                 {/* 3. TARGETING RETICLE FOR SELECTED VEHICLE */}
@@ -976,7 +986,6 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
                       />
                     </circle>
                     <circle r={v.length * 1.2} fill="none" stroke={v.accentColor} strokeWidth="0.8" opacity="0.4" />
-                    {/* Crosshair marks */}
                     <line x1={-v.length * 1.3} y1="0" x2={-v.length * 1.1} y2="0" stroke={v.accentColor} strokeWidth="1.5" />
                     <line x1={v.length * 1.1} y1="0" x2={v.length * 1.3} y2="0" stroke={v.accentColor} strokeWidth="1.5" />
                     <line x1="0" y1={-v.length * 1.3} x2="0" y2={-v.length * 1.1} stroke={v.accentColor} strokeWidth="1.5" />
@@ -987,7 +996,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
                 {/* 4. HIGH-FIDELITY AUTOMOTIVE CHASSIS */}
                 {renderCarChassis(v, isSelected)}
 
-                {/* 5. CALLOUT HUD CHIP (FLOATING ABOVE CAR) */}
+                {/* 5. FLOATING HUD CHIP */}
                 <g transform="translate(0, -25) rotate(-90)">
                   <rect
                     x="-26"
@@ -995,15 +1004,16 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
                     width="52"
                     height="18"
                     rx="4"
-                    fill="rgba(15, 23, 42, 0.95)"
+                    fill={isDarkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)'}
                     stroke={v.accentColor}
                     strokeWidth={isSelected ? '1.5' : '1'}
+                    filter={isDarkMode ? undefined : 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'}
                   />
                   <text
                     x="0"
                     y="3"
                     textAnchor="middle"
-                    fill="#ffffff"
+                    fill={isDarkMode ? '#ffffff' : '#0f172a'}
                     fontSize="8.5"
                     fontWeight="800"
                     fontFamily="monospace"
@@ -1017,89 +1027,89 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
         </svg>
 
         {/* ========================================================= */}
-        {/* INTERACTIVE TELEMATICS HUD CARDS (FLOATING OVERLAYS)     */}
+        {/* 3. INTERACTIVE TELEMATICS HUD CARDS (THEME-AWARE)         */}
         {/* ========================================================= */}
 
         {/* Selected Vehicle Telematics Inspector Card (Bottom-Left) */}
-        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 max-w-[calc(100%-24px)] sm:max-w-sm w-full bg-slate-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-slate-700/80 shadow-2xl z-20">
-          <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
+        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 max-w-[calc(100%-24px)] sm:max-w-sm w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-2xl z-20 transition-colors">
+          <div className="flex items-start justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 pb-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-10 rounded-xl bg-slate-800/90 border border-slate-700 overflow-hidden flex items-center justify-center p-1 shrink-0">
+              <div className="w-12 h-10 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center p-1 shrink-0">
                 <img src={selectedVehicle.image} alt={selectedVehicle.name} className="w-full h-full object-contain" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h4 className="text-xs font-black text-white">{selectedVehicle.name}</h4>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">{selectedVehicle.name}</h4>
                   <span
                     className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold"
                     style={{
-                      backgroundColor: `${selectedVehicle.accentColor}25`,
+                      backgroundColor: `${selectedVehicle.accentColor}18`,
                       color: selectedVehicle.accentColor,
-                      border: `1px solid ${selectedVehicle.accentColor}50`,
+                      border: `1px solid ${selectedVehicle.accentColor}40`,
                     }}
                   >
                     {selectedVehicle.category}
                   </span>
                 </div>
-                <div className="text-[11px] font-mono text-slate-400 mt-0.5">{selectedVehicle.plate}</div>
+                <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">{selectedVehicle.plate}</div>
               </div>
             </div>
 
             <div className="flex flex-col items-end">
-              <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 {selectedVehicle.status}
               </span>
-              <span className="text-[10px] text-slate-400 font-mono mt-0.5">ETA: {selectedVehicle.etaMinutes}m</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">ETA: {selectedVehicle.etaMinutes}m</span>
             </div>
           </div>
 
           {/* Real-time Telemetry Metrics Grid */}
           <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-            <div className="p-2 rounded-xl bg-slate-800/80 border border-slate-700/60">
-              <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-center gap-1">
-                <Gauge className="w-3 h-3 text-brand-400" />
+            <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60">
+              <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
+                <Gauge className="w-3 h-3 text-brand-600 dark:text-brand-400" />
                 Live Speed
               </div>
-              <div className="text-sm font-black text-white font-mono mt-0.5">
+              <div className="text-sm font-black text-slate-900 dark:text-white font-mono mt-0.5">
                 {selectedPos?.currentSpeed || selectedVehicle.speed}{' '}
-                <span className="text-[9px] font-normal text-slate-400">km/h</span>
+                <span className="text-[9px] font-normal text-slate-500 dark:text-slate-400">km/h</span>
               </div>
             </div>
 
-            <div className="p-2 rounded-xl bg-slate-800/80 border border-slate-700/60">
-              <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-center gap-1">
-                <Fuel className="w-3 h-3 text-emerald-400" />
+            <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60">
+              <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
+                <Fuel className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                 Fuel Level
               </div>
-              <div className="text-sm font-black text-emerald-400 font-mono mt-0.5">
+              <div className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">
                 {selectedVehicle.fuel}%
               </div>
             </div>
 
-            <div className="p-2 rounded-xl bg-slate-800/80 border border-slate-700/60">
-              <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center justify-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-sky-400" />
+            <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60">
+              <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-sky-600 dark:text-sky-400" />
                 L2 Radar
               </div>
-              <div className="text-xs font-bold text-sky-400 font-mono mt-1">LOCKED</div>
+              <div className="text-xs font-bold text-sky-600 dark:text-sky-400 font-mono mt-1">LOCKED</div>
             </div>
           </div>
 
           {/* Mission & Route Ticker */}
-          <div className="mt-3 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs space-y-1">
+          <div className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200/80 dark:border-slate-800 text-xs space-y-1">
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">Driver:</span>
-              <span className="font-semibold text-slate-200 truncate max-w-[190px]">{selectedVehicle.driver}</span>
+              <span className="text-slate-500 dark:text-slate-400">Driver:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[190px]">{selectedVehicle.driver}</span>
             </div>
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">Route Corridor:</span>
-              <span className="font-semibold text-emerald-400 truncate max-w-[190px]">{selectedVehicle.mission}</span>
+              <span className="text-slate-500 dark:text-slate-400">Route Corridor:</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400 truncate max-w-[190px]">{selectedVehicle.mission}</span>
             </div>
           </div>
 
           {/* Quick Vehicle Selector Chips */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 mt-3 pt-2 border-t border-slate-800/80">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 mt-3 pt-2 border-t border-slate-200/80 dark:border-slate-800/80">
             {VEHICLES.map((v) => (
               <button
                 key={v.id}
@@ -1108,7 +1118,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
                 className={`py-1 px-1 rounded-md text-[9px] font-mono font-bold truncate transition-all text-center ${
                   selectedVehicleId === v.id
                     ? 'bg-brand-600 text-white shadow-sm'
-                    : 'bg-slate-800/70 text-slate-400 hover:text-white hover:bg-slate-800'
+                    : 'bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800'
                 }`}
                 title={`${v.name} (${v.plate})`}
               >
@@ -1119,51 +1129,51 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
         </div>
 
         {/* Top-Right Mission Radar & Telemetry Stats Card */}
-        <div className="absolute top-4 right-4 bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/80 shadow-xl hidden sm:block max-w-xs z-20">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300 border-b border-slate-800 pb-2">
+        <div className="absolute top-4 right-4 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xl hidden sm:block max-w-xs z-20 transition-colors">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-300 border-b border-slate-200/80 dark:border-slate-800 pb-2">
             <div className="flex items-center gap-1.5">
-              <Compass className="w-4 h-4 text-brand-400 animate-spin-slow" />
+              <Compass className="w-4 h-4 text-brand-600 dark:text-brand-400 animate-spin-slow" />
               <span>Real-Time Fleet Grid</span>
             </div>
-            <span className="text-[10px] font-mono text-emerald-400">0 Overlaps</span>
+            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">0 Overlaps</span>
           </div>
 
           <div className="mt-2.5 space-y-2 text-xs">
-            <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
               <span>Active Vehicles in Motion:</span>
-              <span className="font-bold text-white font-mono">6 / 6 Dispatched</span>
+              <span className="font-bold text-slate-900 dark:text-white font-mono">6 / 6 Dispatched</span>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
               <span>Path Light Illumination:</span>
-              <span className="font-bold text-emerald-400 font-mono">Dual Projector LED</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">Dual Projector LED</span>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
               <span>Addis Ababa Telemetry:</span>
-              <span className="font-bold text-white font-mono">9°01'N 38°47'E</span>
+              <span className="font-bold text-slate-900 dark:text-white font-mono">9°01'N 38°47'E</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* ========================================================= */}
-      {/* BOTTOM QUICK METRIC PILLS                                */}
+      {/* 4. OPEN INTEGRATED TELEMETRY STATS (UNBOXED STRIP)        */}
       {/* ========================================================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-800 bg-slate-900/90 text-white border-t border-slate-800">
-        <div className="p-4 text-center">
-          <div className="text-2xl font-black text-brand-400 font-mono">6</div>
-          <div className="text-xs text-slate-400 mt-0.5">Corporate Vehicles in Motion</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto mt-4 px-2">
+        <div className="p-3.5 rounded-2xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-center shadow-sm">
+          <div className="text-xl font-black text-brand-600 dark:text-brand-400 font-mono">6 Units</div>
+          <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Corporate Vehicles in Motion</div>
         </div>
-        <div className="p-4 text-center">
-          <div className="text-2xl font-black text-emerald-400 font-mono">100%</div>
-          <div className="text-xs text-slate-400 mt-0.5">Conflict Prevention Engine</div>
+        <div className="p-3.5 rounded-2xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-center shadow-sm">
+          <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">100%</div>
+          <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Conflict Prevention Engine</div>
         </div>
-        <div className="p-4 text-center">
-          <div className="text-2xl font-black text-amber-400 font-mono">3-Step</div>
-          <div className="text-xs text-slate-400 mt-0.5">Guided Request Workflow</div>
+        <div className="p-3.5 rounded-2xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-center shadow-sm">
+          <div className="text-xl font-black text-amber-600 dark:text-amber-400 font-mono">3-Step</div>
+          <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Guided Request Workflow</div>
         </div>
-        <div className="p-4 text-center">
-          <div className="text-2xl font-black text-indigo-400 font-mono">UTC+3</div>
-          <div className="text-xs text-slate-400 mt-0.5">Addis Ababa Operational Clock</div>
+        <div className="p-3.5 rounded-2xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-center shadow-sm">
+          <div className="text-xl font-black text-sky-600 dark:text-sky-400 font-mono">UTC+3</div>
+          <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Addis Ababa Clock</div>
         </div>
       </div>
     </div>

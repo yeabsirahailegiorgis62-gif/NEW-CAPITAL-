@@ -2,16 +2,80 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================================= */
+/* SEMANTIC COLOR DESIGN TOKENS (LIGHT & DARK MODES)         */
+/* ========================================================= */
+
 :root {
-  --color-primary: #dc2626;
-  --color-secondary: #16a34a;
-  --color-navy: #0f172a;
+  /* Core Brand Colors */
+  --color-primary: #dc2626;         /* Flagship Corporate Red */
+  --color-primary-hover: #b91c1c;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #16a34a;       /* Corporate Emerald Green */
+  --color-secondary-hover: #15803d;
+  --color-secondary-foreground: #ffffff;
+
+  /* Surfaces & Backgrounds (Light Mode) */
+  --color-background: #f8fafc;       /* Clean neutral off-white */
+  --color-foreground: #090d16;
   --color-surface: #ffffff;
-  --color-muted: #f8fafc;
+  --color-surface-secondary: #f1f5f9;
+  --color-surface-elevated: #ffffff;
+
+  /* Typography (Light Mode) - High contrast & readable */
+  --color-text-primary: #0f172a;     /* Deep slate primary text */
+  --color-text-secondary: #475569;   /* Readable medium slate */
+  --color-text-muted: #64748b;       /* Muted helper text */
+
+  /* Borders & Dividers (Light Mode) */
   --color-border: #e2e8f0;
+  --color-border-subtle: #f1f5f9;
+  --color-focus-ring: #dc2626;
+
+  /* Automotive Road Infrastructure (Light Mode) */
+  --color-road-asphalt: #1e293b;     /* Deep asphalt highway */
+  --color-road-asphalt-inner: #0f172a;
+  --color-road-shoulder: #94a3b8;
+  --color-road-dash: #f59e0b;        /* Crisp amber center dash */
+  --color-road-edge: #cbd5e1;
+
+  /* Status Tokens */
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-danger: #dc2626;
+  --color-info: #0284c7;
 }
 
-/* Strict Viewport & Horizontal Overflow Prevention */
+.dark {
+  /* Surfaces & Backgrounds (Dark Mode) */
+  --color-background: #030712;       /* Deep charcoal / near black */
+  --color-foreground: #f8fafc;
+  --color-surface: #0b1120;
+  --color-surface-secondary: #0f172a;
+  --color-surface-elevated: #111827;
+
+  /* Typography (Dark Mode) */
+  --color-text-primary: #f8fafc;     /* High-contrast crisp white */
+  --color-text-secondary: #94a3b8;   /* Muted readable secondary */
+  --color-text-muted: #64748b;
+
+  /* Borders & Dividers (Dark Mode) */
+  --color-border: #1e293b;
+  --color-border-subtle: #0f172a;
+  --color-focus-ring: #dc2626;
+
+  /* Automotive Road Infrastructure (Dark Mode) */
+  --color-road-asphalt: #090f1d;
+  --color-road-asphalt-inner: #050912;
+  --color-road-shoulder: #334155;
+  --color-road-dash: #38bdf8;        /* Neon cyan center glow */
+  --color-road-edge: #1e293b;
+}
+
+/* ========================================================= */
+/* STRICT VIEWPORT & RESPONSIVE RESET                        */
+/* ========================================================= */
+
 html,
 body {
   margin: 0;
@@ -24,8 +88,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
-  background-color: #030712;
-  color: #f8fafc;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 *,
@@ -45,69 +110,101 @@ body {
 
 /* Accessible focus ring */
 *:focus-visible {
-  outline: 2px solid #dc2626;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
-/* Custom Automotive Scrollbar */
+/* Custom Automotive Scrollbar (Theme-Aware) */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: var(--color-surface-secondary);
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #64748b;
   border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: #090d16;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #dc2626;
 }
 
-/* Badges and tags */
+/* ========================================================= */
+/* BADGES AND OPERATIONAL STATUS TAGS                        */
+/* ========================================================= */
+
 .badge-available {
   background-color: #f0fdf4;
   color: #166534;
   border: 1px solid #bbf7d0;
 }
+.dark .badge-available {
+  background-color: rgba(22, 163, 74, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(22, 163, 74, 0.4);
+}
+
 .badge-assigned {
   background-color: #fef2f2;
   color: #991b1b;
   border: 1px solid #fecaca;
 }
+.dark .badge-assigned {
+  background-color: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(220, 38, 38, 0.4);
+}
+
 .badge-pending {
   background-color: #fffbeb;
   color: #92400e;
   border: 1px solid #fde68a;
 }
+.dark .badge-pending {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
 .badge-unavailable {
   background-color: #fef2f2;
   color: #991b1b;
   border: 1px solid #fecaca;
 }
+.dark .badge-unavailable {
+  background-color: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(220, 38, 38, 0.4);
+}
+
 .badge-inactive {
   background-color: #f1f5f9;
   color: #475569;
   border: 1px solid #cbd5e1;
 }
+.dark .badge-inactive {
+  background-color: rgba(100, 116, 139, 0.2);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.4);
+}
 
-/* ── Automotive Highway & Perspective Animations ── */
+/* ========================================================= */
+/* AUTOMOTIVE HIGHWAY & PERSPECTIVE ANIMATIONS               */
+/* ========================================================= */
+
 @keyframes roadDashInfinite {
   0% {
     stroke-dashoffset: 0;
   }
   100% {
     stroke-dashoffset: -80;
-  }
-}
-
-@keyframes roadPerspectiveMove {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 0 60px;
   }
 }
 
@@ -164,15 +261,6 @@ body {
 }
 
 @keyframes radarSweep {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes wheelSpin {
   0% {
     transform: rotate(0deg);
   }
