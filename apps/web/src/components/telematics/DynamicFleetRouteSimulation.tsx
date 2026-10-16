@@ -1021,7 +1021,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
         {/* ========================================================= */}
 
         {/* Selected Vehicle Telematics Inspector Card (Bottom-Left) */}
-        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 max-w-xs sm:max-w-sm w-full bg-slate-900/95 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-700/80 shadow-2xl z-20">
+        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 max-w-[calc(100%-24px)] sm:max-w-sm w-full bg-slate-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-slate-700/80 shadow-2xl z-20">
           <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
             <div className="flex items-center gap-3">
               <div className="w-12 h-10 rounded-xl bg-slate-800/90 border border-slate-700 overflow-hidden flex items-center justify-center p-1 shrink-0">
@@ -1099,7 +1099,7 @@ export const DynamicFleetRouteSimulation: React.FC = () => {
           </div>
 
           {/* Quick Vehicle Selector Chips */}
-          <div className="grid grid-cols-6 gap-1 mt-3 pt-2 border-t border-slate-800/80">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 mt-3 pt-2 border-t border-slate-800/80">
             {VEHICLES.map((v) => (
               <button
                 key={v.id}

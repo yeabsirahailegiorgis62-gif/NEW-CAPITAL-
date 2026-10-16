@@ -11,19 +11,58 @@
   --color-border: #e2e8f0;
 }
 
+/* Strict Viewport & Horizontal Overflow Prevention */
+html,
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f8fafc;
-  color: #0f172a;
+  scroll-behavior: smooth;
+  background-color: #030712;
+  color: #f8fafc;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Accessible focus ring */
 *:focus-visible {
   outline: 2px solid #dc2626;
   outline-offset: 2px;
+}
+
+/* Custom Automotive Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #dc2626;
 }
 
 /* Badges and tags */
@@ -51,4 +90,133 @@ body {
   background-color: #f1f5f9;
   color: #475569;
   border: 1px solid #cbd5e1;
+}
+
+/* ── Automotive Highway & Perspective Animations ── */
+@keyframes roadDashInfinite {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -80;
+  }
+}
+
+@keyframes roadPerspectiveMove {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 60px;
+  }
+}
+
+@keyframes carSuspensionSway {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-1.5px) rotate(0.3deg);
+  }
+  75% {
+    transform: translateY(1.5px) rotate(-0.3deg);
+  }
+}
+
+@keyframes carSpeedShake {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-0.8px, 0.6px);
+  }
+  40% {
+    transform: translate(0.6px, -0.6px);
+  }
+  60% {
+    transform: translate(-0.4px, -0.4px);
+  }
+  80% {
+    transform: translate(0.8px, 0.4px);
+  }
+}
+
+@keyframes headlightPulse {
+  0%, 100% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.8));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 28px rgba(56, 189, 248, 1));
+  }
+}
+
+@keyframes taillightStreak {
+  0%, 100% {
+    opacity: 0.75;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scaleX(1.15);
+  }
+}
+
+@keyframes radarSweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes wheelSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.anim-road-dash {
+  animation: roadDashInfinite 1.4s linear infinite;
+}
+
+.anim-road-dash-fast {
+  animation: roadDashInfinite 0.6s linear infinite;
+}
+
+.anim-car-sway {
+  animation: carSuspensionSway 3s ease-in-out infinite;
+}
+
+.anim-car-shake {
+  animation: carSpeedShake 0.18s ease-in-out infinite;
+}
+
+.anim-headlight-pulse {
+  animation: headlightPulse 2.5s ease-in-out infinite;
+}
+
+.anim-taillight-streak {
+  animation: taillightStreak 1.8s ease-in-out infinite;
+}
+
+.anim-radar-sweep {
+  animation: radarSweep 4s linear infinite;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

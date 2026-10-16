@@ -187,7 +187,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
       <Navbar
         currentUser={currentUser}
         unreadCount={unreadCount}
@@ -197,7 +197,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         onOpenProfile={onOpenProfile}
       />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto min-w-0">
         <Sidebar
           currentUser={currentUser}
           activeTab={activeTab}

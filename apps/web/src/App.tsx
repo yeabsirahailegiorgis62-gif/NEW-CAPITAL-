@@ -19,10 +19,12 @@ import { MaintenanceView } from '@/features/maintenance/MaintenanceView';
 import { UsersManagementView } from '@/features/admin/UsersManagementView';
 import { AuditLogsView } from '@/features/admin/AuditLogsView';
 import { ProfileModal } from '@/components/layout/ProfileModal';
+import { AutomotiveLoadingScreen } from '@/components/loading/AutomotiveLoadingScreen';
 
 export function App() {
   const toast = useToast();
 
+  const [isAppLoading, setIsAppLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'landing' | 'login' | 'workspace'>('landing');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -166,6 +168,10 @@ export function App() {
       toast.error('Cancel failed', err.message);
     }
   };
+
+  if (isAppLoading) {
+    return <AutomotiveLoadingScreen onFinish={() => setIsAppLoading(false)} minDuration={1800} />;
+  }
 
   if (currentView === 'landing') {
     return <LandingPage onSignInClick={() => setCurrentView('login')} />;
