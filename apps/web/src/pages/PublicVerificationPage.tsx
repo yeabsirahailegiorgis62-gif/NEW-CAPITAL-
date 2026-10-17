@@ -209,13 +209,17 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
       <header className="no-print border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center text-white font-black text-sm shadow-md">
-              CF
+            <div className="w-10 h-10 rounded-xl bg-white p-1 border border-slate-700 shadow-md flex items-center justify-center shrink-0">
+              <img
+                src="/assets/capital-emblem.png"
+                alt="Capital Real Estate & Apartment"
+                className="w-8 h-8 object-contain"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-sm sm:text-base text-white tracking-tight">
-                  Capital Real Estate
+                  Capital Real Estate & Apartment
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-brand-500/20 text-brand-300 border border-brand-500/30">
                   <ShieldCheck className="w-3 h-3 text-brand-400" />
@@ -355,13 +359,17 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
             {/* Corporate Letterhead & Document Meta */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b-2 border-slate-900">
               <div className="space-y-1">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-brand-700 text-white flex items-center justify-center font-black text-sm tracking-wider shadow-sm">
-                    CF
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0">
+                    <img
+                      src="/assets/capital-emblem.png"
+                      alt="Capital Real Estate & Apartment"
+                      className="w-10 h-10 object-contain"
+                    />
                   </div>
                   <div>
                     <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-950 uppercase leading-none">
-                      Capital Real Estate
+                      Capital Real Estate & Apartment
                     </h1>
                     <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5">
                       Fleet Logistics & Security Clearance Pass
@@ -518,11 +526,22 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
                   <div className="absolute bottom-1 right-1 w-3 h-3 border-b-2 border-r-2 border-brand-600 rounded-br-sm pointer-events-none" />
 
                   {qrDataUrl ? (
-                    <img
-                      src={qrDataUrl}
-                      alt={`QR code for ${result.bookingReference}`}
-                      className="w-32 h-32 sm:w-36 sm:h-36 object-contain"
-                    />
+                    <div className="relative">
+                      <img
+                        src={qrDataUrl}
+                        alt={`QR code for ${result.bookingReference}`}
+                        className="w-32 h-32 sm:w-36 sm:h-36 object-contain"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-8 h-8 rounded-full bg-white p-1 shadow-md border border-slate-300 flex items-center justify-center">
+                          <img
+                            src="/assets/capital-emblem.png"
+                            alt="Capital"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="w-32 h-32 flex items-center justify-center text-slate-300">
                       <QrCode className="w-12 h-12 animate-pulse" />

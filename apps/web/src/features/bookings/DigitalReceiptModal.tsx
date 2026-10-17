@@ -147,15 +147,19 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
         {/* Modal Top Bar (Screen only) */}
         <div className="no-print flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-md">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-brand-50 dark:bg-brand-950/60 flex items-center justify-center text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800">
-              <QrCode className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs shrink-0">
+              <img
+                src="/assets/capital-emblem.png"
+                alt="Capital Logo"
+                className="w-6 h-6 object-contain"
+              />
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Digital Booking Receipt
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Official verified corporate dispatch credential
+                Official Capital Real Estate & Apartment Dispatch Credential
               </p>
             </div>
           </div>
@@ -213,13 +217,17 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
             {/* Letterhead Header */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b-2 border-slate-900">
               <div className="space-y-1">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-brand-700 text-white flex items-center justify-center font-black text-sm tracking-wider shadow-sm">
-                    CF
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0">
+                    <img
+                      src="/assets/capital-emblem.png"
+                      alt="Capital Real Estate & Apartment"
+                      className="w-10 h-10 object-contain"
+                    />
                   </div>
                   <div>
                     <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-950 uppercase leading-none">
-                      Capital Real Estate
+                      Capital Real Estate & Apartment
                     </h1>
                     <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5">
                       Logistics & Fleet Operations Department
@@ -409,11 +417,22 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                   <div className="absolute bottom-1 right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-brand-600 rounded-br-sm pointer-events-none" />
 
                   {qrDataUrl ? (
-                    <img
-                      src={qrDataUrl}
-                      alt={`QR code for ${booking.bookingReference}`}
-                      className="w-32 h-32 sm:w-36 sm:h-36 object-contain"
-                    />
+                    <div className="relative">
+                      <img
+                        src={qrDataUrl}
+                        alt={`QR code for ${booking.bookingReference}`}
+                        className="w-32 h-32 sm:w-36 sm:h-36 object-contain"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-8 h-8 rounded-full bg-white p-1 shadow-md border border-slate-300 flex items-center justify-center">
+                          <img
+                            src="/assets/capital-emblem.png"
+                            alt="Capital"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="w-32 h-32 flex items-center justify-center text-slate-300">
                       <QrCode className="w-12 h-12 animate-pulse" />

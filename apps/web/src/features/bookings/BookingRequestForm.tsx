@@ -211,12 +211,16 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
           {/* Ticket Header Letterhead */}
           <div className="p-6 sm:p-7 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-brand-700 text-white flex items-center justify-center font-black text-sm tracking-wider shadow-sm">
-                CF
+              <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 flex items-center justify-center shadow-xs shrink-0">
+                <img
+                  src="/assets/capital-emblem.png"
+                  alt="Capital Real Estate & Apartment"
+                  className="w-10 h-10 object-contain"
+                />
               </div>
               <div>
                 <h3 className="text-base font-black tracking-tight text-slate-950 dark:text-white uppercase leading-none">
-                  Capital Real Estate
+                  Capital Real Estate & Apartment
                 </h3>
                 <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mt-1">
                   Logistics & Fleet Operations • Requisition Ticket
@@ -336,11 +340,22 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                 <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-brand-600 rounded-br-sm pointer-events-none" />
 
                 {ticketQrData ? (
-                  <img
-                    src={ticketQrData}
-                    alt={`QR code for ${submittedBooking.bookingReference}`}
-                    className="w-32 h-32 sm:w-36 sm:h-36 object-contain"
-                  />
+                  <div className="relative">
+                    <img
+                      src={ticketQrData}
+                      alt={`QR code for ${submittedBooking.bookingReference}`}
+                      className="w-32 h-32 sm:w-36 sm:h-36 object-contain"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-8 h-8 rounded-full bg-white p-1 shadow-md border border-slate-300 flex items-center justify-center">
+                        <img
+                          src="/assets/capital-emblem.png"
+                          alt="Capital"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="w-32 h-32 flex items-center justify-center text-slate-300">
                     <QrCode className="w-12 h-12 animate-pulse" />

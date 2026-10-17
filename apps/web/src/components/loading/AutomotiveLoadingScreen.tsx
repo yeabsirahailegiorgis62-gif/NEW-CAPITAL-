@@ -89,14 +89,18 @@ export const AutomotiveLoadingScreen: React.FC<AutomotiveLoadingScreenProps> = (
       {/* Top Header Branding */}
       <div className="w-full max-w-5xl px-6 pt-8 z-20 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center font-black text-white text-base shadow-lg shadow-brand-500/30">
-            CF
+          <div className="w-10 h-10 rounded-xl bg-white p-1 shadow-lg shadow-brand-500/30 flex items-center justify-center shrink-0">
+            <img
+              src="/assets/capital-emblem.png"
+              alt="Capital Real Estate & Apartment"
+              className="w-8 h-8 object-contain"
+            />
           </div>
           <div>
-            <div className="text-sm font-black tracking-wider text-white">CAPITAL FLEET</div>
+            <div className="text-sm font-black tracking-wider text-white">CAPITAL REAL ESTATE</div>
             <div className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              SYSTEM BOOT SEQUENCE
+              FLEET TELEMATICS & LOGISTICS
             </div>
           </div>
         </div>

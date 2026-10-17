@@ -245,8 +245,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </button>
                       </div>
 
+                      {/* Corporate Identity Footer */}
+                      <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <img
+                            src="/assets/capital-emblem.png"
+                            alt="Capital Real Estate & Apartment"
+                            className="w-4 h-4 object-contain"
+                          />
+                          <span>Capital Real Estate & Apartment</span>
+                        </div>
+                        <span className="font-mono text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
+                          FLEET
+                        </span>
+                      </div>
+
                       {/* Logout Section */}
-                      <div className="pt-1.5 mt-1 border-t border-slate-100 dark:border-slate-800 p-1.5">
+                      <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 p-1.5">
                         <button
                           type="button"
                           onClick={() => {

@@ -80,6 +80,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
+        {/* Official Capital Real Estate & Apartment Brand Plaque */}
+        <div className="p-3 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xl shadow-slate-900/5 mb-3 flex items-center justify-center transition-transform hover:scale-105 duration-200">
+          <img
+            src="/assets/capital-logo.png"
+            alt="Capital Real Estate & Apartment"
+            className="w-24 h-24 object-contain"
+          />
+        </div>
+
         <BrandLogo size="lg" className="justify-center" />
 
         <h2 className="mt-4 text-center text-2xl font-black tracking-tight text-slate-900 dark:text-white">
