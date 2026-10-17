@@ -54,10 +54,10 @@
   --color-surface-secondary: #0f172a;
   --color-surface-elevated: #111827;
 
-  /* Typography (Dark Mode) */
+  /* Typography (Dark Mode) - High-contrast & vivid legibility */
   --color-text-primary: #f8fafc;     /* High-contrast crisp white */
-  --color-text-secondary: #94a3b8;   /* Muted readable secondary */
-  --color-text-muted: #64748b;
+  --color-text-secondary: #cbd5e1;   /* Slate 300: crisp, readable secondary text */
+  --color-text-muted: #94a3b8;       /* Slate 400: clear helper/metadata text */
 
   /* Borders & Dividers (Dark Mode) */
   --color-border: #1e293b;
@@ -70,6 +70,33 @@
   --color-road-shoulder: #334155;
   --color-road-dash: #38bdf8;        /* Neon cyan center glow */
   --color-road-edge: #1e293b;
+}
+
+/* ========================================================= */
+/* FLUID PAGE & TAB NAVIGATION ANIMATIONS                    */
+/* ========================================================= */
+
+@keyframes pageFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+/* Smooth dark/light mode transitions */
+.dark input,
+.dark select,
+.dark textarea {
+  color-scheme: dark;
 }
 
 /* ========================================================= */

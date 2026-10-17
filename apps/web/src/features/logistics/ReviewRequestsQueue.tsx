@@ -15,26 +15,35 @@ import {
   User as UserIcon,
   MapPin,
   AlertCircle,
+  RotateCw,
+  QrCode,
 } from 'lucide-react';
 
 interface ReviewRequestsQueueProps {
   currentUser: User;
+  bookings?: Booking[];
+  onRefreshQueue?: () => Promise<void>;
   onSelectBooking: (booking: Booking) => void;
   onAssignVehicle: (booking: Booking) => void;
-  onApprove: (id: string) => void;
-  onReject: (id: string, reason: string) => void;
+  onApprove: (id: string) => Promise<void> | void;
+  onReject: (id: string, reason: string) => Promise<void> | void;
+  onOpenReceipt?: (booking: Booking) => void;
 }
 
 export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
   currentUser,
+  bookings: propBookings,
+  onRefreshQueue,
   onSelectBooking,
   onAssignVehicle,
   onApprove,
   onReject,
+  onOpenReceipt,
 }) => {
   const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [bookings, setBookings] = useState<Booking[]>(propBookings || []);
+  const [isLoading, setIsLoading] = useState(!propBookings);
+  const [isProcessingId, setIsProcessingId] = useState<string | null>(null);
 
   const [rejectingBooking, setRejectingBooking] = useState<Booking | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -52,18 +61,72 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
   };
 
   useEffect(() => {
-    fetchQueue();
-  }, []);
+    if (propBookings) {
+      setBookings(propBookings);
+      setIsLoading(false);
+    } else {
+      fetchQueue();
+    }
+  }, [propBookings]);
 
   const pendingRequests = bookings.filter((b) => b.status === 'PENDING_APPROVAL');
   const approvedAwaiting = bookings.filter((b) => b.status === 'APPROVED');
   const displayedList = activeTab === 'pending' ? pendingRequests : approvedAwaiting;
 
-  const handleConfirmReject = () => {
+  const handleApprove = async (id: string) => {
+    try {
+      setIsProcessingId(id);
+      // 1. Immediately update local state optimistically
+      setBookings((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: 'APPROVED' } : b))
+      );
+      // 2. Automatically switch to approved tab so admin sees it right away
+      setActiveTab('approved');
+      // 3. Trigger approval in backend
+      await onApprove(id);
+      // 4. Fully sync data
+      if (onRefreshQueue) {
+        await onRefreshQueue();
+      } else {
+        await fetchQueue();
+      }
+    } catch (err) {
+      console.error('Failed to approve booking', err);
+      if (onRefreshQueue) await onRefreshQueue();
+      else await fetchQueue();
+    } finally {
+      setIsProcessingId(null);
+    }
+  };
+
+  const handleConfirmReject = async () => {
     if (!rejectingBooking || !rejectReason.trim()) return;
-    onReject(rejectingBooking.id, rejectReason.trim());
-    setRejectingBooking(null);
-    setRejectReason('');
+    const targetId = rejectingBooking.id;
+    const reason = rejectReason.trim();
+
+    try {
+      setIsProcessingId(targetId);
+      // Optimistic update
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === targetId ? { ...b, status: 'REJECTED', rejectionReason: reason } : b
+        )
+      );
+      setRejectingBooking(null);
+      setRejectReason('');
+      await onReject(targetId, reason);
+      if (onRefreshQueue) {
+        await onRefreshQueue();
+      } else {
+        await fetchQueue();
+      }
+    } catch (err) {
+      console.error('Failed to reject booking', err);
+      if (onRefreshQueue) await onRefreshQueue();
+      else await fetchQueue();
+    } finally {
+      setIsProcessingId(null);
+    }
   };
 
   return (
@@ -75,6 +138,17 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
             Review incoming employee requests, approve operational priorities, and allocate vehicles.
           </p>
         </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => (onRefreshQueue ? onRefreshQueue() : fetchQueue())}
+          className="flex items-center gap-1.5"
+          disabled={isLoading}
+        >
+          <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          <span>Refresh Queue</span>
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -174,17 +248,31 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
                       <Button
                         variant="success"
                         size="sm"
-                        onClick={() => onApprove(b.id)}
+                        disabled={isProcessingId === b.id}
+                        onClick={() => handleApprove(b.id)}
                       >
-                        Approve
+                        {isProcessingId === b.id ? 'Approving...' : 'Approve'}
                       </Button>
                     </>
                   )}
 
                   {activeTab === 'approved' && (
-                    <Button variant="primary" size="sm" onClick={() => onAssignVehicle(b)}>
-                      Assign Vehicle
-                    </Button>
+                    <>
+                      {onOpenReceipt && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onOpenReceipt(b)}
+                          leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600" />}
+                          className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                        >
+                          Receipt
+                        </Button>
+                      )}
+                      <Button variant="primary" size="sm" onClick={() => onAssignVehicle(b)}>
+                        Assign Vehicle
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

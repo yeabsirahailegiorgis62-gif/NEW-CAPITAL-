@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Booking, Vehicle, InAppNotification } from '@/types';
+import { User, Booking, Vehicle, InAppNotification, BookingStatus } from '@/types';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { LandingPage } from '@/pages/LandingPage';
@@ -20,6 +20,8 @@ import { UsersManagementView } from '@/features/admin/UsersManagementView';
 import { AuditLogsView } from '@/features/admin/AuditLogsView';
 import { ProfileModal } from '@/components/layout/ProfileModal';
 import { AutomotiveLoadingScreen } from '@/components/loading/AutomotiveLoadingScreen';
+import { DigitalReceiptModal } from '@/features/bookings/DigitalReceiptModal';
+import { BookingVerificationModal } from '@/features/bookings/BookingVerificationModal';
 
 export function App() {
   const toast = useToast();
@@ -33,9 +35,22 @@ export function App() {
 
   // Modal states
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
+  const [selectedBookingForReceipt, setSelectedBookingForReceipt] = useState<Booking | null>(null);
+  const [verificationReference, setVerificationReference] = useState<string | null>(null);
   const [assigningBooking, setAssigningBooking] = useState<Booking | null>(null);
   const [tripModalBooking, setTripModalBooking] = useState<{ booking: Booking; mode: 'start' | 'complete' } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Check URL query parameters for QR code verification (?verify=CR-2026-XXXX or ?ref=...)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const verifyRef = params.get('verify') || params.get('ref');
+      if (verifyRef) {
+        setVerificationReference(verifyRef);
+      }
+    }
+  }, []);
 
   // Check authenticated session on load
   useEffect(() => {
@@ -138,23 +153,37 @@ export function App() {
   // Workflow Handlers
   const handleApproveBooking = async (id: string) => {
     try {
+      // Optimistic update so UI updates immediately
+      setBookings((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: 'APPROVED' as BookingStatus } : b))
+      );
       await api.approveBooking(id);
       setSelectedBookingForDetails(null);
-      toast.success('Booking approved', 'The employee will be notified.');
+      toast.success('Booking approved', 'Moved to Approved queue for vehicle allocation.');
       await refreshAllData();
     } catch (err: any) {
       toast.error('Approval failed', err.message);
+      await refreshAllData();
     }
   };
 
   const handleRejectBooking = async (id: string, reason: string) => {
     try {
+      // Optimistic update
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? { ...b, status: 'REJECTED' as BookingStatus, rejectionReason: reason }
+            : b
+        )
+      );
       await api.rejectBooking(id, reason);
       setSelectedBookingForDetails(null);
       toast.info('Booking rejected', 'The employee has been notified.');
       await refreshAllData();
     } catch (err: any) {
       toast.error('Rejection failed', err.message);
+      await refreshAllData();
     }
   };
 
@@ -169,20 +198,50 @@ export function App() {
     }
   };
 
+  const handleOpenReceipt = async (target: Booking | { id: string; bookingReference?: string }) => {
+    if ('bookingReference' in target && 'status' in target && target.bookingReference && target.status) {
+      setSelectedBookingForReceipt(target as Booking);
+    } else if (target.id) {
+      try {
+        const full = await api.getBooking(target.id);
+        setSelectedBookingForReceipt(full);
+      } catch (err) {
+        console.error('Failed to load booking for receipt', err);
+        toast.error('Receipt error', 'Could not retrieve full booking record.');
+      }
+    }
+  };
+
   if (isAppLoading) {
     return <AutomotiveLoadingScreen onFinish={() => setIsAppLoading(false)} minDuration={1800} />;
   }
 
   if (currentView === 'landing') {
-    return <LandingPage onSignInClick={() => setCurrentView('login')} />;
+    return (
+      <>
+        <LandingPage onSignInClick={() => setCurrentView('login')} />
+        <BookingVerificationModal
+          isOpen={verificationReference !== null}
+          onClose={() => setVerificationReference(null)}
+          initialReference={verificationReference}
+        />
+      </>
+    );
   }
 
   if (currentView === 'login') {
     return (
-      <LoginPage
-        onBackToLanding={() => setCurrentView('landing')}
-        onLoginSubmit={handleLogin}
-      />
+      <>
+        <LoginPage
+          onBackToLanding={() => setCurrentView('landing')}
+          onLoginSubmit={handleLogin}
+        />
+        <BookingVerificationModal
+          isOpen={verificationReference !== null}
+          onClose={() => setVerificationReference(null)}
+          initialReference={verificationReference}
+        />
+      </>
     );
   }
 
@@ -198,7 +257,21 @@ export function App() {
       notifications={notifications}
       onMarkNotificationRead={handleMarkNotificationRead}
       onOpenProfile={() => setIsProfileOpen(true)}
+      onOpenReceipt={handleOpenReceipt}
+      onOpenVerification={(ref) => setVerificationReference(ref || '')}
       onNotificationsRefresh={handleNotificationsRefresh}
+      onOpenBooking={async (target) => {
+        if ('bookingReference' in target) {
+          setSelectedBookingForDetails(target as Booking);
+        } else if (target.id) {
+          try {
+            const b = await api.getBooking(target.id);
+            setSelectedBookingForDetails(b);
+          } catch (err) {
+            console.error('Failed to load booking details', err);
+          }
+        }
+      }}
     >
       {/* Dynamic Tab Rendering */}
       {activeTab === 'dashboard' && (
@@ -208,6 +281,7 @@ export function App() {
               currentUser={currentUser!}
               onNewBookingClick={() => setActiveTab('new-booking')}
               onOpenBooking={(b) => setSelectedBookingForDetails(b)}
+              onOpenReceipt={handleOpenReceipt}
               onNavigateTab={setActiveTab}
             />
           ) : (
@@ -239,6 +313,7 @@ export function App() {
             bookings={bookings}
             currentUser={currentUser!}
             onSelectBooking={(b) => setSelectedBookingForDetails(b)}
+            onOpenReceipt={handleOpenReceipt}
             onRefresh={refreshAllData}
           />
         </div>
@@ -247,10 +322,13 @@ export function App() {
       {activeTab === 'requests-queue' && (
         <ReviewRequestsQueue
           currentUser={currentUser!}
+          bookings={bookings}
+          onRefreshQueue={refreshAllData}
           onSelectBooking={(b) => setSelectedBookingForDetails(b)}
           onAssignVehicle={(b) => setAssigningBooking(b)}
           onApprove={handleApproveBooking}
           onReject={handleRejectBooking}
+          onOpenReceipt={handleOpenReceipt}
         />
       )}
 
@@ -288,6 +366,7 @@ export function App() {
         currentUser={currentUser!}
         onApprove={handleApproveBooking}
         onReject={handleRejectBooking}
+        onOpenReceipt={handleOpenReceipt}
         onAssign={(b) => {
           setSelectedBookingForDetails(null);
           setAssigningBooking(b);
@@ -301,6 +380,21 @@ export function App() {
           setTripModalBooking({ booking: b, mode: 'complete' });
         }}
         onCancelBooking={handleCancelBooking}
+      />
+
+      {/* Digital Receipt Modal */}
+      <DigitalReceiptModal
+        isOpen={!!selectedBookingForReceipt}
+        onClose={() => setSelectedBookingForReceipt(null)}
+        booking={selectedBookingForReceipt}
+        onVerifyBooking={(ref) => setVerificationReference(ref)}
+      />
+
+      {/* QR Code Booking Verification Modal */}
+      <BookingVerificationModal
+        isOpen={verificationReference !== null}
+        onClose={() => setVerificationReference(null)}
+        initialReference={verificationReference}
       />
 
       {/* Assign Vehicle Modal */}

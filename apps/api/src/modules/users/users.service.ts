@@ -49,6 +49,10 @@ export class UsersService {
         passwordHash,
         role: dto.role,
         departmentId: dto.departmentId || null,
+        phone: dto.phone || null,
+        avatarUrl: dto.avatarUrl || null,
+        jobTitle: dto.jobTitle || null,
+        licenseNumber: dto.licenseNumber || null,
       },
       include: { department: true },
     });

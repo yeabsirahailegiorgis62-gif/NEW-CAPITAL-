@@ -111,18 +111,18 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
         )}
 
         {/* Booking trip summary reminder */}
-        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 text-xs flex flex-wrap items-center justify-between gap-3">
           <div>
-            <span className="text-slate-400 block">Requested By:</span>
-            <span className="font-semibold text-slate-800">{booking.requester?.name}</span>
+            <span className="text-slate-500 dark:text-slate-400 block">Requested By:</span>
+            <span className="font-semibold text-slate-800 dark:text-white">{booking.requester?.name}</span>
           </div>
           <div>
-            <span className="text-slate-400 block">Passengers:</span>
-            <span className="font-semibold text-slate-800">{booking.passengerCount} Persons</span>
+            <span className="text-slate-500 dark:text-slate-400 block">Passengers:</span>
+            <span className="font-semibold text-slate-800 dark:text-white">{booking.passengerCount} Persons</span>
           </div>
           <div>
-            <span className="text-slate-400 block">Driver Policy:</span>
-            <span className="font-semibold text-slate-800">
+            <span className="text-slate-500 dark:text-slate-400 block">Driver Policy:</span>
+            <span className="font-semibold text-slate-800 dark:text-white">
               {booking.requiresDriver ? 'Company Driver Requested' : 'Self-Driven'}
             </span>
           </div>
@@ -130,16 +130,16 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
 
         {/* Fleet Availability Selector */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-2">
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">
             Select Compatible Fleet Vehicle (Verified for this interval):
           </label>
 
           {isLoading ? (
-            <div className="py-8 text-center text-xs text-slate-400">
+            <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-500">
               Computing schedule availability...
             </div>
           ) : availableVehicles.length === 0 ? (
-            <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg">
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs rounded-lg">
               No vehicles found matching the capacity of {booking.passengerCount} passengers.
             </div>
           ) : (
@@ -155,10 +155,10 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                     onClick={() => isAvail && setSelectedVehicleId(v.id)}
                     className={`p-3 rounded-xl border text-xs flex items-center justify-between transition-all ${
                       !isAvail
-                        ? 'opacity-60 bg-slate-50 border-slate-200 cursor-not-allowed'
+                        ? 'opacity-60 bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 cursor-not-allowed'
                         : isSelected
-                        ? 'border-brand-600 bg-brand-50/50 ring-2 ring-brand-500/20 cursor-pointer'
-                        : 'border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
+                        ? 'border-brand-600 dark:border-brand-500 bg-brand-50/50 dark:bg-brand-950/40 ring-2 ring-brand-500/20 cursor-pointer'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -200,7 +200,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                     <div className="text-right shrink-0">
                       <Badge status={item.availabilityStatus} size="sm" />
                       {!isAvail && (
-                        <span className="text-[10px] text-red-600 block mt-1 max-w-[150px] truncate">
+                        <span className="text-[10px] text-red-600 dark:text-red-400 block mt-1 max-w-[150px] truncate">
                           {item.reason}
                         </span>
                       )}
@@ -213,8 +213,8 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
         </div>
 
         {/* Driver Coordination */}
-        <div className="border-t border-slate-100 pt-4 space-y-3">
-          <span className="block text-xs font-semibold text-slate-700">Driver Coordination:</span>
+        <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
+          <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200">Driver Coordination:</span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               id="driverName"
@@ -238,12 +238,12 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
 
         {/* Assignment Notes */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
             Logistics Assignment Instructions:
           </label>
           <textarea
             rows={2}
-            className="w-full text-xs p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500"
+            className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500"
             placeholder="e.g. Pick up vehicle keys and fuel card at Gate 1 office before 08:00 AM."
             value={assignmentNotes}
             onChange={(e) => setAssignmentNotes(e.target.value)}
@@ -252,7 +252,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
         </div>
 
         {/* Modal Buttons */}
-        <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+        <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
           <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
-import { Bell, LogOut, Menu, Moon, Sun, UserCheck, Clock, Settings, ChevronDown } from 'lucide-react';
+import { Bell, LogOut, Menu, Moon, Sun, UserCheck, Clock, Settings, ChevronDown, QrCode } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 
@@ -12,6 +12,7 @@ interface NavbarProps {
   onToggleMobileMenu?: () => void;
   onOpenNotifications?: () => void;
   onOpenProfile?: () => void;
+  onOpenVerification?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -21,6 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleMobileMenu,
   onOpenNotifications,
   onOpenProfile,
+  onOpenVerification,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -57,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10">
         <div className="flex justify-between items-center h-16">
           {/* Left Brand and Mobile Toggle */}
           <div className="flex items-center gap-3">
@@ -94,6 +96,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {currentUser ? (
               <>
+                {/* Verify Pass / QR Code Action */}
+                {onOpenVerification && (
+                  <button
+                    type="button"
+                    onClick={onOpenVerification}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 transition-colors border border-slate-200 dark:border-slate-700 shadow-2xs"
+                    title="Verify official vehicle booking QR code or reference"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <span className="hidden md:inline">Verify Pass</span>
+                  </button>
+                )}
+
                 {/* Notification Bell */}
                 <button
                   type="button"
@@ -194,6 +209,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <Settings className="w-4 h-4 text-brand-500" />
                           <span>Edit Profile & Credentials</span>
                         </button>
+
+                        {onOpenVerification && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              onOpenVerification();
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
+                          >
+                            <QrCode className="w-4 h-4 text-emerald-500" />
+                            <span>Verify QR Credential</span>
+                          </button>
+                        )}
 
                         <button
                           type="button"

@@ -249,7 +249,10 @@ export class BookingsService {
    * Logistics Review: Approve Request
    */
   async approve(id: string, actor: any) {
-    const booking = await this.prisma.booking.findUnique({ where: { id } });
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: { requester: true, preferredVehicle: true },
+    });
     if (!booking) throw new NotFoundException('Booking not found');
 
     if (booking.status !== BookingStatus.PENDING_APPROVAL) {
@@ -262,14 +265,16 @@ export class BookingsService {
       include: { requester: true },
     });
 
-    // Notify employee
+    const bookingDateStr = new Date(booking.departureAt).toLocaleDateString('en-GB');
+
+    // Notify employee with polished corporate notification format
     await this.prisma.notification.create({
       data: {
         recipientId: booking.requesterId,
         bookingId: id,
         type: 'BOOKING_APPROVED',
-        title: 'Booking Approved',
-        message: `Your booking ${booking.bookingReference} for ${booking.destination} has been approved. Logistics is allocating a vehicle.`,
+        title: 'Vehicle Booking Approved',
+        message: `Your vehicle booking has been approved.\n\nDestination: ${booking.destination}\nBooking Date: ${bookingDateStr}\nReference: ${booking.bookingReference}\nStatus: Approved by Logistics (Awaiting vehicle allocation)\n\nAction: View Digital Receipt`,
       },
     });
 
@@ -426,14 +431,15 @@ export class BookingsService {
         data: { status: BookingStatus.ASSIGNED },
       });
 
-      // 9. Notify employee
+      // 9. Notify employee with structured receipt details
+      const bookingDateStr = new Date(booking.departureAt).toLocaleDateString('en-GB');
       await tx.notification.create({
         data: {
           recipientId: booking.requesterId,
           bookingId,
           type: 'VEHICLE_ASSIGNED',
-          title: 'Vehicle Assigned for Your Trip',
-          message: `Booking ${booking.bookingReference} has been assigned ${vehicle.name} (${vehicle.registrationNumber})${dto.driverName ? ` with driver ${dto.driverName}` : ''}.`,
+          title: 'Vehicle Booking Approved & Assigned',
+          message: `Your vehicle booking has been approved.\n\nAssigned Vehicle: ${vehicle.make} ${vehicle.model} (${vehicle.name})\nRegistration: ${vehicle.registrationNumber}\nBooking Date: ${bookingDateStr}\nReference: ${booking.bookingReference}${dto.driverName ? `\nAssigned Driver: ${dto.driverName}` : ''}\n\nAction: View Digital Receipt`,
         },
       });
 
@@ -628,6 +634,123 @@ export class BookingsService {
       availableVehicles,
       tripsInProgress,
       vehiclesInMaintenance,
+    };
+  }
+
+  /**
+   * Public Secure QR Verification Service
+   * Validates booking reference against backend records and returns sanitized verification data.
+   */
+  async verifyBooking(reference: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { bookingReference: reference },
+      include: {
+        requester: {
+          select: {
+            id: true,
+            name: true,
+            employeeId: true,
+            department: { select: { name: true } },
+          },
+        },
+        assignments: {
+          where: { unassignedAt: null },
+          include: {
+            vehicle: {
+              select: {
+                id: true,
+                name: true,
+                make: true,
+                model: true,
+                registrationNumber: true,
+                category: true,
+              },
+            },
+            assignedBy: {
+              select: {
+                name: true,
+                role: true,
+              },
+            },
+          },
+          orderBy: { assignedAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    const now = new Date();
+
+    if (!booking) {
+      return {
+        isValid: false,
+        verificationStatus: 'INVALID',
+        message: `Booking reference "${reference}" does not match any corporate record.`,
+        bookingReference: reference,
+        verifiedAt: now.toISOString(),
+      };
+    }
+
+    const returnTime = new Date(booking.expectedReturnAt);
+    const activeAssignment = booking.assignments?.[0];
+
+    // Determine verification state
+    let verificationStatus: 'VALID' | 'EXPIRED' | 'CANCELLED' | 'REJECTED' | 'PENDING' | 'COMPLETED';
+    let isValid = false;
+
+    if (booking.status === BookingStatus.CANCELLED) {
+      verificationStatus = 'CANCELLED';
+      isValid = false;
+    } else if (booking.status === BookingStatus.REJECTED) {
+      verificationStatus = 'REJECTED';
+      isValid = false;
+    } else if (booking.status === BookingStatus.PENDING_APPROVAL) {
+      verificationStatus = 'PENDING';
+      isValid = false;
+    } else if (booking.status === BookingStatus.COMPLETED) {
+      verificationStatus = 'COMPLETED';
+      isValid = true;
+    } else if (now.getTime() > returnTime.getTime() + 12 * 60 * 60 * 1000) {
+      // Overdue beyond schedule threshold
+      verificationStatus = 'EXPIRED';
+      isValid = false;
+    } else {
+      // APPROVED, ASSIGNED, or IN_PROGRESS
+      verificationStatus = 'VALID';
+      isValid = true;
+    }
+
+    return {
+      isValid,
+      verificationStatus,
+      bookingReference: booking.bookingReference,
+      status: booking.status,
+      requester: {
+        name: booking.requester?.name || 'Authorized Staff',
+        employeeId: booking.requester?.employeeId || 'EMP-CRE',
+        department: booking.requester?.department?.name || 'Capital Real Estate',
+      },
+      trip: {
+        destination: booking.destination,
+        purpose: booking.purpose,
+        departureAt: booking.departureAt,
+        expectedReturnAt: booking.expectedReturnAt,
+        passengerCount: booking.passengerCount,
+        requiresDriver: booking.requiresDriver,
+      },
+      assignment: activeAssignment ? {
+        vehicleName: activeAssignment.vehicle.name,
+        make: activeAssignment.vehicle.make,
+        model: activeAssignment.vehicle.model,
+        registrationNumber: activeAssignment.vehicle.registrationNumber,
+        category: activeAssignment.vehicle.category,
+        driverName: activeAssignment.driverName || 'Self-Driven / None',
+        assignedBy: activeAssignment.assignedBy?.name || 'Logistics Operations',
+        assignedAt: activeAssignment.assignedAt,
+      } : null,
+      approvalDate: activeAssignment?.assignedAt || booking.updatedAt,
+      verifiedAt: now.toISOString(),
+      securityNotice: 'Verified against Capital Real Estate Enterprise Logistics System',
     };
   }
 }

@@ -107,8 +107,8 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Vehicle Issues & Workshop Maintenance</h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Vehicle Issues & Workshop Maintenance</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Track reported defects, manage maintenance downtime, and resolve vehicle readiness.
           </p>
         </div>
@@ -128,27 +128,27 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
 
       {/* Open Issues Section */}
       <div className="space-y-4">
-        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-500" />
           Active Issues Requiring Attention ({openIssues.length})
         </h3>
 
         {openIssues.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 text-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 text-center text-slate-400 dark:text-slate-500 text-sm">
             <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
             No open vehicle issues! All fleet units are in good working order.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {openIssues.map((issue) => (
-              <Card key={issue.id} className="border-amber-200/80 bg-white">
-                <CardHeader className="bg-amber-50/40 pb-3 border-amber-100">
+              <Card key={issue.id} className="border-amber-200/80 dark:border-amber-900/60 bg-white dark:bg-slate-900">
+                <CardHeader className="bg-amber-50/40 dark:bg-amber-950/30 pb-3 border-amber-100 dark:border-amber-900/40">
                   <div className="flex items-start justify-between w-full">
                     <div>
-                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">
+                      <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
                         {issue.severity} Severity
                       </span>
-                      <h4 className="font-bold text-slate-900 text-sm mt-0.5">
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm mt-0.5">
                         {issue.vehicle?.name} ({issue.vehicle?.registrationNumber})
                       </h4>
                     </div>
@@ -157,9 +157,9 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
                 </CardHeader>
 
                 <CardContent className="pt-3 space-y-3">
-                  <p className="text-xs text-slate-700 leading-relaxed">{issue.description}</p>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{issue.description}</p>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-100 pt-2">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
                     <span>Reported by: {issue.reportedBy?.name || 'Staff'}</span>
                     <span>{formatEthiopianDateTime(issue.reportedAt)}</span>
                   </div>
@@ -181,26 +181,26 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
       </div>
 
       {/* Resolved History Section */}
-      <div className="space-y-4 pt-4 border-t border-slate-200">
-        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+      <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           Resolved Issues History ({resolvedIssues.length})
         </h3>
 
-        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
           {resolvedIssues.map((issue) => (
             <div key={issue.id} className="p-4 text-xs space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-slate-900 dark:text-white">
                   {issue.vehicle?.name} ({issue.vehicle?.registrationNumber})
                 </span>
-                <span className="text-slate-400">
+                <span className="text-slate-500 dark:text-slate-400">
                   Resolved: {formatEthiopianDateTime(issue.resolvedAt)}
                 </span>
               </div>
-              <p className="text-slate-600">{issue.description}</p>
+              <p className="text-slate-600 dark:text-slate-300">{issue.description}</p>
               {issue.resolutionNotes && (
-                <p className="text-emerald-700 font-medium">
+                <p className="text-emerald-700 dark:text-emerald-400 font-medium">
                   Resolution Notes: {issue.resolutionNotes}
                 </p>
               )}
@@ -219,14 +219,14 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
       >
         <form onSubmit={handleReportSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Select Vehicle
             </label>
             <select
               required
               value={selectedVehicleId}
               onChange={(e) => setSelectedVehicleId(e.target.value)}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500"
             >
               <option value="">Select vehicle...</option>
               {vehicles.map((v) => (
@@ -238,11 +238,11 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Severity</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Severity</label>
             <select
               value={severity}
               onChange={(e) => setSeverity(e.target.value as any)}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500"
             >
               <option value="LOW">LOW (Cosmetic / Non-critical)</option>
               <option value="MEDIUM">MEDIUM (Requires service soon)</option>
@@ -252,7 +252,7 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Issue Description
             </label>
             <textarea
@@ -261,7 +261,7 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
               placeholder="Describe the vehicle issue in detail..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300"
+              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
@@ -271,13 +271,13 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
                 type="checkbox"
                 checked={setMaintenanceStatus}
                 onChange={(e) => setSetMaintenanceStatus(e.target.checked)}
-                className="w-4 h-4 mt-0.5 rounded text-brand-600 border-slate-300 focus:ring-brand-500"
+                className="w-4 h-4 mt-0.5 rounded text-brand-600 border-slate-300 dark:border-slate-700 focus:ring-brand-500"
               />
               <div>
-                <span className="text-xs font-semibold text-slate-900 block">
+                <span className="text-xs font-semibold text-slate-900 dark:text-white block">
                   Immediately Place Vehicle Under MAINTENANCE
                 </span>
-                <span className="text-[11px] text-slate-500 block">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
                   Blocks new bookings and identifies upcoming conflicting assignments.
                 </span>
               </div>
@@ -286,9 +286,9 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
 
           {/* Warning banner if affected bookings exist */}
           {affectedBookingsWarning.length > 0 && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs space-y-2 text-red-900">
+            <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-lg text-xs space-y-2 text-red-900 dark:text-red-200">
               <div className="flex items-center gap-2 font-bold">
-                <ShieldAlert className="w-4 h-4 text-red-600" />
+                <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400" />
                 Warning: Upcoming Bookings Impacted!
               </div>
               <p className="text-[11px]">
@@ -314,7 +314,7 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
           )}
 
           {affectedBookingsWarning.length === 0 && (
-            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
               <Button variant="outline" size="sm" type="button" onClick={() => setIsReportOpen(false)}>
                 Cancel
               </Button>
@@ -337,7 +337,7 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
         >
           <form onSubmit={handleResolveSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Resolution & Repair Notes
               </label>
               <textarea
@@ -346,10 +346,10 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser })
                 placeholder="Detail the repairs made or inspection sign-off..."
                 value={resolutionNotes}
                 onChange={(e) => setResolutionNotes(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-lg border border-slate-300"
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500"
               />
             </div>
-            <div className="flex justify-end gap-2 pt-3">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <Button variant="outline" size="sm" type="button" onClick={() => setResolvingIssue(null)}>
                 Cancel
               </Button>

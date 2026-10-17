@@ -10,6 +10,9 @@ import {
   VehicleCategory,
   VehicleOperationalStatus,
   BookingStatus,
+  UserRole,
+  Department,
+  BookingVerificationResult,
 } from '@/types';
 
 const API_BASE = '/api';
@@ -212,6 +215,10 @@ class ApiClient {
     return this.request<LogisticsDashboardStats>('/bookings/stats');
   }
 
+  async verifyBooking(reference: string): Promise<BookingVerificationResult> {
+    return this.request<BookingVerificationResult>(`/bookings/verify/${encodeURIComponent(reference)}`);
+  }
+
   // --- VEHICLE ISSUES & MAINTENANCE ---
   async getIssues(query?: { status?: string; vehicleId?: string }): Promise<VehicleIssue[]> {
     const params = new URLSearchParams();
@@ -284,6 +291,28 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
+  }
+
+  async createUser(data: {
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+    employeeId?: string;
+    departmentId?: string;
+    phone?: string;
+    jobTitle?: string;
+    licenseNumber?: string;
+  }): Promise<User> {
+    return this.request<User>('/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- DEPARTMENTS ---
+  async getDepartments(): Promise<Department[]> {
+    return this.request<Department[]>('/departments');
   }
 }
 

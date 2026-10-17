@@ -73,18 +73,18 @@ export const TripExecutionModal: React.FC<TripExecutionModalProps> = ({
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="p-3 bg-red-50 text-red-700 text-xs rounded-lg">{error}</div>}
+        {error && <div className="p-3 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/60 text-xs rounded-lg">{error}</div>}
 
-        <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1">
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 text-xs space-y-1.5">
           <div className="flex justify-between">
-            <span className="text-slate-400">Assigned Vehicle:</span>
-            <span className="font-semibold text-slate-800">
+            <span className="text-slate-500 dark:text-slate-400">Assigned Vehicle:</span>
+            <span className="font-semibold text-slate-800 dark:text-white">
               {assigned?.vehicle?.name} ({assigned?.vehicle?.registrationNumber})
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Driver / Traveler:</span>
-            <span className="font-semibold text-slate-800">
+            <span className="text-slate-500 dark:text-slate-400">Driver / Traveler:</span>
+            <span className="font-semibold text-slate-800 dark:text-white">
               {assigned?.driverName || booking.requester?.name}
             </span>
           </div>
@@ -105,12 +105,12 @@ export const TripExecutionModal: React.FC<TripExecutionModalProps> = ({
         {!isStart && (
           <>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
                 Trip Completion Notes
               </label>
               <textarea
                 rows={2}
-                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500"
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g. Trip completed on time; site inspection report filed."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -118,27 +118,27 @@ export const TripExecutionModal: React.FC<TripExecutionModalProps> = ({
               />
             </div>
 
-            <div className="border-t border-slate-100 pt-3">
-              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                 Reported Vehicle Defect / Issue (Optional)
               </label>
               <textarea
                 rows={2}
-                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500"
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g. Low tire pressure warning or brake squeaking..."
                 value={reportedProblem}
                 onChange={(e) => setReportedProblem(e.target.value)}
                 disabled={isLoading}
               />
-              <span className="text-[11px] text-slate-400 mt-1 block">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
                 Entering a defect will automatically generate a vehicle issue ticket for workshop tracking.
               </span>
             </div>
           </>
         )}
 
-        <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+        <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
           <Button variant="outline" type="button" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>

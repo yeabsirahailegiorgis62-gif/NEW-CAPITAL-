@@ -17,6 +17,7 @@ import {
   Phone,
   CheckCircle,
   XCircle,
+  QrCode,
 } from 'lucide-react';
 
 interface BookingDetailsModalProps {
@@ -30,6 +31,7 @@ interface BookingDetailsModalProps {
   onStartTrip?: (booking: Booking) => void;
   onCompleteTrip?: (booking: Booking) => void;
   onCancelBooking?: (id: string, reason?: string) => void;
+  onOpenReceipt?: (booking: Booking) => void;
 }
 
 export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
@@ -43,6 +45,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
   onStartTrip,
   onCompleteTrip,
   onCancelBooking,
+  onOpenReceipt,
 }) => {
   const [rejecting, setRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -78,15 +81,33 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
       <div className="space-y-6">
         {/* Status Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
-          <div>
-            <span className="text-xs text-slate-500 dark:text-slate-400 block">Current Status</span>
-            <div className="mt-1">
-              <Badge status={booking.status} size="md" />
+          <div className="flex items-center gap-3">
+            <div>
+              <span className="text-xs text-slate-500 dark:text-slate-400 block">Current Status</span>
+              <div className="mt-1">
+                <Badge status={booking.status} size="md" />
+              </div>
             </div>
+
+            {(booking.status === 'APPROVED' ||
+              booking.status === 'ASSIGNED' ||
+              booking.status === 'IN_PROGRESS' ||
+              booking.status === 'COMPLETED') &&
+              onOpenReceipt && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onOpenReceipt(booking)}
+                  leftIcon={<QrCode className="w-3.5 h-3.5" />}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                >
+                  Digital Receipt & QR
+                </Button>
+              )}
           </div>
           <div className="text-right">
             <span className="text-xs text-slate-500 dark:text-slate-400 block">Requested By</span>
-            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 block">
+            <span className="text-sm font-semibold text-slate-900 dark:text-white block">
               {booking.requester?.name || 'Staff Member'}
             </span>
             <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -128,22 +149,22 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
               <MapPin className="w-4 h-4 text-brand-600 dark:text-brand-400" />
               Destination & Purpose
             </div>
-            <div className="font-semibold text-slate-900 dark:text-slate-100">{booking.destination}</div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{booking.purpose}</p>
+            <div className="font-semibold text-slate-900 dark:text-white">{booking.destination}</div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{booking.purpose}</p>
           </div>
 
           <div className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <Calendar className="w-4 h-4 text-brand-600" />
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <Calendar className="w-4 h-4 text-brand-600 dark:text-brand-400" />
               Requested Schedule (EAT)
             </div>
-            <div className="text-xs text-slate-700">
-              <span className="text-slate-400 block">Departure:</span>
-              <span className="font-medium text-slate-900">{formatEthiopianDateTime(booking.departureAt)}</span>
+            <div className="text-xs text-slate-700 dark:text-slate-300">
+              <span className="text-slate-400 dark:text-slate-500 block">Departure:</span>
+              <span className="font-medium text-slate-900 dark:text-white">{formatEthiopianDateTime(booking.departureAt)}</span>
             </div>
-            <div className="text-xs text-slate-700">
-              <span className="text-slate-400 block">Expected Return:</span>
-              <span className="font-medium text-slate-900">{formatEthiopianDateTime(booking.expectedReturnAt)}</span>
+            <div className="text-xs text-slate-700 dark:text-slate-300">
+              <span className="text-slate-400 dark:text-slate-500 block">Expected Return:</span>
+              <span className="font-medium text-slate-900 dark:text-white">{formatEthiopianDateTime(booking.expectedReturnAt)}</span>
             </div>
           </div>
         </div>
@@ -152,19 +173,19 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
             <span className="text-slate-400 dark:text-slate-500 block">Passengers:</span>
-            <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{booking.passengerCount} Persons</span>
+            <span className="font-semibold text-slate-900 dark:text-white text-sm">{booking.passengerCount} Persons</span>
           </div>
 
           <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
             <span className="text-slate-400 dark:text-slate-500 block">Driver Status:</span>
-            <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+            <span className="font-semibold text-slate-900 dark:text-white text-sm">
               {booking.requiresDriver ? 'Company Driver Required' : 'Self-Driven / None'}
             </span>
           </div>
 
           <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
             <span className="text-slate-400 dark:text-slate-500 block">Vehicle Preference:</span>
-            <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+            <span className="font-semibold text-slate-900 dark:text-white text-sm">
               {booking.preferredVehicle?.name || 'No Preference'}
             </span>
           </div>
@@ -172,41 +193,41 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
 
         {/* Active Vehicle Assignment Section if assigned */}
         {assignment && (
-          <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-3">
+          <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800/80 bg-blue-50/50 dark:bg-blue-950/30 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
-                <Car className="w-4 h-4 text-brand-600" />
+              <div className="flex items-center gap-2 text-sm font-semibold text-blue-900 dark:text-blue-200">
+                <Car className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                 Allocated Vehicle: {assignment.vehicle?.name}
               </div>
-              <span className="text-xs font-mono font-bold text-brand-800 bg-blue-100 px-2 py-0.5 rounded">
+              <span className="text-xs font-mono font-bold text-brand-800 dark:text-brand-300 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
                 {assignment.vehicle?.registrationNumber}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700 dark:text-slate-300 pt-1">
               <div>
-                <span className="text-slate-400 block">Driver Assigned:</span>
-                <span className="font-medium text-slate-900">
+                <span className="text-slate-400 dark:text-slate-500 block">Driver Assigned:</span>
+                <span className="font-medium text-slate-900 dark:text-white">
                   {assignment.driverName || 'Self-driven by staff'}
                 </span>
                 {assignment.driverPhone && (
-                  <span className="text-slate-500 block">{assignment.driverPhone}</span>
+                  <span className="text-slate-500 dark:text-slate-400 block">{assignment.driverPhone}</span>
                 )}
               </div>
               <div>
-                <span className="text-slate-400 block">Assigned By:</span>
-                <span className="font-medium text-slate-900">
+                <span className="text-slate-400 dark:text-slate-500 block">Assigned By:</span>
+                <span className="font-medium text-slate-900 dark:text-white">
                   {assignment.assignedBy?.name || 'Logistics Operations'}
                 </span>
-                <span className="text-slate-400 block">
+                <span className="text-slate-400 dark:text-slate-500 block">
                   {formatEthiopianDateTime(assignment.assignedAt)}
                 </span>
               </div>
             </div>
 
             {assignment.assignmentNotes && (
-              <p className="text-xs text-slate-600 border-t border-blue-100 pt-2">
-                <strong className="text-slate-700">Notes: </strong>
+              <p className="text-xs text-slate-600 dark:text-slate-300 border-t border-blue-100 dark:border-blue-800/60 pt-2">
+                <strong className="text-slate-700 dark:text-slate-200">Notes: </strong>
                 {assignment.assignmentNotes}
               </p>
             )}
@@ -215,21 +236,21 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
 
         {/* Trip Execution Telemetry if started/completed */}
         {(booking.actualDepartureAt || booking.actualReturnAt) && (
-          <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs space-y-2">
-            <span className="font-semibold text-emerald-900 block">Trip Execution Record:</span>
-            <div className="grid grid-cols-2 gap-2 text-slate-700">
+          <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/40 dark:bg-emerald-950/30 text-xs space-y-2">
+            <span className="font-semibold text-emerald-900 dark:text-emerald-200 block">Trip Execution Record:</span>
+            <div className="grid grid-cols-2 gap-2 text-slate-700 dark:text-slate-300">
               <div>
-                <span className="text-slate-400 block">Actual Departure:</span>
-                <span className="font-medium text-slate-900">{formatEthiopianDateTime(booking.actualDepartureAt)}</span>
+                <span className="text-slate-400 dark:text-slate-500 block">Actual Departure:</span>
+                <span className="font-medium text-slate-900 dark:text-white">{formatEthiopianDateTime(booking.actualDepartureAt)}</span>
                 {booking.startOdometer && (
-                  <span className="text-slate-500 block">Start Odo: {booking.startOdometer} km</span>
+                  <span className="text-slate-500 dark:text-slate-400 block">Start Odo: {booking.startOdometer} km</span>
                 )}
               </div>
               <div>
-                <span className="text-slate-400 block">Actual Return:</span>
-                <span className="font-medium text-slate-900">{formatEthiopianDateTime(booking.actualReturnAt)}</span>
+                <span className="text-slate-400 dark:text-slate-500 block">Actual Return:</span>
+                <span className="font-medium text-slate-900 dark:text-white">{formatEthiopianDateTime(booking.actualReturnAt)}</span>
                 {booking.endOdometer && (
-                  <span className="text-slate-500 block">End Odo: {booking.endOdometer} km</span>
+                  <span className="text-slate-500 dark:text-slate-400 block">End Odo: {booking.endOdometer} km</span>
                 )}
               </div>
             </div>
@@ -238,21 +259,21 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
 
         {/* Additional Notes */}
         {booking.additionalNotes && (
-          <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
-            <strong className="text-slate-700 dark:text-slate-300 block mb-1">Additional Notes:</strong>
+          <div className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+            <strong className="text-slate-700 dark:text-slate-200 block mb-1">Additional Notes:</strong>
             {booking.additionalNotes}
           </div>
         )}
 
         {/* Inline Reject Form */}
         {rejecting && (
-          <div className="p-4 rounded-xl border border-red-200 bg-red-50/50 space-y-3">
-            <label className="block text-xs font-semibold text-red-900">
+          <div className="p-4 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/30 space-y-3">
+            <label className="block text-xs font-semibold text-red-900 dark:text-red-200">
               Reason for rejecting request:
             </label>
             <textarea
               rows={2}
-              className="w-full text-xs p-2.5 rounded-lg border border-red-300 focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+              className="w-full text-xs p-2.5 rounded-lg border border-red-300 dark:border-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
               placeholder="Provide a clear operational reason..."
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
@@ -270,13 +291,13 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
 
         {/* Inline Cancel Form */}
         {cancelling && (
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-            <label className="block text-xs font-semibold text-slate-900">
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 space-y-3">
+            <label className="block text-xs font-semibold text-slate-900 dark:text-white">
               Reason for cancelling booking:
             </label>
             <textarea
               rows={2}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
               placeholder="e.g. Meeting postponed, alternative transport arranged"
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
@@ -293,7 +314,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
         )}
 
         {/* Action Buttons */}
-        <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
           {/* Cancellation options */}
           <div>
             {!cancelling && !rejecting && (
@@ -309,7 +330,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                   booking.status !== 'COMPLETED' &&
                   booking.status !== 'CANCELLED' &&
                   booking.status !== 'REJECTED' && (
-                    <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" onClick={() => setCancelling(true)}>
+                    <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40" onClick={() => setCancelling(true)}>
                       Cancel Booking
                     </Button>
                   )}
@@ -356,6 +377,23 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                 Record Return (Complete Trip)
               </Button>
             )}
+
+            {/* Digital Receipt action button in footer */}
+            {(booking.status === 'APPROVED' ||
+              booking.status === 'ASSIGNED' ||
+              booking.status === 'IN_PROGRESS' ||
+              booking.status === 'COMPLETED') &&
+              onOpenReceipt && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenReceipt(booking)}
+                  leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600" />}
+                  className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                >
+                  View Receipt
+                </Button>
+              )}
 
             <Button variant="outline" size="sm" onClick={onClose}>
               Close

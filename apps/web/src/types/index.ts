@@ -114,6 +114,7 @@ export interface InAppNotification {
   message: string;
   readAt?: string | null;
   createdAt: string;
+  booking?: Booking | null;
 }
 
 export interface AuditLog {
@@ -159,4 +160,38 @@ export interface LogisticsDashboardStats {
   availableVehicles: number;
   tripsInProgress: number;
   vehiclesInMaintenance: number;
+}
+
+export interface BookingVerificationResult {
+  isValid: boolean;
+  verificationStatus: 'VALID' | 'EXPIRED' | 'CANCELLED' | 'REJECTED' | 'PENDING' | 'COMPLETED' | 'INVALID';
+  bookingReference: string;
+  status?: BookingStatus;
+  message?: string;
+  requester?: {
+    name: string;
+    employeeId: string;
+    department: string;
+  };
+  trip?: {
+    destination: string;
+    purpose: string;
+    departureAt: string;
+    expectedReturnAt: string;
+    passengerCount: number;
+    requiresDriver: boolean;
+  };
+  assignment?: {
+    vehicleName: string;
+    make: string;
+    model: string;
+    registrationNumber: string;
+    category: VehicleCategory;
+    driverName: string;
+    assignedBy: string;
+    assignedAt: string;
+  } | null;
+  approvalDate?: string;
+  verifiedAt: string;
+  securityNotice?: string;
 }

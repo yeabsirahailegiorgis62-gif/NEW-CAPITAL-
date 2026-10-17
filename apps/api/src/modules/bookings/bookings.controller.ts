@@ -11,6 +11,7 @@ import {
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole, BookingStatus } from '@prisma/client';
 
@@ -20,6 +21,13 @@ import { UserRole, BookingStatus } from '@prisma/client';
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
+
+  @Public()
+  @Get('verify/:reference')
+  @ApiOperation({ summary: 'Public secure verification endpoint for QR code validation' })
+  verifyBooking(@Param('reference') reference: string) {
+    return this.bookingsService.verifyBooking(reference);
+  }
 
   @Post()
   @ApiOperation({ summary: 'Submit a new vehicle booking request' })

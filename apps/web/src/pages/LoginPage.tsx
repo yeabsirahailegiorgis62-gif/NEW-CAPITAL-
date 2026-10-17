@@ -52,29 +52,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-gradient-to-b from-slate-950 via-[#0a0f1d] to-slate-950 text-slate-100 flex flex-col justify-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8 font-sans transition-colors relative">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-gradient-to-b dark:from-slate-950 dark:via-[#0a0f1d] dark:to-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8 font-sans transition-colors relative">
       {/* Top action bar */}
       <div className="w-full max-w-md mx-auto mb-4 flex items-center justify-between">
         <button
           type="button"
           onClick={onBackToLanding}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors p-2 rounded-xl bg-slate-900/80 border border-slate-800 hover:bg-slate-800"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors p-2 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-sm"
         >
-          <ArrowLeft className="w-4 h-4 text-brand-400" />
+          <ArrowLeft className="w-4 h-4 text-brand-600 dark:text-brand-400" />
           <span>Back to Highway Overview</span>
         </button>
 
         <button
           type="button"
           onClick={toggleTheme}
-          className="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 transition-colors border border-slate-800"
+          className="p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900/80 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 shadow-sm"
           title={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}
           aria-label="Toggle theme"
         >
           {theme === 'dark' ? (
             <Sun className="w-4 h-4 text-amber-400" />
           ) : (
-            <Moon className="w-4 h-4 text-slate-300" />
+            <Moon className="w-4 h-4 text-slate-700" />
           )}
         </button>
       </div>
@@ -82,10 +82,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
         <BrandLogo size="lg" className="justify-center" />
 
-        <h2 className="mt-4 text-center text-2xl font-black tracking-tight text-white">
+        <h2 className="mt-4 text-center text-2xl font-black tracking-tight text-slate-900 dark:text-white">
           Sign In to Fleet Portal
         </h2>
-        <p className="mt-1 text-center text-xs text-slate-400">
+        <p className="mt-1 text-center text-xs text-slate-500 dark:text-slate-400">
           Enter your company email or employee ID
         </p>
       </div>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, InAppNotification } from '@/types';
+import { User, InAppNotification, Booking } from '@/types';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { api } from '@/lib/api';
+import { NotificationDetailsModal } from '@/components/notifications/NotificationDetailsModal';
 import {
   X, Bell, CheckCheck, Clock, Car, ShieldCheck, XCircle,
-  CheckCircle2, AlertCircle, Info, Inbox,
+  CheckCircle2, AlertCircle, Info, Inbox, ChevronRight, QrCode,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -74,19 +75,20 @@ function timeAgo(iso: string): string {
 // ──────────────────────────────────────────────────────────────────────────────
 const NotifCard: React.FC<{
   n: InAppNotification;
-  onRead: (id: string) => void;
-}> = ({ n, onRead }) => {
+  onSelect: (n: InAppNotification) => void;
+}> = ({ n, onSelect }) => {
   const style = getNotifStyle(n.type);
   const isUnread = !n.readAt;
 
   return (
     <div
-      onClick={() => isUnread && onRead(n.id)}
+      onClick={() => onSelect(n)}
       className={`
-        group relative flex items-start gap-3 p-4 rounded-2xl border transition-all duration-200
+        group relative flex items-start gap-3 p-4 rounded-2xl border transition-all duration-200 cursor-pointer
+        hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 hover:scale-[1.01] active:scale-[0.99]
         ${isUnread
-          ? `${style.bg} border-slate-200 dark:border-slate-700/80 shadow-sm cursor-pointer hover:shadow-md`
-          : 'bg-white dark:bg-slate-900/40 border-slate-100 dark:border-slate-800/60 cursor-default opacity-70'}
+          ? `${style.bg} border-slate-200 dark:border-slate-700/80 shadow-sm`
+          : 'bg-white dark:bg-slate-900/40 border-slate-100 dark:border-slate-800/60 opacity-80'}
       `}
     >
       {/* Unread dot */}
@@ -110,13 +112,29 @@ const NotifCard: React.FC<{
         <p className={`text-sm font-semibold leading-tight ${isUnread ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>
           {n.title}
         </p>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed line-clamp-2">
           {n.message}
         </p>
-        <div className="flex items-center gap-1.5 mt-2">
-          <Clock className="w-3 h-3 text-slate-400" />
-          <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
-            {timeAgo(n.createdAt)}
+
+        {/* QR Receipt Available Badge for approved bookings */}
+        {(n.type === 'BOOKING_APPROVED' || n.type === 'VEHICLE_ASSIGNED') && (
+          <div className="mt-1.5">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+              <QrCode className="w-3 h-3 text-emerald-600" />
+              <span>QR Receipt Ready</span>
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-1.5 mt-2">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3 h-3 text-slate-400" />
+            <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+              {timeAgo(n.createdAt)}
+            </span>
+          </div>
+          <span className="text-[11px] text-brand-600 dark:text-brand-400 font-semibold flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+            View details <ChevronRight className="w-3 h-3 ml-0.5" />
           </span>
         </div>
       </div>
@@ -135,6 +153,9 @@ interface AppShellProps {
   notifications: InAppNotification[];
   onMarkNotificationRead?: (id: string) => void;
   onOpenProfile?: () => void;
+  onOpenBooking?: (booking: Booking | { id: string }) => void;
+  onOpenReceipt?: (booking: Booking | { id: string; bookingReference?: string }) => void;
+  onOpenVerification?: (reference?: string) => void;
   onNotificationsRefresh?: (notifs: InAppNotification[]) => void;
   children: React.ReactNode;
 }
@@ -147,11 +168,15 @@ export const AppShell: React.FC<AppShellProps> = ({
   notifications,
   onMarkNotificationRead,
   onOpenProfile,
+  onOpenBooking,
+  onOpenReceipt,
+  onOpenVerification,
   onNotificationsRefresh,
   children,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<InAppNotification | null>(null);
 
   const unreadCount = notifications.filter((n) => !n.readAt).length;
 
@@ -176,6 +201,16 @@ export const AppShell: React.FC<AppShellProps> = ({
     onMarkNotificationRead?.(id);
   };
 
+  const handleSelectNotification = (n: InAppNotification) => {
+    if (!n.readAt) {
+      handleMarkRead(n.id);
+    }
+    setSelectedNotification({
+      ...n,
+      readAt: n.readAt || new Date().toISOString(),
+    });
+  };
+
   const handleMarkAllRead = async () => {
     try {
       await api.markAllNotificationsRead();
@@ -195,9 +230,10 @@ export const AppShell: React.FC<AppShellProps> = ({
         onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenProfile={onOpenProfile}
+        onOpenVerification={onOpenVerification ? () => onOpenVerification() : undefined}
       />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto min-w-0">
+      <div className="flex-1 flex w-full min-w-0">
         <Sidebar
           currentUser={currentUser}
           activeTab={activeTab}
@@ -207,7 +243,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-y-auto">
-          {children}
+          <div key={activeTab} className="page-enter w-full">
+            {children}
+          </div>
         </main>
       </div>
 
@@ -284,7 +322,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 ) : (
                   <div className="p-4 space-y-2.5">
                     {notifications.map((n) => (
-                      <NotifCard key={n.id} n={n} onRead={handleMarkRead} />
+                      <NotifCard key={n.id} n={n} onSelect={handleSelectNotification} />
                     ))}
                   </div>
                 )}
@@ -302,6 +340,16 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
         </div>
       )}
+
+      {/* ── Notification Details Modal ── */}
+      <NotificationDetailsModal
+        isOpen={!!selectedNotification}
+        onClose={() => setSelectedNotification(null)}
+        notification={selectedNotification}
+        onInspectBooking={onOpenBooking}
+        onOpenReceipt={onOpenReceipt}
+        onMarkAsRead={handleMarkRead}
+      />
     </div>
   );
 };

@@ -3,12 +3,13 @@ import { Booking, BookingStatus, User } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatEthiopianDateTime } from '@/lib/utils';
-import { Search, Filter, Car, Clock, ArrowUpDown, ChevronRight } from 'lucide-react';
+import { Search, Filter, Car, Clock, ArrowUpDown, ChevronRight, QrCode } from 'lucide-react';
 
 interface BookingsTableProps {
   bookings: Booking[];
   currentUser: User;
   onSelectBooking: (booking: Booking) => void;
+  onOpenReceipt?: (booking: Booking) => void;
   onRefresh?: () => void;
 }
 
@@ -16,6 +17,7 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({
   bookings,
   currentUser,
   onSelectBooking,
+  onOpenReceipt,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -148,7 +150,25 @@ export const BookingsTable: React.FC<BookingsTableProps> = ({
                         <Badge status={b.status} size="sm" />
                       </td>
 
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        {onOpenReceipt &&
+                          (b.status === 'APPROVED' ||
+                            b.status === 'ASSIGNED' ||
+                            b.status === 'IN_PROGRESS' ||
+                            b.status === 'COMPLETED') && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenReceipt(b);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors shadow-2xs mr-1.5"
+                              title="View official digital receipt & QR pass"
+                            >
+                              <QrCode className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Receipt</span>
+                            </button>
+                          )}
                         <Button variant="ghost" size="sm">
                           <ChevronRight className="w-4 h-4 text-slate-400" />
                         </Button>
