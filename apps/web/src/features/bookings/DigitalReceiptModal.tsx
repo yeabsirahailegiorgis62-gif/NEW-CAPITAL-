@@ -391,12 +391,23 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
 
               {/* Group 4: Official QR Code & Verification */}
               <div className="p-4 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-between text-center relative overflow-hidden">
-                <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">
-                  Security Checkpoint QR Code
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
+                    Security Dispatch QR Pass
+                  </span>
+                  <span className="text-[10px] font-bold text-brand-600 uppercase tracking-wider">
+                    Scan Authorized
+                  </span>
                 </div>
 
-                {/* QR Code Graphic with Reveal Animation */}
-                <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-sm animate-scaleIn">
+                {/* Bespoke Styled QR Container with Security Reticles */}
+                <div className="relative p-2.5 bg-white rounded-2xl border border-slate-200 shadow-sm animate-scaleIn group">
+                  {/* Four Corner Reticles */}
+                  <div className="absolute top-1 left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-brand-600 rounded-tl-sm pointer-events-none" />
+                  <div className="absolute top-1 right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-brand-600 rounded-tr-sm pointer-events-none" />
+                  <div className="absolute bottom-1 left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-brand-600 rounded-bl-sm pointer-events-none" />
+                  <div className="absolute bottom-1 right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-brand-600 rounded-br-sm pointer-events-none" />
+
                   {qrDataUrl ? (
                     <img
                       src={qrDataUrl}
@@ -410,13 +421,44 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                   )}
                 </div>
 
-                <div className="mt-2 space-y-0.5">
-                  <div className="text-[11px] font-mono font-bold text-slate-900">
+                <div className="mt-2 space-y-1 w-full">
+                  <div className="text-xs font-mono font-black text-slate-900 tracking-tight">
                     {booking.bookingReference}
                   </div>
-                  <p className="text-[9px] text-slate-400 leading-tight">
-                    Scan with security terminal or camera to verify authenticity
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    Dedicated verification QR pass for this specific reservation
                   </p>
+
+                  <div className="no-print pt-1 flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>Link Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Copy Scan Link</span>
+                        </>
+                      )}
+                    </button>
+
+                    <span className="text-slate-300">•</span>
+
+                    <button
+                      type="button"
+                      onClick={handleVerify}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                    >
+                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                      <span>Verify Record</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -22,6 +22,7 @@ import { ProfileModal } from '@/components/layout/ProfileModal';
 import { AutomotiveLoadingScreen } from '@/components/loading/AutomotiveLoadingScreen';
 import { DigitalReceiptModal } from '@/features/bookings/DigitalReceiptModal';
 import { BookingVerificationModal } from '@/features/bookings/BookingVerificationModal';
+import { PublicVerificationPage } from '@/pages/PublicVerificationPage';
 
 export function App() {
   const toast = useToast();
@@ -36,7 +37,20 @@ export function App() {
   // Modal states
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
   const [selectedBookingForReceipt, setSelectedBookingForReceipt] = useState<Booking | null>(null);
-  const [verificationReference, setVerificationReference] = useState<string | null>(null);
+  const [verificationReference, setVerificationReference] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('verify') || params.get('ref');
+    }
+    return null;
+  });
+  const [isDirectScan, setIsDirectScan] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return Boolean(params.get('verify') || params.get('ref'));
+    }
+    return false;
+  });
   const [assigningBooking, setAssigningBooking] = useState<Booking | null>(null);
   const [tripModalBooking, setTripModalBooking] = useState<{ booking: Booking; mode: 'start' | 'complete' } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -48,6 +62,7 @@ export function App() {
       const verifyRef = params.get('verify') || params.get('ref');
       if (verifyRef) {
         setVerificationReference(verifyRef);
+        setIsDirectScan(true);
       }
     }
   }, []);
@@ -212,6 +227,30 @@ export function App() {
     }
   };
 
+  // Direct Public Scan Page (Bypasses splash screen and authentication for mobile QR scanning)
+  if (verificationReference && isDirectScan) {
+    return (
+      <PublicVerificationPage
+        reference={verificationReference}
+        onNavigateToPortal={() => {
+          setIsDirectScan(false);
+          setVerificationReference(null);
+          if (typeof window !== 'undefined') {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+          setCurrentView(currentUser ? 'workspace' : 'login');
+        }}
+        onSearchOtherReference={(newRef) => {
+          setVerificationReference(newRef);
+          if (typeof window !== 'undefined') {
+            const newUrl = `${window.location.origin}/?verify=${encodeURIComponent(newRef)}`;
+            window.history.replaceState({}, document.title, newUrl);
+          }
+        }}
+      />
+    );
+  }
+
   if (isAppLoading) {
     return <AutomotiveLoadingScreen onFinish={() => setIsAppLoading(false)} minDuration={1800} />;
   }
@@ -301,6 +340,7 @@ export function App() {
             setActiveTab(isEmployee ? 'my-bookings' : 'dashboard');
           }}
           onCancel={() => setActiveTab('dashboard')}
+          onOpenReceipt={handleOpenReceipt}
         />
       )}
 

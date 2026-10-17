@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import { api } from '@/lib/api';
 import { Vehicle, Booking } from '@/types';
+import { formatEthiopianDateTime } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -26,16 +28,24 @@ import {
   Minus,
   Sparkles,
   PhoneCall,
+  QrCode,
+  Printer,
+  Copy,
+  Check,
+  ExternalLink,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface BookingRequestFormProps {
   onSuccess: (booking: Booking) => void;
   onCancel: () => void;
+  onOpenReceipt?: (booking: Booking) => void;
 }
 
 export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
   onSuccess,
   onCancel,
+  onOpenReceipt,
 }) => {
   const toast = useToast();
   const [destination, setDestination] = useState('');
@@ -144,53 +154,287 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
     }
   };
 
-  // Show success state after submission
+  // State for post-submission QR code
+  const [ticketQrData, setTicketQrData] = useState<string>('');
+  const [ticketCopied, setTicketCopied] = useState(false);
+
+  useEffect(() => {
+    if (submittedBooking?.bookingReference) {
+      const url = `${window.location.origin}/?verify=${encodeURIComponent(
+        submittedBooking.bookingReference
+      )}`;
+      QRCode.toDataURL(url, {
+        width: 320,
+        margin: 2,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff',
+        },
+        errorCorrectionLevel: 'H',
+      })
+        .then(setTicketQrData)
+        .catch(console.error);
+    }
+  }, [submittedBooking?.bookingReference]);
+
+  // Show executive reservation ticket after submission
   if (submittedBooking) {
+    const preferredVeh = vehicles.find((v) => v.id === submittedBooking.preferredVehicleId);
+
     return (
-      <div className="max-w-xl mx-auto py-8">
-        <div className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/60 rounded-3xl p-8 text-center shadow-xl space-y-5 animate-scaleIn">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
-            <CheckCircle className="w-8 h-8" />
+      <div className="max-w-4xl mx-auto py-4 space-y-6 animate-scaleIn">
+        {/* Top Status Notification Bar */}
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-emerald-950 dark:text-emerald-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold tracking-tight">
+                Trip Reservation Requisition Confirmed
+              </h2>
+              <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-0.5">
+                Your booking request is logged in the Logistics Queue. Review your official reservation pass below.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white">
-              Trip Request Submitted Successfully
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed max-w-md mx-auto">
-              Your vehicle booking request has been transmitted to the Logistics Department queue. Once approved, you will receive an in-app notification with your official QR-verified digital receipt.
-            </p>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-black bg-emerald-600 text-white px-3 py-1 rounded-full shadow-xs">
+              #{submittedBooking.bookingReference}
+            </span>
+          </div>
+        </div>
+
+        {/* ── Corporate Reservation Ticket Pass ── */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl overflow-hidden">
+          {/* Ticket Header Letterhead */}
+          <div className="p-6 sm:p-7 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-700 text-white flex items-center justify-center font-black text-sm tracking-wider shadow-sm">
+                CF
+              </div>
+              <div>
+                <h3 className="text-base font-black tracking-tight text-slate-950 dark:text-white uppercase leading-none">
+                  Capital Real Estate
+                </h3>
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mt-1">
+                  Logistics & Fleet Operations • Requisition Ticket
+                </p>
+              </div>
+            </div>
+
+            <div className="text-left sm:text-right">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 tracking-wider uppercase">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                Pending Logistics Review
+              </span>
+              <div className="text-[11px] text-slate-500 mt-1 font-mono">
+                Issued: {formatEthiopianDateTime(submittedBooking.createdAt || new Date().toISOString())}
+              </div>
+            </div>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-sm font-mono font-bold text-brand-700 dark:text-brand-400 border border-slate-200 dark:border-slate-700">
-            <ClipboardList className="w-4 h-4" />
-            Booking Ref: {submittedBooking.bookingReference}
+          {/* Ticket Body: 2-Column Split (Voucher details & QR Pass Stub) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-slate-800">
+            {/* Left 2 Cols: Requisition Details */}
+            <div className="p-6 sm:p-7 md:col-span-2 space-y-5">
+              {/* Route Display */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Transit Route & Destination
+                </span>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                  <span className="text-slate-500 dark:text-slate-400">Capital HQ (Addis Ababa)</span>
+                  <ArrowRight className="w-4 h-4 text-brand-600 shrink-0" />
+                  <span className="text-brand-700 dark:text-brand-400 flex items-center gap-1">
+                    <MapPin className="w-4 h-4 shrink-0" />
+                    {submittedBooking.destination}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 italic pt-1">
+                  "{submittedBooking.purpose}"
+                </p>
+              </div>
+
+              {/* Itinerary Schedule Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                    Departure Schedule (EAT)
+                  </span>
+                  <span className="font-bold text-slate-900 dark:text-white text-sm mt-0.5 block">
+                    {formatEthiopianDateTime(submittedBooking.departureAt)}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                    Expected Return (EAT)
+                  </span>
+                  <span className="font-bold text-slate-900 dark:text-white text-sm mt-0.5 block">
+                    {formatEthiopianDateTime(submittedBooking.expectedReturnAt)}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                    Party Size & Passengers
+                  </span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm mt-0.5 block">
+                    {submittedBooking.passengerCount} Passenger{submittedBooking.passengerCount > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                    Driver Assignment
+                  </span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm mt-0.5 block">
+                    {submittedBooking.requiresDriver ? 'Company Driver Requested' : 'Authorized Self-Drive'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Requested Vehicle Preview if selected */}
+              {preferredVeh && (
+                <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/30 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <Car className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white block">
+                        Preferred Vehicle: {preferredVeh.make} {preferredVeh.model} ({preferredVeh.name})
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                        Category: {preferredVeh.category} • Capacity: {preferredVeh.passengerCapacity} Seats
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded">
+                    {preferredVeh.registrationNumber}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Right 1 Col: Scannable Security Pass Stub */}
+            <div className="p-6 sm:p-7 bg-slate-50/80 dark:bg-slate-950/50 flex flex-col items-center justify-between text-center space-y-4">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                  Security Pass Stub
+                </span>
+                <span className="text-xs font-mono font-black text-slate-900 dark:text-white block mt-0.5">
+                  #{submittedBooking.bookingReference}
+                </span>
+              </div>
+
+              {/* Styled QR Code Card with Viewfinder Reticles */}
+              <div className="relative p-3 bg-white rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm group">
+                <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-brand-600 rounded-tl-sm pointer-events-none" />
+                <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-brand-600 rounded-tr-sm pointer-events-none" />
+                <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-brand-600 rounded-bl-sm pointer-events-none" />
+                <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-brand-600 rounded-br-sm pointer-events-none" />
+
+                {ticketQrData ? (
+                  <img
+                    src={ticketQrData}
+                    alt={`QR code for ${submittedBooking.bookingReference}`}
+                    className="w-32 h-32 sm:w-36 sm:h-36 object-contain"
+                  />
+                ) : (
+                  <div className="w-32 h-32 flex items-center justify-center text-slate-300">
+                    <QrCode className="w-12 h-12 animate-pulse" />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[200px] leading-tight">
+                  Anyone can scan this QR code with a phone camera to verify this pass.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `${window.location.origin}/?verify=${encodeURIComponent(
+                      submittedBooking.bookingReference
+                    )}`;
+                    navigator.clipboard.writeText(url);
+                    setTicketCopied(true);
+                    setTimeout(() => setTicketCopied(false), 2000);
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline pt-1"
+                >
+                  {ticketCopied ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span>Copied Verification URL</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Copy Verification Link</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 justify-center pt-2">
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => onSuccess(submittedBooking)}
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              View My Bookings & Receipts
-            </Button>
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => {
-                setSubmittedBooking(null);
-                setDestination('');
-                setPurpose('');
-                setAdditionalNotes('');
-                setPreferredVehicleId('');
-                setRequiresDriver(false);
-                setPassengerCount(1);
-              }}
-            >
-              Submit Another Request
-            </Button>
+          {/* Ticket Footer Actions */}
+          <div className="p-5 bg-slate-100/70 dark:bg-slate-800/70 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {onOpenReceipt && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => onOpenReceipt(submittedBooking)}
+                  leftIcon={<QrCode className="w-4 h-4" />}
+                  className="font-bold bg-brand-600 hover:bg-brand-700 text-white w-full sm:w-auto shadow-sm"
+                >
+                  View Digital Receipt & QR Pass
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => window.print()}
+                leftIcon={<Printer className="w-4 h-4" />}
+                className="hidden sm:inline-flex"
+              >
+                Print Slip
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => {
+                  setSubmittedBooking(null);
+                  setDestination('');
+                  setPurpose('');
+                  setAdditionalNotes('');
+                  setPreferredVehicleId('');
+                  setRequiresDriver(false);
+                  setPassengerCount(1);
+                }}
+                className="w-full sm:w-auto"
+              >
+                Submit Another Request
+              </Button>
+
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => onSuccess(submittedBooking)}
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+                className="w-full sm:w-auto"
+              >
+                Go to My Trips
+              </Button>
+            </div>
           </div>
         </div>
       </div>
