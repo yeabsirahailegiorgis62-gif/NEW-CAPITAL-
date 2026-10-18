@@ -17,6 +17,11 @@ import {
   AlertCircle,
   RotateCw,
   QrCode,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Calendar,
 } from 'lucide-react';
 
 interface ReviewRequestsQueueProps {
@@ -44,9 +49,19 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
   const [bookings, setBookings] = useState<Booking[]>(propBookings || []);
   const [isLoading, setIsLoading] = useState(!propBookings);
   const [isProcessingId, setIsProcessingId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const [rejectingBooking, setRejectingBooking] = useState<Booking | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const fetchQueue = async () => {
     try {
@@ -132,11 +147,20 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Logistics Review & Allocation Queue</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Review incoming employee requests, approve operational priorities, and allocate vehicles.
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs shrink-0">
+            <img
+              src="/assets/capital-emblem.png"
+              alt="Capital Logo"
+              className="w-7 h-7 object-contain"
+            />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Logistics Review & Allocation Queue</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Review incoming employee requests, inspect operational requirements, and allocate fleet vehicles.
+            </p>
+          </div>
         </div>
 
         <Button
@@ -192,92 +216,160 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
             No booking requests in this queue right now.
           </div>
         ) : (
-          displayedList.map((b) => (
-            <Card key={b.id} className="overflow-hidden hover:border-slate-300 dark:hover:border-slate-700 transition-all dark:bg-slate-900 dark:border-slate-800">
-              <div className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="space-y-2 flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="font-mono text-xs font-bold text-brand-700 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/50 px-2.5 py-1 rounded border border-brand-200 dark:border-brand-800">
-                      {b.bookingReference}
-                    </span>
-                    <Badge status={b.status} size="sm" />
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      Requested by <strong className="text-slate-800 dark:text-slate-200">{b.requester?.name}</strong> (
-                      {b.requester?.department?.name || 'Staff'})
-                    </span>
-                  </div>
+          displayedList.map((b) => {
+            const isExpanded = expandedIds.has(b.id);
 
-                  <div>
-                    <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">{b.destination}</h3>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-1">{b.purpose}</p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-slate-400 pt-1">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      Dep: {formatEthiopianDateTime(b.departureAt)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      Ret: {formatEthiopianDateTime(b.expectedReturnAt)}
-                    </span>
-                    <span>Passengers: <strong>{b.passengerCount}</strong></span>
-                    {b.requiresDriver && (
-                      <span className="text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
-                        Driver Requested
+            return (
+              <Card
+                key={b.id}
+                className="overflow-hidden hover:border-slate-300 dark:hover:border-slate-700 transition-all dark:bg-slate-900 dark:border-slate-800 shadow-xs"
+              >
+                <div className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="space-y-2.5 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="font-mono text-xs font-bold text-brand-700 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/50 px-2.5 py-1 rounded border border-brand-200 dark:border-brand-800">
+                        {b.bookingReference}
                       </span>
+                      <Badge status={b.status} size="sm" />
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        Requested by <strong className="text-slate-800 dark:text-slate-200">{b.requester?.name}</strong> (
+                        {b.requester?.department?.name || 'Staff'})
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
+                        <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">{b.destination}</h3>
+                      </div>
+                      <p
+                        className={`text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed ${
+                          isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
+                        }`}
+                      >
+                        {b.purpose}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-slate-400 pt-0.5">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        Dep: <strong>{formatEthiopianDateTime(b.departureAt)}</strong>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        Ret: <strong>{formatEthiopianDateTime(b.expectedReturnAt)}</strong>
+                      </span>
+                      <span>Passengers: <strong>{b.passengerCount}</strong></span>
+                      {b.requiresDriver && (
+                        <span className="text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                          Driver Required
+                        </span>
+                      )}
+                      {b.preferredVehicle && (
+                        <span className="text-slate-600 dark:text-slate-400 font-medium bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                          Pref: {b.preferredVehicle.name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Inline Expanded Details */}
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2 text-xs bg-slate-50/70 dark:bg-slate-800/40 p-3.5 rounded-xl">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-700 dark:text-slate-300">
+                          <div>
+                            <span className="text-slate-400 dark:text-slate-500 font-medium block">Requester Contact:</span>
+                            <span className="font-medium">{b.requester?.email || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 dark:text-slate-500 font-medium block">Submission Date:</span>
+                            <span>{formatEthiopianDateTime(b.createdAt)}</span>
+                          </div>
+                        </div>
+                        {b.additionalNotes && (
+                          <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60">
+                            <span className="text-slate-400 dark:text-slate-500 font-medium block">Additional Notes:</span>
+                            <p className="whitespace-pre-wrap text-slate-700 dark:text-slate-200 mt-0.5">
+                              {b.additionalNotes}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Queue Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 md:pt-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleExpand(b.id)}
+                      className="text-xs text-slate-600 dark:text-slate-300"
+                    >
+                      {isExpanded ? (
+                        <>
+                          <ChevronUp className="w-3.5 h-3.5 mr-1" /> Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-3.5 h-3.5 mr-1" /> Quick View
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onSelectBooking(b)}
+                      leftIcon={<Eye className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />}
+                      className="border-slate-300 dark:border-slate-700 hover:border-brand-500 font-semibold"
+                    >
+                      View in Detail
+                    </Button>
+
+                    {activeTab === 'pending' && (
+                      <>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => setRejectingBooking(b)}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          variant="success"
+                          size="sm"
+                          disabled={isProcessingId === b.id}
+                          onClick={() => handleApprove(b.id)}
+                        >
+                          {isProcessingId === b.id ? 'Approving...' : 'Approve'}
+                        </Button>
+                      </>
+                    )}
+
+                    {activeTab === 'approved' && (
+                      <>
+                        {onOpenReceipt && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onOpenReceipt(b)}
+                            leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600" />}
+                            className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                          >
+                            Receipt
+                          </Button>
+                        )}
+                        <Button variant="primary" size="sm" onClick={() => onAssignVehicle(b)}>
+                          Assign Vehicle
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
-
-                {/* Queue Action Buttons */}
-                <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 md:pt-0">
-                  <Button variant="ghost" size="sm" onClick={() => onSelectBooking(b)}>
-                    Full Details
-                  </Button>
-
-                  {activeTab === 'pending' && (
-                    <>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => setRejectingBooking(b)}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        variant="success"
-                        size="sm"
-                        disabled={isProcessingId === b.id}
-                        onClick={() => handleApprove(b.id)}
-                      >
-                        {isProcessingId === b.id ? 'Approving...' : 'Approve'}
-                      </Button>
-                    </>
-                  )}
-
-                  {activeTab === 'approved' && (
-                    <>
-                      {onOpenReceipt && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onOpenReceipt(b)}
-                          leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600" />}
-                          className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                        >
-                          Receipt
-                        </Button>
-                      )}
-                      <Button variant="primary" size="sm" onClick={() => onAssignVehicle(b)}>
-                        Assign Vehicle
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))
+              </Card>
+            );
+          })
         )}
       </div>
 

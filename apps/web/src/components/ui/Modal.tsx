@@ -8,7 +8,8 @@ interface ModalProps {
   title: string;
   description?: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
+  className?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -18,6 +19,7 @@ export const Modal: React.FC<ModalProps> = ({
   description,
   children,
   maxWidth = 'lg',
+  className,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -37,24 +39,28 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isOpen) return null;
 
-  const maxWidthClass = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-xl',
-    '2xl': 'max-w-2xl',
-  }[maxWidth];
+  const maxWidthClass =
+    {
+      sm: 'max-w-sm',
+      md: 'max-w-md',
+      lg: 'max-w-lg',
+      xl: 'max-w-xl',
+      '2xl': 'max-w-2xl',
+      '3xl': 'max-w-3xl',
+      '4xl': 'max-w-4xl',
+      '5xl': 'max-w-5xl',
+    }[maxWidth] || 'max-w-lg';
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-50 overflow-y-auto p-3 sm:p-6 flex min-h-full items-center justify-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -62,31 +68,35 @@ export const Modal: React.FC<ModalProps> = ({
       {/* Modal Dialog */}
       <div
         className={cn(
-          'relative w-full bg-white dark:bg-slate-900 rounded-xl shadow-xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-800 transform transition-all',
-          'p-6 text-left my-8 z-10 text-slate-900 dark:text-slate-100',
-          maxWidthClass
+          'relative w-full my-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl dark:shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] z-10 text-slate-900 dark:text-slate-100 transform transition-all',
+          maxWidthClass,
+          className
         )}
       >
-        <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <h3 id="modal-title" className="text-lg font-semibold text-slate-900 dark:text-white">
+        {/* Stationary Modal Header */}
+        <div className="flex items-start justify-between px-6 py-4.5 border-b border-slate-100 dark:border-slate-800 shrink-0 bg-slate-50/60 dark:bg-slate-900/80 rounded-t-2xl">
+          <div className="pr-4">
+            <h3 id="modal-title" className="text-lg font-bold text-slate-900 dark:text-white leading-snug">
               {title}
             </h3>
             {description && (
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{description}</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 -mr-1"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="mt-4">{children}</div>
+        {/* Scrollable Modal Body */}
+        <div className="overflow-y-auto p-6 flex-1 overscroll-contain">
+          {children}
+        </div>
       </div>
     </div>
   );
