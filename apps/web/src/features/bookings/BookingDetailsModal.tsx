@@ -77,6 +77,94 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
       title={`Booking Details #${booking.bookingReference}`}
       description="Official vehicle booking request and assignment record"
       maxWidth="3xl"
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+          {/* Cancellation options */}
+          <div>
+            {!cancelling && !rejecting && (
+              <>
+                {/* Employee can cancel if PENDING_APPROVAL */}
+                {isOwner && booking.status === 'PENDING_APPROVAL' && (
+                  <Button variant="outline" size="sm" onClick={() => setCancelling(true)}>
+                    Cancel Request
+                  </Button>
+                )}
+                {/* Logistics Admin can cancel if not finished */}
+                {isLogisticsOrAdmin &&
+                  booking.status !== 'COMPLETED' &&
+                  booking.status !== 'CANCELLED' &&
+                  booking.status !== 'REJECTED' && (
+                    <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40" onClick={() => setCancelling(true)}>
+                      Cancel Booking
+                    </Button>
+                  )}
+              </>
+            )}
+          </div>
+
+          {/* Operational Workflow Actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            {isLogisticsOrAdmin && booking.status === 'PENDING_APPROVAL' && !rejecting && (
+              <>
+                <Button variant="danger" size="sm" onClick={() => setRejecting(true)}>
+                  Reject
+                </Button>
+                <Button variant="success" size="sm" onClick={() => onApprove && onApprove(booking.id)}>
+                  Approve Request
+                </Button>
+              </>
+            )}
+
+            {isLogisticsOrAdmin && booking.status === 'APPROVED' && onAssign && (
+              <Button variant="primary" size="sm" onClick={() => onAssign(booking)}>
+                Assign Vehicle
+              </Button>
+            )}
+
+            {isLogisticsOrAdmin && booking.status === 'ASSIGNED' && (
+              <>
+                {onAssign && (
+                  <Button variant="outline" size="sm" onClick={() => onAssign(booking)}>
+                    Change Assignment
+                  </Button>
+                )}
+                {onStartTrip && (
+                  <Button variant="success" size="sm" onClick={() => onStartTrip(booking)}>
+                    Record Departure (Start Trip)
+                  </Button>
+                )}
+              </>
+            )}
+
+            {isLogisticsOrAdmin && booking.status === 'IN_PROGRESS' && onCompleteTrip && (
+              <Button variant="primary" size="sm" onClick={() => onCompleteTrip(booking)}>
+                Record Return (Complete Trip)
+              </Button>
+            )}
+
+            {/* Digital Receipt action button in footer */}
+            {(booking.status === 'APPROVED' ||
+              booking.status === 'ASSIGNED' ||
+              booking.status === 'IN_PROGRESS' ||
+              booking.status === 'COMPLETED') &&
+              onOpenReceipt && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenReceipt(booking)}
+                  leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600" />}
+                  className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                >
+                  View Receipt
+                </Button>
+              )}
+
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      }
     >
       <div className="space-y-5 pb-2">
         {/* Status Header */}
@@ -348,94 +436,6 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
             </div>
           </div>
         )}
-
-        {/* Sticky Action Buttons Bar */}
-        <div className="sticky -bottom-6 -mx-6 px-6 py-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 rounded-b-2xl shadow-sm z-10 mt-6">
-          {/* Cancellation options */}
-          <div>
-            {!cancelling && !rejecting && (
-              <>
-                {/* Employee can cancel if PENDING_APPROVAL */}
-                {isOwner && booking.status === 'PENDING_APPROVAL' && (
-                  <Button variant="outline" size="sm" onClick={() => setCancelling(true)}>
-                    Cancel Request
-                  </Button>
-                )}
-                {/* Logistics Admin can cancel if not finished */}
-                {isLogisticsOrAdmin &&
-                  booking.status !== 'COMPLETED' &&
-                  booking.status !== 'CANCELLED' &&
-                  booking.status !== 'REJECTED' && (
-                    <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40" onClick={() => setCancelling(true)}>
-                      Cancel Booking
-                    </Button>
-                  )}
-              </>
-            )}
-          </div>
-
-          {/* Operational Workflow Actions */}
-          <div className="flex items-center gap-2">
-            {isLogisticsOrAdmin && booking.status === 'PENDING_APPROVAL' && !rejecting && (
-              <>
-                <Button variant="danger" size="sm" onClick={() => setRejecting(true)}>
-                  Reject
-                </Button>
-                <Button variant="success" size="sm" onClick={() => onApprove && onApprove(booking.id)}>
-                  Approve Request
-                </Button>
-              </>
-            )}
-
-            {isLogisticsOrAdmin && booking.status === 'APPROVED' && onAssign && (
-              <Button variant="primary" size="sm" onClick={() => onAssign(booking)}>
-                Assign Vehicle
-              </Button>
-            )}
-
-            {isLogisticsOrAdmin && booking.status === 'ASSIGNED' && (
-              <>
-                {onAssign && (
-                  <Button variant="outline" size="sm" onClick={() => onAssign(booking)}>
-                    Change Assignment
-                  </Button>
-                )}
-                {onStartTrip && (
-                  <Button variant="success" size="sm" onClick={() => onStartTrip(booking)}>
-                    Record Departure (Start Trip)
-                  </Button>
-                )}
-              </>
-            )}
-
-            {isLogisticsOrAdmin && booking.status === 'IN_PROGRESS' && onCompleteTrip && (
-              <Button variant="primary" size="sm" onClick={() => onCompleteTrip(booking)}>
-                Record Return (Complete Trip)
-              </Button>
-            )}
-
-            {/* Digital Receipt action button in footer */}
-            {(booking.status === 'APPROVED' ||
-              booking.status === 'ASSIGNED' ||
-              booking.status === 'IN_PROGRESS' ||
-              booking.status === 'COMPLETED') &&
-              onOpenReceipt && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onOpenReceipt(booking)}
-                  leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600" />}
-                  className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                >
-                  View Receipt
-                </Button>
-              )}
-
-            <Button variant="outline" size="sm" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-        </div>
       </div>
     </Modal>
   );

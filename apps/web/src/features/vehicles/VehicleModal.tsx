@@ -141,11 +141,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Category</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as VehicleCategory)}
-              className="w-full rounded-lg border border-slate-300 p-2.5 text-sm min-h-[44px] bg-white"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2.5 text-xs min-h-[44px] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="SEDAN">Sedan</option>
               <option value="SUV">SUV</option>
@@ -156,7 +156,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Capacity</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Capacity</label>
             <input
               type="number"
               min={1}
@@ -164,16 +164,16 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               required
               value={passengerCapacity}
               onChange={(e) => setPassengerCapacity(parseInt(e.target.value, 10) || 1)}
-              className="w-full rounded-lg border border-slate-300 p-2.5 text-sm min-h-[44px]"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2.5 text-xs min-h-[44px] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Operational Status</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Operational Status</label>
             <select
               value={operationalStatus}
               onChange={(e) => setOperationalStatus(e.target.value as VehicleOperationalStatus)}
-              className="w-full rounded-lg border border-slate-300 p-2.5 text-sm min-h-[44px] bg-white font-medium"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2.5 text-xs min-h-[44px] bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="ACTIVE">ACTIVE (Operational)</option>
               <option value="MAINTENANCE">MAINTENANCE (Workshop)</option>
@@ -184,10 +184,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Description</label>
           <input
             type="text"
-            className="w-full rounded-lg border border-slate-300 p-2.5 text-sm"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2.5 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-slate-400"
             placeholder="e.g. 4WD executive SUV for long-distance highway travel"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -195,17 +195,17 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Internal Notes</label>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Internal Notes</label>
           <textarea
             rows={2}
-            className="w-full rounded-lg border border-slate-300 p-2.5 text-sm"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2.5 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-slate-400"
             placeholder="e.g. Service schedule: every 5,000 km. Assigned fuel card: #8821"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
           <Button variant="outline" type="button" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>

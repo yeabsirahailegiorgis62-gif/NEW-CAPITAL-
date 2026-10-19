@@ -8,6 +8,7 @@ interface ModalProps {
   title: string;
   description?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
   className?: string;
 }
@@ -18,6 +19,7 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   description,
   children,
+  footer,
   maxWidth = 'lg',
   className,
 }) => {
@@ -94,9 +96,16 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Scrollable Modal Body */}
-        <div className="overflow-y-auto p-6 flex-1 overscroll-contain">
+        <div className="overflow-y-auto min-h-0 flex-1 p-6 overscroll-contain">
           {children}
         </div>
+
+        {/* Stationary Pinned Modal Footer */}
+        {footer && (
+          <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 shrink-0 bg-slate-50/80 dark:bg-slate-900/90 rounded-b-2xl">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

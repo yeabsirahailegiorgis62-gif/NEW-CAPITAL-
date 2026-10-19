@@ -76,13 +76,13 @@ export const BookingVerificationModal: React.FC<BookingVerificationModalProps> =
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex min-h-full items-center justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80">
+      <div className="relative w-full max-w-2xl my-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl dark:shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Stationary Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/90 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
               <ShieldCheck className="w-4 h-4" />
@@ -106,7 +106,8 @@ export const BookingVerificationModal: React.FC<BookingVerificationModalProps> =
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        {/* Scrollable Content Container */}
+        <div className="p-6 space-y-6 overflow-y-auto min-h-0 flex-1 overscroll-contain">
           {/* Reference Search Bar */}
           <form onSubmit={handleSearchSubmit} className="flex gap-2">
             <div className="relative flex-1">
@@ -270,7 +271,7 @@ export const BookingVerificationModal: React.FC<BookingVerificationModalProps> =
                             <MapPin className="w-3.5 h-3.5 text-brand-600 shrink-0" />
                             <span>{result.trip.destination}</span>
                           </div>
-                          <p className="text-slate-500 dark:text-slate-400 italic text-[11px]">
+                          <p className="text-slate-600 dark:text-slate-300 italic text-[11px] whitespace-pre-wrap break-words mt-0.5">
                             "{result.trip.purpose}"
                           </p>
                         </div>
@@ -359,8 +360,8 @@ export const BookingVerificationModal: React.FC<BookingVerificationModalProps> =
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 px-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 flex items-center justify-between">
+        {/* Stationary Footer */}
+        <div className="p-4 px-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 flex items-center justify-between shrink-0">
           <span className="text-[11px] text-slate-400 font-mono">
             Capital Real Estate Security & Logistics
           </span>

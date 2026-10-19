@@ -192,9 +192,9 @@ export const NotificationDetailsModal: React.FC<NotificationDetailsModalProps> =
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1 sm:col-span-2">
                 <span className="text-slate-400 dark:text-slate-500">Trip Purpose</span>
-                <p className="font-medium text-slate-800 dark:text-slate-200 line-clamp-1">
+                <p className="font-medium text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words">
                   {booking.purpose}
                 </p>
               </div>

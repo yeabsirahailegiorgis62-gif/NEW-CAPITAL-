@@ -185,6 +185,10 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
           }
           #public-pass-card, #public-pass-card * {
             visibility: visible !important;
+            color: #0f172a !important;
+            background-color: transparent !important;
+            border-color: #cbd5e1 !important;
+            box-shadow: none !important;
           }
           #public-pass-card {
             position: absolute !important;
@@ -322,7 +326,7 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
         {result && !isLoading && (
           <div
             id="public-pass-card"
-            className="bg-white text-slate-900 rounded-3xl border border-slate-200 shadow-2xl overflow-hidden space-y-6 p-6 sm:p-8 transition-all"
+            className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl dark:shadow-[0_25px_60px_rgba(0,0,0,0.85)] overflow-hidden space-y-6 p-6 sm:p-8 transition-all"
           >
             {/* Status Clearance Ribbon */}
             {statusVisual && (
@@ -330,17 +334,17 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
                 className={`p-4 sm:p-5 rounded-2xl border ${statusVisual.bg} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-xl bg-white shadow-sm flex items-center justify-center shrink-0">
+                  <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0 border border-slate-200/50 dark:border-slate-700/50">
                     {statusVisual.icon}
                   </div>
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider block text-slate-500">
+                    <span className="text-[10px] font-black uppercase tracking-wider block text-slate-500 dark:text-slate-400">
                       Security Clearance Status
                     </span>
                     <h2 className="text-base sm:text-lg font-black tracking-tight leading-snug">
                       {statusVisual.title}
                     </h2>
-                    <p className="text-xs text-slate-600 mt-0.5 font-medium">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
                       {statusVisual.subtitle}
                     </p>
                   </div>
@@ -357,10 +361,10 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
             )}
 
             {/* Corporate Letterhead & Document Meta */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b-2 border-slate-900">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b-2 border-slate-900 dark:border-slate-700">
               <div className="space-y-1">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0">
+                  <div className="w-12 h-12 rounded-2xl bg-white p-1 flex items-center justify-center shadow-xs shrink-0 border border-slate-200 dark:border-slate-700">
                     <img
                       src="/assets/capital-emblem.png"
                       alt="Capital Real Estate & Apartment"
@@ -368,27 +372,27 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
                     />
                   </div>
                   <div>
-                    <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-950 uppercase leading-none">
+                    <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-950 dark:text-white uppercase leading-none">
                       Capital Real Estate & Apartment
                     </h1>
-                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5">
+                    <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">
                       Fleet Logistics & Security Clearance Pass
                     </p>
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-400 pt-1">
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 pt-1">
                   Verified against Corporate Database · Addis Ababa, Ethiopia
                 </p>
               </div>
 
               <div className="text-left sm:text-right flex flex-col sm:items-end">
-                <span className="text-[10px] font-bold tracking-widest text-brand-700 uppercase bg-brand-50 border border-brand-200 px-2.5 py-0.5 rounded">
+                <span className="text-[10px] font-bold tracking-widest text-brand-700 dark:text-brand-300 uppercase bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800 px-2.5 py-0.5 rounded">
                   Official Verification Record
                 </span>
-                <div className="text-sm font-mono font-black text-slate-900 mt-1">
+                <div className="text-sm font-mono font-black text-slate-900 dark:text-white mt-1">
                   REF: {result.bookingReference}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Verified At: {formatEthiopianDateTime(result.verifiedAt)}
                 </div>
               </div>
@@ -397,27 +401,27 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
             {/* Main Information Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Personnel Block */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
-                  <UserIcon className="w-3.5 h-3.5 text-brand-600" />
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700/60 pb-2">
+                  <UserIcon className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                   <span>Authorized Personnel</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase">Requester Name</span>
-                    <span className="font-bold text-slate-900 block truncate">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Requester Name</span>
+                    <span className="font-bold text-slate-900 dark:text-white block break-words">
                       {result.requester?.name || 'Staff Member'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase">Employee ID</span>
-                    <span className="font-mono font-bold text-slate-800 block">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Employee ID</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 block">
                       {result.requester?.employeeId || 'CRE-STAFF'}
                     </span>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-[10px] text-slate-400 block uppercase">Department / Unit</span>
-                    <span className="font-medium text-slate-800 block">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Department / Unit</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200 block">
                       {result.requester?.department || 'Capital Real Estate Corp'}
                     </span>
                   </div>
@@ -437,35 +441,35 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
               </div>
 
               {/* Assigned Vehicle Block */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
-                  <Car className="w-3.5 h-3.5 text-brand-600" />
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700/60 pb-2">
+                  <Car className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                   <span>Assigned Vehicle & Driver</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="col-span-2">
-                    <span className="text-[10px] text-slate-400 block uppercase">Make & Model</span>
-                    <span className="font-bold text-slate-900 block text-sm">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Make & Model</span>
+                    <span className="font-bold text-slate-900 dark:text-white block text-sm">
                       {result.assignment
                         ? `${result.assignment.make} ${result.assignment.model} (${result.assignment.vehicleName})`
                         : 'Vehicle Allocation Pending by Logistics'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase">License Plate</span>
-                    <span className="font-mono font-bold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded text-xs inline-block mt-0.5">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">License Plate</span>
+                    <span className="font-mono font-bold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800 px-2 py-0.5 rounded text-xs inline-block mt-0.5">
                       {result.assignment?.registrationNumber || 'PENDING'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase">Category</span>
-                    <span className="font-medium text-slate-800 block">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Category</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200 block">
                       {result.assignment?.category || 'Standard Fleet'}
                     </span>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-[10px] text-slate-400 block uppercase">Designated Driver</span>
-                    <span className="font-bold text-slate-800 block">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Designated Driver</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 block">
                       {result.assignment?.driverName || (result.trip?.requiresDriver ? 'Pending Assignment' : 'Authorized Self-Drive')}
                     </span>
                   </div>
@@ -473,38 +477,38 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
               </div>
 
               {/* Schedule & Destination Block */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
-                  <Calendar className="w-3.5 h-3.5 text-brand-600" />
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700/60 pb-2">
+                  <Calendar className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                   <span>Schedule & Destination</span>
                 </div>
                 <div className="space-y-2 text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase">Departure (EAT)</span>
-                    <span className="font-bold text-slate-900">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Departure (EAT)</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
                       {result.trip?.departureAt
                         ? formatEthiopianDateTime(result.trip.departureAt)
                         : 'N/A'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase">Expected Return (EAT)</span>
-                    <span className="font-bold text-slate-900">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Expected Return (EAT)</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
                       {result.trip?.expectedReturnAt
                         ? formatEthiopianDateTime(result.trip.expectedReturnAt)
                         : 'N/A'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase">Destination</span>
-                    <span className="font-semibold text-slate-800 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Destination</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 shrink-0" />
                       <span>{result.trip?.destination}</span>
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase">Mission Purpose</span>
-                    <p className="text-slate-700 italic text-[11px] mt-0.5">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">Mission Purpose</span>
+                    <p className="text-slate-700 dark:text-slate-300 italic text-[11px] mt-0.5 whitespace-pre-wrap break-words">
                       "{result.trip?.purpose}"
                     </p>
                   </div>
@@ -512,8 +516,8 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
               </div>
 
               {/* Dedicated QR Code Block */}
-              <div className="p-4 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-between text-center relative overflow-hidden">
-                <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">
+              <div className="p-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-850 flex flex-col items-center justify-between text-center relative overflow-hidden">
+                <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">
                   Unique Dispatch Pass QR Code
                 </div>
 
@@ -550,16 +554,16 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
                 </div>
 
                 <div className="mt-2 space-y-1">
-                  <div className="text-xs font-mono font-bold text-slate-900">
+                  <div className="text-xs font-mono font-bold text-slate-900 dark:text-white">
                     {result.bookingReference}
                   </div>
                   <button
                     onClick={handleCopyLink}
-                    className="no-print inline-flex items-center gap-1 text-[10px] font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+                    className="no-print inline-flex items-center gap-1 text-[10px] font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 transition-colors"
                   >
                     {copied ? (
                       <>
-                        <Check className="w-3 h-3 text-emerald-600" />
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                         <span>Link Copied</span>
                       </>
                     ) : (
@@ -574,26 +578,26 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
             </div>
 
             {/* Approval & Security Signoff Bar */}
-            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase font-bold">
                     Authorized Approval Sign-Off
                   </span>
-                  <span className="font-bold text-slate-900 text-xs">
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">
                     {result.assignment?.assignedBy || 'Logistics Operations Administrator'}
                   </span>
                 </div>
               </div>
 
               <div className="text-left sm:text-right">
-                <span className="text-[10px] text-slate-400 block uppercase font-bold">
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase font-bold">
                   Approval Timestamp
                 </span>
-                <span className="font-medium text-slate-800 text-xs">
+                <span className="font-medium text-slate-800 dark:text-slate-200 text-xs">
                   {result.approvalDate ? formatEthiopianDateTime(result.approvalDate) : 'Logistics Verified'}
                 </span>
               </div>
