@@ -1,4 +1,4 @@
-export type UserRole = 'EMPLOYEE' | 'LOGISTICS_ADMIN' | 'SYSTEM_ADMIN';
+export type UserRole = 'EMPLOYEE' | 'DRIVER' | 'LOGISTICS_ADMIN' | 'SYSTEM_ADMIN';
 
 export interface User {
   id: string;
@@ -61,6 +61,8 @@ export interface Booking {
     name: string;
     email: string;
     employeeId?: string | null;
+    phone?: string | null;
+    departmentId?: string | null;
     department?: {
       id: string;
       name: string;
@@ -98,9 +100,15 @@ export interface VehicleAssignment {
     id: string;
     name: string;
   };
+  driverId?: string | null;
+  driver?: User | null;
   driverName?: string | null;
   driverPhone?: string | null;
   assignedAt: string;
+  startOdometer?: number | null;
+  endOdometer?: number | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
   unassignedAt?: string | null;
   assignmentNotes?: string | null;
 }
@@ -149,8 +157,13 @@ export interface VehicleIssue {
 export interface Department {
   id: string;
   name: string;
+  code?: string | null;
   description?: string | null;
+  isActive?: boolean;
   createdAt: string;
+  _count?: {
+    users: number;
+  };
 }
 
 export interface LogisticsDashboardStats {
@@ -194,4 +207,42 @@ export interface BookingVerificationResult {
   approvalDate?: string;
   verifiedAt: string;
   securityNotice?: string;
+}
+
+export interface Driver {
+  id: string;
+  name: string;
+  phone: string;
+  licenseNumber: string;
+  licenseClass?: string;
+  status: 'AVAILABLE' | 'ON_MISSION' | 'OFF_DUTY';
+  totalTrips: number;
+  completedTrips: number;
+  avatarUrl?: string;
+  assignedVehicleId?: string;
+  assignedVehicle?: Vehicle;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface WeeklyItineraryStop {
+  dayName: string;
+  date: string;
+  destination: string;
+  purpose: string;
+  departureTime: string;
+  returnTime: string;
+}
+
+export interface TransportSystemRules {
+  dailyNoticeHours: number;
+  weeklyNoticeHours: number;
+  maxAdvanceBookingDays: number;
+  requireWeekendApproval: boolean;
+  workingHoursStart: string;
+  workingHoursEnd: string;
+  organizationName: string;
+  dispatchEmail: string;
+  dispatchPhone: string;
+  dispatchLocation: string;
 }

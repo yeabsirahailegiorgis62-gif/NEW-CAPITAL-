@@ -178,9 +178,17 @@ export class VehiclesService {
 
       let reason = '';
       if (!isOperational) {
-        reason = `Vehicle is ${v.operationalStatus.toLowerCase().replace('_', ' ')}`;
+        if (v.operationalStatus === VehicleOperationalStatus.MAINTENANCE) {
+          reason = 'Vehicle is currently in workshop maintenance';
+        } else if (v.operationalStatus === VehicleOperationalStatus.OUT_OF_SERVICE) {
+          reason = 'Vehicle is currently out of service';
+        } else if (v.operationalStatus === VehicleOperationalStatus.INACTIVE) {
+          reason = 'Vehicle is currently inactive';
+        } else {
+          reason = `Vehicle status is ${v.operationalStatus.toLowerCase().replace('_', ' ')}`;
+        }
       } else if (overlappingAssignment) {
-        reason = `Assigned to booking ${overlappingAssignment.booking.bookingReference} (${overlappingAssignment.booking.destination})`;
+        reason = `Currently assigned to mission #${overlappingAssignment.booking.bookingReference} (${overlappingAssignment.booking.destination})`;
       }
 
       return {
@@ -193,6 +201,7 @@ export class VehiclesService {
           category: v.category,
           passengerCapacity: v.passengerCapacity,
           operationalStatus: v.operationalStatus,
+          imageUrl: v.imageUrl,
           openIssuesCount: v.issues.length,
         },
         isAvailable,

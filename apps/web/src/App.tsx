@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { User, Booking, Vehicle, InAppNotification, BookingStatus } from '@/types';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { AppShell } from '@/components/layout/AppShell';
 import { EmployeeDashboard } from '@/features/dashboard/EmployeeDashboard';
@@ -23,12 +22,19 @@ import { AutomotiveLoadingScreen } from '@/components/loading/AutomotiveLoadingS
 import { DigitalReceiptModal } from '@/features/bookings/DigitalReceiptModal';
 import { BookingVerificationModal } from '@/features/bookings/BookingVerificationModal';
 import { PublicVerificationPage } from '@/pages/PublicVerificationPage';
+import { DriversManagementView } from '@/features/drivers/DriversManagementView';
+import { ReportsHubView } from '@/features/reports/ReportsHubView';
+import { SystemSettingsView } from '@/features/admin/SystemSettingsView';
+import { PrintableTransportFormModal } from '@/features/bookings/PrintableTransportFormModal';
+import { DriverDashboard } from '@/features/dashboard/DriverDashboard';
+import { AdminAnalyticsDashboard } from '@/features/dashboard/AdminAnalyticsDashboard';
+import { DepartmentsManagementView } from '@/features/admin/DepartmentsManagementView';
 
 export function App() {
   const toast = useToast();
 
-  const [isAppLoading, setIsAppLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'landing' | 'login' | 'workspace'>('landing');
+  const [isAppLoading, setIsAppLoading] = useState(false);
+  const [currentView, setCurrentView] = useState<'login' | 'workspace'>('login');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
@@ -37,6 +43,7 @@ export function App() {
   // Modal states
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
   const [selectedBookingForReceipt, setSelectedBookingForReceipt] = useState<Booking | null>(null);
+  const [printableBooking, setPrintableBooking] = useState<Booking | null>(null);
   const [verificationReference, setVerificationReference] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -129,7 +136,7 @@ export function App() {
     setCurrentUser(null);
     setNotifications([]);
     setBookings([]);
-    setCurrentView('landing');
+    setCurrentView('login');
     setActiveTab('dashboard');
   };
 
@@ -255,25 +262,12 @@ export function App() {
     return <AutomotiveLoadingScreen onFinish={() => setIsAppLoading(false)} minDuration={1800} />;
   }
 
-  if (currentView === 'landing') {
-    return (
-      <>
-        <LandingPage onSignInClick={() => setCurrentView('login')} />
-        <BookingVerificationModal
-          isOpen={verificationReference !== null}
-          onClose={() => setVerificationReference(null)}
-          initialReference={verificationReference}
-        />
-      </>
-    );
-  }
-
   if (currentView === 'login') {
     return (
       <>
         <LoginPage
-          onBackToLanding={() => setCurrentView('landing')}
           onLoginSubmit={handleLogin}
+          onOpenVerification={() => setVerificationReference('')}
         />
         <BookingVerificationModal
           isOpen={verificationReference !== null}
@@ -285,6 +279,7 @@ export function App() {
   }
 
   const isEmployee = currentUser?.role === 'EMPLOYEE';
+  const isDriver = currentUser?.role === 'DRIVER';
   const isSystemAdmin = currentUser?.role === 'SYSTEM_ADMIN';
 
   return (
@@ -315,13 +310,27 @@ export function App() {
       {/* Dynamic Tab Rendering */}
       {activeTab === 'dashboard' && (
         <>
-          {isEmployee ? (
+          {isDriver ? (
+            <DriverDashboard
+              currentUser={currentUser!}
+              onOpenBooking={(b) => setSelectedBookingForDetails(b)}
+              onStartTrip={(b) => setTripModalBooking({ booking: b, mode: 'start' })}
+              onCompleteTrip={(b) => setTripModalBooking({ booking: b, mode: 'complete' })}
+              onOpenReceipt={handleOpenReceipt}
+              onRefresh={refreshAllData}
+            />
+          ) : isEmployee ? (
             <EmployeeDashboard
               currentUser={currentUser!}
               onNewBookingClick={() => setActiveTab('new-booking')}
               onOpenBooking={(b) => setSelectedBookingForDetails(b)}
               onOpenReceipt={handleOpenReceipt}
               onNavigateTab={setActiveTab}
+            />
+          ) : isSystemAdmin ? (
+            <AdminAnalyticsDashboard
+              onNavigateTab={setActiveTab}
+              onOpenBooking={(b) => setSelectedBookingForDetails(b)}
             />
           ) : (
             <LogisticsDashboard
@@ -341,6 +350,7 @@ export function App() {
           }}
           onCancel={() => setActiveTab('dashboard')}
           onOpenReceipt={handleOpenReceipt}
+          onPrintForm={(b) => setPrintableBooking(b)}
         />
       )}
 
@@ -363,12 +373,29 @@ export function App() {
         <ReviewRequestsQueue
           currentUser={currentUser!}
           bookings={bookings}
+          initialTab="pending"
           onRefreshQueue={refreshAllData}
           onSelectBooking={(b) => setSelectedBookingForDetails(b)}
           onAssignVehicle={(b) => setAssigningBooking(b)}
           onApprove={handleApproveBooking}
           onReject={handleRejectBooking}
           onOpenReceipt={handleOpenReceipt}
+          onPrintForm={(b) => setPrintableBooking(b)}
+        />
+      )}
+
+      {activeTab === 'assign-queue' && (
+        <ReviewRequestsQueue
+          currentUser={currentUser!}
+          bookings={bookings}
+          initialTab="approved"
+          onRefreshQueue={refreshAllData}
+          onSelectBooking={(b) => setSelectedBookingForDetails(b)}
+          onAssignVehicle={(b) => setAssigningBooking(b)}
+          onApprove={handleApproveBooking}
+          onReject={handleRejectBooking}
+          onOpenReceipt={handleOpenReceipt}
+          onPrintForm={(b) => setPrintableBooking(b)}
         />
       )}
 
@@ -386,8 +413,24 @@ export function App() {
         />
       )}
 
+      {activeTab === 'drivers' && !isEmployee && (
+        <DriversManagementView currentUser={currentUser!} />
+      )}
+
       {activeTab === 'maintenance' && (
         <MaintenanceView currentUser={currentUser!} />
+      )}
+
+      {activeTab === 'reports' && !isEmployee && (
+        <ReportsHubView currentUser={currentUser!} />
+      )}
+
+      {activeTab === 'settings' && isSystemAdmin && (
+        <SystemSettingsView currentUser={currentUser!} />
+      )}
+
+      {activeTab === 'departments' && isSystemAdmin && (
+        <DepartmentsManagementView />
       )}
 
       {activeTab === 'users' && isSystemAdmin && (
@@ -407,6 +450,7 @@ export function App() {
         onApprove={handleApproveBooking}
         onReject={handleRejectBooking}
         onOpenReceipt={handleOpenReceipt}
+        onPrintForm={(b) => setPrintableBooking(b)}
         onAssign={(b) => {
           setSelectedBookingForDetails(null);
           setAssigningBooking(b);
@@ -479,6 +523,13 @@ export function App() {
           }}
         />
       )}
+
+      {/* Printable Official Transport Request Form Modal */}
+      <PrintableTransportFormModal
+        isOpen={!!printableBooking}
+        onClose={() => setPrintableBooking(null)}
+        booking={printableBooking}
+      />
     </AppShell>
   );
 }

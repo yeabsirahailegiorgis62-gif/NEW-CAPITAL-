@@ -148,7 +148,11 @@ export const VehicleInventoryView: React.FC<VehicleInventoryViewProps> = ({
         {filteredVehicles.map((v) => {
           const carImg = v.imageUrl || (
             v.category === 'SUV' ? '/vehicles/prado.png' :
-            v.category === 'PICKUP' ? '/vehicles/hilux.png' :
+            v.category === 'PICKUP' ? (
+              (v.name + ' ' + (v.model || '')).toLowerCase().includes('ranger') ? '/vehicles/ranger.png' :
+              (v.name + ' ' + (v.model || '')).toLowerCase().includes('d-max') || (v.name + ' ' + (v.model || '')).toLowerCase().includes('dmax') ? '/vehicles/dmax.png' :
+              '/vehicles/hilux.png'
+            ) :
             v.category === 'MINIBUS' ? '/vehicles/hiace.png' :
             '/vehicles/corolla.png'
           );
@@ -157,14 +161,15 @@ export const VehicleInventoryView: React.FC<VehicleInventoryViewProps> = ({
             <Card key={v.id} className="overflow-hidden flex flex-col justify-between group">
               <div>
                 {/* Car Photo Banner */}
-                <div className="relative aspect-[16/10] bg-gradient-to-b from-slate-100 to-slate-200/50 dark:from-slate-800 dark:to-slate-900 overflow-hidden flex items-center justify-center p-4">
+                <div className="relative aspect-[16/10] bg-slate-100 dark:bg-slate-800 overflow-hidden">
                   <img
                     src={carImg}
                     alt={v.name}
-                    className="w-full h-full object-contain transform transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-105"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 pointer-events-none" />
                   <div className="absolute top-3 left-3">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-900/80 text-white backdrop-blur-xs">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-900/80 text-white backdrop-blur-md shadow-xs">
                       {v.category}
                     </span>
                   </div>

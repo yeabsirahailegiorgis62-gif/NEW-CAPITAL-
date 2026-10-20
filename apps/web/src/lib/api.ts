@@ -314,7 +314,28 @@ class ApiClient {
   async getDepartments(): Promise<Department[]> {
     return this.request<Department[]>('/departments');
   }
+
+  async createDepartment(data: { name: string; code?: string; description?: string }): Promise<Department> {
+    return this.request<Department>('/departments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateDepartment(id: string, data: Partial<Department>): Promise<Department> {
+    return this.request<Department>(`/departments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteDepartment(id: string): Promise<void> {
+    return this.request<void>(`/departments/${id}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const api = new ApiClient();
+
 

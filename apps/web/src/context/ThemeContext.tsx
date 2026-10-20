@@ -24,15 +24,35 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     const root = document.documentElement;
+    const body = document.body;
     if (theme === 'dark') {
       root.classList.add('dark');
       root.style.colorScheme = 'dark';
+      root.setAttribute('data-theme', 'dark');
+      if (body) body.classList.add('dark');
     } else {
       root.classList.remove('dark');
       root.style.colorScheme = 'light';
+      root.setAttribute('data-theme', 'light');
+      if (body) body.classList.remove('dark');
     }
-    localStorage.setItem('capital_fleet_theme', theme);
+    try {
+      localStorage.setItem('capital_fleet_theme', theme);
+    } catch {
+      // ignore storage quota / sandbox issues
+    }
   }, [theme]);
+
+  // Synchronize theme across multiple open browser tabs/windows
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'capital_fleet_theme' && (e.newValue === 'light' || e.newValue === 'dark')) {
+        setThemeState(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const toggleTheme = () => {
     setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));

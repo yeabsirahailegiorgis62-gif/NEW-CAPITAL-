@@ -18,6 +18,7 @@ import {
   CheckCircle,
   XCircle,
   QrCode,
+  Printer,
 } from 'lucide-react';
 
 interface BookingDetailsModalProps {
@@ -32,6 +33,7 @@ interface BookingDetailsModalProps {
   onCompleteTrip?: (booking: Booking) => void;
   onCancelBooking?: (id: string, reason?: string) => void;
   onOpenReceipt?: (booking: Booking) => void;
+  onPrintForm?: (booking: Booking) => void;
 }
 
 export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
@@ -46,6 +48,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
   onCompleteTrip,
   onCancelBooking,
   onOpenReceipt,
+  onPrintForm,
 }) => {
   const [rejecting, setRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -76,7 +79,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
       onClose={onClose}
       title={`Booking Details #${booking.bookingReference}`}
       description="Official vehicle booking request and assignment record"
-      maxWidth="3xl"
+      maxWidth="4xl"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3 w-full">
           {/* Cancellation options */}
@@ -103,20 +106,20 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           </div>
 
           {/* Operational Workflow Actions */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             {isLogisticsOrAdmin && booking.status === 'PENDING_APPROVAL' && !rejecting && (
               <>
-                <Button variant="danger" size="sm" onClick={() => setRejecting(true)}>
+                <Button variant="danger" size="sm" onClick={() => setRejecting(true)} leftIcon={<XCircle className="w-4 h-4" />}>
                   Reject
                 </Button>
-                <Button variant="success" size="sm" onClick={() => onApprove && onApprove(booking.id)}>
+                <Button variant="success" size="sm" onClick={() => onApprove && onApprove(booking.id)} leftIcon={<CheckCircle className="w-4 h-4" />}>
                   Approve Request
                 </Button>
               </>
             )}
 
             {isLogisticsOrAdmin && booking.status === 'APPROVED' && onAssign && (
-              <Button variant="primary" size="sm" onClick={() => onAssign(booking)}>
+              <Button variant="primary" size="sm" onClick={() => onAssign(booking)} leftIcon={<Car className="w-4 h-4" />}>
                 Assign Vehicle
               </Button>
             )}
@@ -124,12 +127,12 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
             {isLogisticsOrAdmin && booking.status === 'ASSIGNED' && (
               <>
                 {onAssign && (
-                  <Button variant="outline" size="sm" onClick={() => onAssign(booking)}>
+                  <Button variant="outline" size="sm" onClick={() => onAssign(booking)} leftIcon={<Car className="w-3.5 h-3.5" />}>
                     Change Assignment
                   </Button>
                 )}
                 {onStartTrip && (
-                  <Button variant="success" size="sm" onClick={() => onStartTrip(booking)}>
+                  <Button variant="success" size="sm" onClick={() => onStartTrip(booking)} leftIcon={<CheckCircle className="w-4 h-4" />}>
                     Record Departure (Start Trip)
                   </Button>
                 )}
@@ -137,7 +140,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
             )}
 
             {isLogisticsOrAdmin && booking.status === 'IN_PROGRESS' && onCompleteTrip && (
-              <Button variant="primary" size="sm" onClick={() => onCompleteTrip(booking)}>
+              <Button variant="primary" size="sm" onClick={() => onCompleteTrip(booking)} leftIcon={<CheckCircle className="w-4 h-4" />}>
                 Record Return (Complete Trip)
               </Button>
             )}
@@ -152,12 +155,24 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => onOpenReceipt(booking)}
-                  leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600" />}
-                  className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                  leftIcon={<QrCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+                  className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 font-semibold shadow-2xs"
                 >
-                  View Receipt
+                  Digital Receipt & QR
                 </Button>
               )}
+
+            {onPrintForm && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPrintForm(booking)}
+                leftIcon={<Printer className="w-4 h-4 text-brand-600 dark:text-brand-400" />}
+                className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold shadow-2xs"
+              >
+                Print Official Form
+              </Button>
+            )}
 
             <Button variant="outline" size="sm" onClick={onClose}>
               Close
@@ -168,7 +183,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
     >
       <div className="space-y-5 pb-2">
         {/* Status Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs shrink-0">
               <img
@@ -200,14 +215,26 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => onOpenReceipt(booking)}
-                  leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600" />}
-                  className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-semibold"
+                  leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                  className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 font-semibold shadow-2xs"
                 >
                   Digital Receipt & QR
                 </Button>
               )}
 
-            <div className="text-right border-l border-slate-200 dark:border-slate-700 pl-3">
+            {onPrintForm && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPrintForm(booking)}
+                leftIcon={<Printer className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />}
+                className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold shadow-2xs"
+              >
+                Print Form
+              </Button>
+            )}
+
+            <div className="text-left sm:text-right sm:border-l sm:border-slate-200 sm:dark:border-slate-700 sm:pl-3">
               <span className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase font-bold tracking-wider">
                 Requested By
               </span>

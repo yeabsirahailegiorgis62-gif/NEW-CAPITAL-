@@ -10,6 +10,11 @@ import {
   Wrench,
   Users,
   ShieldCheck,
+  KeyRound,
+  UserCheck,
+  BarChart3,
+  Settings,
+  Building,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
 }) => {
   const isEmployee = currentUser.role === 'EMPLOYEE';
+  const isDriver = currentUser.role === 'DRIVER';
   const isLogistics = currentUser.role === 'LOGISTICS_ADMIN';
   const isSystemAdmin = currentUser.role === 'SYSTEM_ADMIN';
 
@@ -39,24 +45,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'availability', label: 'Fleet Calendar', icon: CalendarDays },
   ];
 
+  const driverLinks = [
+    { id: 'dashboard', label: 'Driver Dashboard', icon: LayoutDashboard },
+    { id: 'availability', label: 'Fleet Calendar', icon: CalendarDays },
+  ];
+
   const logisticsLinks = [
     { id: 'dashboard', label: 'Logistics Overview', icon: LayoutDashboard },
     { id: 'requests-queue', label: 'Review Requests', icon: ClipboardList },
+    { id: 'assign-queue', label: 'Assign Vehicles', icon: KeyRound },
     { id: 'availability', label: 'Schedule & Calendar', icon: CalendarDays },
     { id: 'vehicles', label: 'Fleet Inventory', icon: Car },
+    { id: 'drivers', label: 'Chauffeur Registry', icon: UserCheck },
     { id: 'maintenance', label: 'Vehicle Issues', icon: Wrench },
+    { id: 'reports', label: 'Reports & Analytics', icon: BarChart3 },
   ];
 
   const adminLinks = [
-    { id: 'dashboard', label: 'Logistics Overview', icon: LayoutDashboard },
-    { id: 'requests-queue', label: 'Review Requests', icon: ClipboardList },
-    { id: 'availability', label: 'Fleet Calendar', icon: CalendarDays },
-    { id: 'vehicles', label: 'Fleet Inventory', icon: Car },
+    { id: 'dashboard', label: 'Analytics & Command', icon: LayoutDashboard },
+    { id: 'departments', label: 'Departments', icon: Building },
     { id: 'users', label: 'Staff Accounts', icon: Users },
+    { id: 'vehicles', label: 'Fleet Inventory', icon: Car },
+    { id: 'requests-queue', label: 'Review Requests', icon: ClipboardList },
+    { id: 'assign-queue', label: 'Assign Vehicles', icon: KeyRound },
+    { id: 'drivers', label: 'Chauffeur Registry', icon: UserCheck },
+    { id: 'reports', label: 'Reports & Analytics', icon: BarChart3 },
+    { id: 'settings', label: 'System Settings', icon: Settings },
     { id: 'audit-logs', label: 'System Audit Logs', icon: ShieldCheck },
   ];
 
-  const links = isEmployee ? employeeLinks : isSystemAdmin ? adminLinks : logisticsLinks;
+  const links = isDriver ? driverLinks : isEmployee ? employeeLinks : isSystemAdmin ? adminLinks : logisticsLinks;
+
 
   const handleSelect = (id: string) => {
     onTabChange(id);
@@ -65,7 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const content = (
     <div className="flex flex-col h-full bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 w-64 select-none">
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
         <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
           Workspace
         </div>
@@ -74,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto min-h-0">
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = activeTab === link.id;
@@ -102,7 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* Role Footer */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-500 dark:text-slate-400">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-500 dark:text-slate-400 shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-emerald-500" />
           <span className="font-medium text-slate-800 dark:text-slate-200">
@@ -110,6 +129,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ? 'Logistics Operations'
               : currentUser.role === 'SYSTEM_ADMIN'
               ? 'System Administrator'
+              : currentUser.role === 'DRIVER'
+              ? 'Professional Chauffeur'
               : 'Official Traveler'}
           </span>
         </div>
@@ -121,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:block shrink-0 sticky top-16 h-[calc(100vh-4rem)] border-r border-slate-200 dark:border-slate-800">
+      <aside className="hidden lg:block shrink-0 h-full border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         {content}
       </aside>
 

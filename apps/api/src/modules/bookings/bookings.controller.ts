@@ -92,14 +92,14 @@ export class BookingsController {
   }
 
   @Post(':id/start')
-  @Roles(UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.DRIVER)
   @ApiOperation({ summary: 'Record vehicle departure and begin trip execution' })
   startTrip(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: StartTripDto) {
     return this.bookingsService.startTrip(id, user, dto);
   }
 
   @Post(':id/complete')
-  @Roles(UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN)
+  @Roles(UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.DRIVER)
   @ApiOperation({ summary: 'Record vehicle return and finalize completed trip' })
   completeTrip(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: CompleteTripDto) {
     return this.bookingsService.completeTrip(id, user, dto);

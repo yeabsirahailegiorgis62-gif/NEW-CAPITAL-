@@ -5,12 +5,18 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
+import { json, urlencoded } from 'express';
+
 async function bootstrap() {
   const logger = new Logger('CapitalFleetAPI');
   const app = await NestFactory.create(AppModule);
 
   app.enableShutdownHooks();
   app.setGlobalPrefix('api');
+
+  // Payload body parser limits for photo uploads
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ limit: '10mb', extended: true }));
 
   // Security Headers Middleware
   app.use((req: any, res: any, next: any) => {

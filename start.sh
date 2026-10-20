@@ -24,13 +24,20 @@ API_PID=$!
 echo "  → API PID: $API_PID"
 
 # Wait for API to be ready
-sleep 4
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:4100/api/auth/login \
-   -X POST -H "Content-Type: application/json" \
-   -d '{"identifier":"employee@capitalre.com","password":"CapitalFleet2026!"}' | grep -q "200"; then
+echo "  → Waiting for API readiness..."
+READY=0
+for i in {1..15}; do
+  if curl -s -f http://localhost:4100/api/health >/dev/null 2>&1; then
+    READY=1
+    break
+  fi
+  sleep 0.5
+done
+
+if [ $READY -eq 1 ]; then
   echo "  → ✅ API is healthy at http://localhost:4100/api"
 else
-  echo "  → ⚠️  API may still be warming up..."
+  echo "  → ⚠️  API is still initializing, proceeding..."
 fi
 
 # Start Frontend in background
@@ -49,10 +56,17 @@ echo "   Frontend  →  http://localhost:5173"
 echo "   API       →  http://localhost:4100/api"
 echo "   API Docs  →  http://localhost:4100/api/docs"
 echo ""
-echo "📋 Login Credentials:"
-echo "   Employee:       employee@capitalre.com  / CapitalFleet2026!"
-echo "   Logistics Admin: logistics@capitalre.com / CapitalFleet2026!"
-echo "   System Admin:   admin@capitalre.com     / CapitalFleet2026!"
+echo "📋 Login Credentials (Shared Password: CapitalFleet2026!):"
+echo "   Drivers:        driver.abebe@capitalre.com (Senior VIP Chauffeur)"
+echo "                   driver.mulugeta@capitalre.com (Heavy Transit Chauffeur)"
+echo "   Departments:    employee.finance@capitalre.com (Finance & Procurement)"
+echo "                   employee.hr@capitalre.com (Human Resources)"
+echo "                   employee.it@capitalre.com (Information Technology)"
+echo "                   employee.admin@capitalre.com (General Administration)"
+echo "                   employee@capitalre.com (Project Engineering)"
+echo "                   bethlehem@capitalre.com (Sales & Real Estate)"
+echo "   Logistics:      logistics@capitalre.com (Fleet Dispatch & Review)"
+echo "   System Admin:   admin@capitalre.com (Executive Command & Analytics)"
 echo ""
 echo "Press Ctrl+C to stop all services."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

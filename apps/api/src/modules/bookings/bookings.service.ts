@@ -119,6 +119,16 @@ export class BookingsService {
     // Regular employee can ONLY see their own bookings
     if (user.role === UserRole.EMPLOYEE) {
       where.requesterId = user.id;
+    } else if (user.role === UserRole.DRIVER) {
+      where.assignments = {
+        some: {
+          OR: [
+            { driverId: user.id },
+            { driverName: { contains: user.name, mode: 'insensitive' } },
+            ...(user.phone ? [{ driverPhone: user.phone }] : []),
+          ],
+        },
+      };
     }
 
     if (query?.status) {
@@ -187,6 +197,19 @@ export class BookingsService {
     // Ownership check for employees
     if (user.role === UserRole.EMPLOYEE && booking.requesterId !== user.id) {
       throw new ForbiddenException('You are not authorized to view this booking record');
+    }
+
+    // Authorization check for drivers
+    if (user.role === UserRole.DRIVER) {
+      const isAssigned = booking.assignments.some(
+        (a: any) =>
+          a.driverId === user.id ||
+          (user.name && a.driverName && a.driverName.toLowerCase() === user.name.toLowerCase()) ||
+          (user.phone && a.driverPhone === user.phone)
+      );
+      if (!isAssigned) {
+        throw new ForbiddenException('You are not assigned as the driver for this trip');
+      }
     }
 
     return booking;

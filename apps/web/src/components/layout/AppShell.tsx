@@ -6,8 +6,24 @@ import { api } from '@/lib/api';
 import { NotificationDetailsModal } from '@/components/notifications/NotificationDetailsModal';
 import {
   X, Bell, CheckCheck, Clock, Car, ShieldCheck, XCircle,
-  CheckCircle2, AlertCircle, Info, Inbox, ChevronRight, QrCode,
+  CheckCircle2, AlertCircle, Info, Inbox, ChevronRight, QrCode, ArrowLeft,
 } from 'lucide-react';
+
+const TAB_TITLES: Record<string, string> = {
+  'dashboard': 'Dashboard Overview',
+  'new-booking': 'Book a Vehicle',
+  'my-bookings': 'My Trip Bookings & History',
+  'requests-queue': 'Review Requests Queue',
+  'assign-queue': 'Vehicle Assignment & Allocation Queue',
+  'availability': 'Fleet Calendar & Schedules',
+  'vehicles': 'Fleet Inventory',
+  'drivers': 'Chauffeur & Driver Directory',
+  'maintenance': 'Vehicle Issues & Workshop Maintenance',
+  'reports': 'Executive Reports & Analytics Hub',
+  'settings': 'Departments & System Settings',
+  'users': 'Staff Accounts & Directory',
+  'audit-logs': 'System Audit Logs',
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helper: pick icon + colour based on notification type
@@ -222,7 +238,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
+    <div className="h-screen w-full max-w-full overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
       <Navbar
         currentUser={currentUser}
         unreadCount={unreadCount}
@@ -233,7 +249,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         onOpenVerification={onOpenVerification ? () => onOpenVerification() : undefined}
       />
 
-      <div className="flex-1 flex w-full min-w-0">
+      <div className="flex-1 flex w-full min-w-0 overflow-hidden">
         <Sidebar
           currentUser={currentUser}
           activeTab={activeTab}
@@ -242,8 +258,36 @@ export const AppShell: React.FC<AppShellProps> = ({
           onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-y-auto">
-          <div key={activeTab} className="page-enter w-full">
+        <main className="flex-1 h-full p-4 sm:p-6 lg:p-8 min-w-0 overflow-y-auto overscroll-contain">
+          {activeTab !== 'dashboard' && (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-slate-800/80 animate-in fade-in duration-200">
+              <button
+                type="button"
+                onClick={() => onTabChange('dashboard')}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all group cursor-pointer"
+                title="Return to the main overview dashboard"
+              >
+                <ArrowLeft className="w-4 h-4 text-brand-600 dark:text-brand-400 group-hover:-translate-x-1 transition-transform" />
+                <span>Back to Dashboard</span>
+              </button>
+
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <button
+                  type="button"
+                  onClick={() => onTabChange('dashboard')}
+                  className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors cursor-pointer"
+                >
+                  Dashboard
+                </button>
+                <span className="text-slate-300 dark:text-slate-600">/</span>
+                <span className="text-slate-900 dark:text-slate-200 font-semibold">
+                  {TAB_TITLES[activeTab] || activeTab}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div key={activeTab} className="page-enter w-full min-w-0">
             {children}
           </div>
         </main>

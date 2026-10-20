@@ -40,14 +40,17 @@ interface BookingRequestFormProps {
   onSuccess: (booking: Booking) => void;
   onCancel: () => void;
   onOpenReceipt?: (booking: Booking) => void;
+  onPrintForm?: (booking: Booking) => void;
 }
 
 export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
   onSuccess,
   onCancel,
   onOpenReceipt,
+  onPrintForm,
 }) => {
   const toast = useToast();
+  const [requestType, setRequestType] = useState<'daily' | 'weekly'>('daily');
   const [destination, setDestination] = useState('');
   const [purpose, setPurpose] = useState('');
   const [departureDate, setDepartureDate] = useState('');
@@ -63,6 +66,20 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submittedBooking, setSubmittedBooking] = useState<Booking | null>(null);
+
+  const noticeHours = (() => {
+    if (!departureDate || !departureTime) return 0;
+    try {
+      const dep = new Date(`${departureDate}T${departureTime}:00`).getTime();
+      const now = Date.now();
+      return Math.max(0, (dep - now) / (1000 * 60 * 60));
+    } catch {
+      return 0;
+    }
+  })();
+
+  const requiredNotice = requestType === 'weekly' ? 72 : 24;
+  const isNoticeCompliant = noticeHours >= requiredNotice;
 
   // Initialize dates to tomorrow by default
   useEffect(() => {
@@ -414,11 +431,11 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
               <Button
                 variant="outline"
                 size="md"
-                onClick={() => window.print()}
-                leftIcon={<Printer className="w-4 h-4" />}
-                className="hidden sm:inline-flex"
+                onClick={() => (onPrintForm ? onPrintForm(submittedBooking) : window.print())}
+                leftIcon={<Printer className="w-4 h-4 text-brand-600 dark:text-brand-400" />}
+                className="hidden sm:inline-flex font-semibold border-slate-300 dark:border-slate-700"
               >
-                Print Slip
+                Print Official Requisition Form
               </Button>
             </div>
 
@@ -499,6 +516,69 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
           {error}
         </Alert>
       )}
+
+      {/* ── Transport Request Protocol Selector & Notice Engine ── */}
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mr-2">
+            Requisition Protocol:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setRequestType('daily');
+              if (departureDate) setReturnDate(departureDate);
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              requestType === 'daily'
+                ? 'bg-brand-600 text-white shadow-md shadow-brand-900/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Daily Request (Single-Day / Urgent)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setRequestType('weekly');
+              if (departureDate) {
+                const d = new Date(departureDate);
+                d.setDate(d.getDate() + 4);
+                setReturnDate(d.toISOString().split('T')[0]);
+              }
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              requestType === 'weekly'
+                ? 'bg-brand-600 text-white shadow-md shadow-brand-900/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Weekly Request (Multi-Day Itinerary)</span>
+          </button>
+        </div>
+
+        {/* Notice Period Rule Status */}
+        <div className="flex items-center gap-2.5 text-xs">
+          {isNoticeCompliant ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 font-medium">
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                Notice Satisfied ({Math.round(noticeHours)}h advance vs {requiredNotice}h standard)
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 font-medium">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Notice Alert: {Math.round(noticeHours)}h advance (Standard: {requiredNotice}h) · Expedited Review
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Main 3-Column Layout on Desktop */}
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -753,7 +833,11 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                           (v.category === 'SUV'
                             ? '/vehicles/prado.png'
                             : v.category === 'PICKUP'
-                            ? '/vehicles/hilux.png'
+                            ? ((v.name + ' ' + (v.model || '')).toLowerCase().includes('ranger')
+                              ? '/vehicles/ranger.png'
+                              : (v.name + ' ' + (v.model || '')).toLowerCase().includes('d-max') || (v.name + ' ' + (v.model || '')).toLowerCase().includes('dmax')
+                              ? '/vehicles/dmax.png'
+                              : '/vehicles/hilux.png')
                             : v.category === 'MINIBUS'
                             ? '/vehicles/hiace.png'
                             : '/vehicles/corolla.png');
@@ -769,11 +853,11 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                             }`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-12 h-10 rounded-xl bg-slate-100 dark:bg-slate-700/60 p-1 flex items-center justify-center shrink-0 overflow-hidden">
+                              <div className="w-14 h-10 rounded-xl bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden border border-slate-200 dark:border-slate-700">
                                 <img
                                   src={carImg}
                                   alt={v.name}
-                                  className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 />
                               </div>
                               <div className="min-w-0">
