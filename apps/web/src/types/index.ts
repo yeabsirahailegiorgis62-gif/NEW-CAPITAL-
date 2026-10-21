@@ -108,7 +108,11 @@ export interface Booking {
   rejectionReason?: string | null;
   createdAt: string;
   updatedAt: string;
-  cancelledAt?: string | null;
+  priority?: 'NORMAL' | 'HIGH' | 'VIP';
+  passengerDetails?: string | null;
+  documentUrl?: string | null;
+  cancellationReason?: string | null;
+  verificationToken?: string | null;
   assignments?: VehicleAssignment[];
   currentAssignment?: VehicleAssignment | null;
   bookingDays?: BookingDay[];
@@ -158,6 +162,13 @@ export interface VehicleAssignment {
   driver?: User | null;
   driverName?: string | null;
   driverPhone?: string | null;
+  status?: 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'DECLINED' | 'COMPLETED' | 'CANCELLED';
+  declineReason?: string | null;
+  confirmedAt?: string | null;
+  declinedAt?: string | null;
+  arrivedAt?: string | null;
+  tripNotes?: string | null;
+  delayReason?: string | null;
   assignedAt: string;
   startOdometer?: number | null;
   endOdometer?: number | null;
@@ -299,4 +310,105 @@ export interface TransportSystemRules {
   dispatchEmail: string;
   dispatchPhone: string;
   dispatchLocation: string;
+}
+
+export type MaintenanceCategory =
+  | 'ROUTINE_SERVICE'
+  | 'OIL_CHANGE'
+  | 'TIRE_ROTATION_REPLACEMENT'
+  | 'BRAKE_SERVICE'
+  | 'ENGINE_REPAIR'
+  | 'TRANSMISSION_REPAIR'
+  | 'ELECTRICAL_BATTERY'
+  | 'BODYWORK_PAINT'
+  | 'ANNUAL_INSPECTION'
+  | 'EMERGENCY_REPAIR'
+  | 'OTHER';
+
+export type MaintenanceStatus = 'REPORTED' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface VehicleMaintenance {
+  id: string;
+  vehicleId: string;
+  vehicle?: Vehicle;
+  category: MaintenanceCategory;
+  problemDescription?: string | null;
+  serviceDescription: string;
+  serviceDate: string;
+  odometerReading?: number | null;
+  serviceProvider?: string | null;
+  estimatedCost?: number | null;
+  actualCost?: number | null;
+  nextServiceDate?: string | null;
+  nextServiceOdometer?: number | null;
+  status: MaintenanceStatus;
+  notes?: string | null;
+  documentUrl?: string | null;
+  loggedById?: string | null;
+  loggedBy?: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FuelRecord {
+  id: string;
+  vehicleId: string;
+  vehicle?: Vehicle;
+  date: string;
+  odometerReading: number;
+  fuelQuantityLiters: number;
+  unitPrice: number;
+  totalCost: number;
+  fuelStation?: string | null;
+  receiptNumber?: string | null;
+  notes?: string | null;
+  enteredById?: string | null;
+  enteredBy?: { id: string; name: string } | null;
+  createdAt: string;
+}
+
+export interface FuelStats {
+  totalExpenditure: number;
+  totalLiters: number;
+  recordCount: number;
+  averageLitersPerRecord: number;
+  monthlyTrend: { month: string; totalCost: number; totalLiters: number }[];
+  vehicleEfficiency: {
+    vehicleId: string;
+    registrationNumber: string;
+    make: string;
+    model: string;
+    totalCost: number;
+    totalLiters: number;
+    distanceCoveredKm: number;
+    costPerKm: number | null;
+  }[];
+}
+
+export interface VehicleRecommendation {
+  vehicle: Vehicle;
+  isAvailable: boolean;
+  isCapacitySuitable: boolean;
+  score: number;
+  reasons: string[];
+  conflictDetails?: {
+    bookingReference: string;
+    destination: string;
+    departureAt: string;
+    expectedReturnAt: string;
+  } | null;
+}
+
+export interface DriverRecommendation {
+  driver: User;
+  isAvailable: boolean;
+  hasValidLicense: boolean;
+  score: number;
+  reasons: string[];
+  conflictDetails?: {
+    bookingReference: string;
+    destination: string;
+    departureAt: string;
+    expectedReturnAt: string;
+  } | null;
 }

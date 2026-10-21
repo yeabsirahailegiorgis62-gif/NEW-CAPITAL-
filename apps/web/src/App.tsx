@@ -57,7 +57,7 @@ export function App() {
   const [verificationReference, setVerificationReference] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      return params.get('verify') || params.get('ref');
+      return params.get('token') || params.get('verify') || params.get('ref');
     }
     return null;
   });

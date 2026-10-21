@@ -56,13 +56,14 @@ export const PublicVerificationPage: React.FC<PublicVerificationPageProps> = ({
     try {
       setIsLoading(true);
       setError(null);
-      const res = await api.verifyBooking(trimmed);
+      const isToken = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+      const res = isToken ? await api.verifyTripToken(trimmed) : await api.verifyBooking(trimmed);
       setResult(res);
 
       // Generate bespoke QR code delegating directly to this booking's verification URL
-      const verificationUrl = `${window.location.origin}/?verify=${encodeURIComponent(
-        res.bookingReference || trimmed
-      )}`;
+      const verificationUrl = isToken
+        ? `${window.location.origin}/?token=${encodeURIComponent(trimmed)}`
+        : `${window.location.origin}/?verify=${encodeURIComponent(res.bookingReference || trimmed)}`;
       const qrUrl = await QRCode.toDataURL(verificationUrl, {
         width: 320,
         margin: 2,

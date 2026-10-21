@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsBoolean, Min } from 'class-validator';
 import { VehicleCategory, VehicleOperationalStatus } from '@prisma/client';
 
 export class CreateVehicleDto {
@@ -60,6 +60,35 @@ export class CreateVehicleDto {
   @IsOptional()
   @IsString()
   fuelType?: string;
+
+  @ApiPropertyOptional({ example: 2022 })
+  @IsOptional()
+  @IsInt()
+  manufacturingYear?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  insuranceExpiry?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  inspectionExpiry?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  registrationExpiry?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nextMaintenanceDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  nextMaintenanceOdometer?: number;
 
   @ApiPropertyOptional({ example: 'Executive 4WD suited for regional project sites' })
   @IsOptional()
@@ -132,6 +161,45 @@ export class UpdateVehicleDto {
   @IsOptional()
   @IsString()
   fuelType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  manufacturingYear?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  insuranceExpiry?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  inspectionExpiry?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  registrationExpiry?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  lastMaintenanceDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nextMaintenanceDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  nextMaintenanceOdometer?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  hasSafetyAlert?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

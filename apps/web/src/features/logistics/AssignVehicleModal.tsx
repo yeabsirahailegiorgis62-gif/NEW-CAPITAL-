@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { Booking, Vehicle, VehicleCategory } from '@/types';
+import { Booking, Vehicle, VehicleRecommendation, DriverRecommendation } from '@/types';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -22,6 +22,8 @@ import {
   Fuel,
   Key,
   Filter,
+  Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface AssignVehicleModalProps {
@@ -30,12 +32,6 @@ interface AssignVehicleModalProps {
   booking: Booking | null;
   onAssigned: () => void;
 }
-
-const FLEET_DRIVER_PRESETS = [
-  { name: 'Abebe Molla', phone: '+251 91 123 4567', title: 'Senior Chauffeur' },
-  { name: 'Mulugeta Tadesse', phone: '+251 92 345 6789', title: 'Fleet Specialist' },
-  { name: 'Kebede Worku', phone: '+251 93 456 7890', title: 'Executive Driver' },
-];
 
 const DISPATCH_INSTRUCTION_PRESETS = [
   'Pick up vehicle keys and fuel voucher at Gate 1 Dispatch office before departure.',
@@ -49,8 +45,10 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
   booking,
   onAssigned,
 }) => {
-  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
+  const [vehicleRecommendations, setVehicleRecommendations] = useState<VehicleRecommendation[]>([]);
+  const [driverRecommendations, setDriverRecommendations] = useState<DriverRecommendation[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [driverMode, setDriverMode] = useState<'company' | 'self'>('company');
   const [driverName, setDriverName] = useState<string>('');
   const [driverPhone, setDriverPhone] = useState<string>('');
@@ -64,15 +62,13 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
   useEffect(() => {
     if (booking && isOpen) {
       setSelectedVehicleId('');
+      setSelectedDriverId(null);
       setError(null);
       setSelectedCategory('ALL');
       setShowAllCapacities(false);
 
-      // Determine initial driver coordination based on booking policy
       if (booking.requiresDriver) {
         setDriverMode('company');
-        setDriverName(FLEET_DRIVER_PRESETS[0].name);
-        setDriverPhone(FLEET_DRIVER_PRESETS[0].phone);
       } else {
         setDriverMode('self');
         setDriverName(booking.requester?.name || 'Self-Driven');
@@ -81,32 +77,36 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
 
       setAssignmentNotes('Pick up vehicle keys and fuel voucher at Gate 1 Dispatch office before departure.');
 
-      // Fetch availability for this booking's exact schedule
       setIsLoading(true);
-      api
-        .getFleetAvailability(booking.departureAt, booking.expectedReturnAt)
-        .then((data) => {
-          setAvailableVehicles(data);
-          // Preselect preferred vehicle if available, or first available with adequate capacity
-          const preferred = data.find(
-            (item) => item.vehicle.id === booking.preferredVehicleId && item.isAvailable
-          );
-          if (preferred) {
-            setSelectedVehicleId(preferred.vehicle.id);
-          } else {
-            const firstAvailWithCapacity = data.find(
-              (item) => item.isAvailable && item.vehicle.passengerCapacity >= booking.passengerCount
-            );
-            if (firstAvailWithCapacity) {
-              setSelectedVehicleId(firstAvailWithCapacity.vehicle.id);
-            } else {
-              const firstAvail = data.find((item) => item.isAvailable);
-              if (firstAvail) setSelectedVehicleId(firstAvail.vehicle.id);
+      Promise.all([
+        api.getVehicleRecommendations(booking.id).catch((err) => {
+          console.warn('Failed to load vehicle recommendations:', err);
+          return [] as VehicleRecommendation[];
+        }),
+        api.getDriverRecommendations(booking.id).catch((err) => {
+          console.warn('Failed to load driver recommendations:', err);
+          return [] as DriverRecommendation[];
+        }),
+      ])
+        .then(([vRecs, dRecs]) => {
+          setVehicleRecommendations(vRecs);
+          setDriverRecommendations(dRecs);
+
+          // Preselect top available vehicle
+          const topAvailVehicle = vRecs.find((r) => r.isAvailable);
+          if (topAvailVehicle) {
+            setSelectedVehicleId(topAvailVehicle.vehicle.id);
+          }
+
+          // Preselect top driver if in company mode
+          if (booking.requiresDriver) {
+            const topDriver = dRecs.find((d) => d.isAvailable && d.hasValidLicense);
+            if (topDriver) {
+              setSelectedDriverId(topDriver.driver.id);
+              setDriverName(topDriver.driver.name);
+              setDriverPhone(topDriver.driver.phone || '');
             }
           }
-        })
-        .catch((err) => {
-          setError('Failed to compute fleet schedule availability. Please try again.');
         })
         .finally(() => setIsLoading(false));
     }
@@ -117,18 +117,29 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
   const handleDriverModeChange = (mode: 'company' | 'self') => {
     setDriverMode(mode);
     if (mode === 'self') {
+      setSelectedDriverId(null);
       setDriverName(booking.requester?.name || 'Self-Driven');
       setDriverPhone(booking.requester?.phone || '');
     } else {
-      setDriverName(FLEET_DRIVER_PRESETS[0].name);
-      setDriverPhone(FLEET_DRIVER_PRESETS[0].phone);
+      const topDriver = driverRecommendations.find((d) => d.isAvailable && d.hasValidLicense) || driverRecommendations[0];
+      if (topDriver) {
+        setSelectedDriverId(topDriver.driver.id);
+        setDriverName(topDriver.driver.name);
+        setDriverPhone(topDriver.driver.phone || '');
+      } else {
+        setSelectedDriverId(null);
+        setDriverName('');
+        setDriverPhone('');
+      }
     }
   };
 
-  const handleSelectDriverPreset = (preset: typeof FLEET_DRIVER_PRESETS[0]) => {
+  const handleSelectDriver = (rec: DriverRecommendation) => {
+    if (!rec.isAvailable) return;
     setDriverMode('company');
-    setDriverName(preset.name);
-    setDriverPhone(preset.phone);
+    setSelectedDriverId(rec.driver.id);
+    setDriverName(rec.driver.name);
+    setDriverPhone(rec.driver.phone || '');
   };
 
   const handleConfirmAssignment = async (e: React.FormEvent) => {
@@ -144,6 +155,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
       setIsSubmitting(true);
       await api.assignVehicle(booking.id, {
         vehicleId: selectedVehicleId,
+        driverId: driverMode === 'company' ? selectedDriverId || undefined : undefined,
         driverName: driverName.trim() || undefined,
         driverPhone: driverPhone.trim() || undefined,
         assignmentNotes: assignmentNotes.trim() || undefined,
@@ -152,14 +164,14 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
       onAssigned();
       onClose();
     } catch (err: any) {
-      setError(err?.message || 'Vehicle assignment failed: The selected vehicle may have a scheduling conflict or is no longer available.');
+      setError(err?.message || 'Vehicle assignment failed: The selected vehicle or driver may have a scheduling conflict or is no longer available.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Filter vehicles according to category and capacity toggle
-  const filteredVehicles = availableVehicles.filter((item) => {
+  // Filter recommendations according to category and capacity toggle
+  const filteredVehicles = vehicleRecommendations.filter((item) => {
     const v = item.vehicle;
     if (selectedCategory !== 'ALL' && v.category !== selectedCategory) {
       return false;
@@ -170,9 +182,8 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
     return true;
   });
 
-  const selectedVehicleObj = availableVehicles.find((item) => item.vehicle.id === selectedVehicleId)?.vehicle;
+  const selectedVehicleObj = vehicleRecommendations.find((item) => item.vehicle.id === selectedVehicleId)?.vehicle;
 
-  // Duration computation
   const calculateDuration = (start: string, end: string) => {
     try {
       const s = new Date(start).getTime();
@@ -195,7 +206,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Assign Fleet Vehicle · #${booking.bookingReference}`}
+      title={`Intelligent Vehicle & Driver Assignment · #${booking.bookingReference}`}
       description={`Official Mission to ${booking.destination} · ${formatEthiopianDateTime(booking.departureAt)} – ${formatEthiopianDateTime(booking.expectedReturnAt)}`}
       maxWidth="4xl"
     >
@@ -204,7 +215,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
           <div className="p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs rounded-xl flex items-start gap-2.5">
             <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <div>
-              <strong className="block font-semibold">Assignment Failed</strong>
+              <strong className="block font-semibold">Assignment Prevented</strong>
               <p className="mt-0.5">{error}</p>
             </div>
           </div>
@@ -256,80 +267,62 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                 Driver Policy
               </span>
               <span className="font-semibold text-slate-900 dark:text-white block mt-0.5">
-                {booking.requiresDriver ? 'Chauffeur Requested' : 'Self-Driven'}
+                {booking.requiresDriver ? 'Company Chauffeur Required' : 'Self-Driven Permitted'}
               </span>
               <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                {booking.requiresDriver ? 'Company driver required' : 'Authorized staff driver'}
+                Live Conflict Checked
               </span>
             </div>
           </div>
         </div>
 
-        {/* 2. Responsive 2-Column Console Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Fleet Vehicle Selection (lg:col-span-7) */}
+        {/* 2. Interactive Selection Layout (Columns) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Left Column: Vehicle Recommendations (lg:col-span-7) */}
           <div className="lg:col-span-7 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-200/80 dark:border-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Car className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-                  Select Fleet Vehicle
+                  <Sparkles className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                  Recommended Fleet Vehicles
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Verified available for requested schedule
+                  Scored by capacity fit, availability, maintenance & preferences
                 </p>
               </div>
 
-              {/* Capacity Filter Toggle */}
-              <button
-                type="button"
-                onClick={() => setShowAllCapacities(!showAllCapacities)}
-                className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all ${
-                  showAllCapacities
-                    ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300'
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
-                }`}
-              >
-                {showAllCapacities
-                  ? 'Showing All Capacities'
-                  : `Filter: ≥ ${booking.passengerCount} Passengers`}
-              </button>
-            </div>
-
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {['ALL', 'SUV', 'PICKUP', 'MINIBUS', 'SEDAN'].map((cat) => (
+              {/* Quick Filters */}
+              <div className="flex items-center gap-1.5 text-xs">
                 <button
-                  key={cat}
                   type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
-                    selectedCategory === cat
-                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xs'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  onClick={() => setShowAllCapacities(!showAllCapacities)}
+                  className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium transition-all ${
+                    showAllCapacities
+                      ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                   }`}
                 >
-                  {cat === 'ALL' ? 'All Models' : cat}
+                  {showAllCapacities ? 'All Capacities' : `Min ${booking.passengerCount} Seats`}
                 </button>
-              ))}
+              </div>
             </div>
 
-            {/* Vehicle List */}
+            {/* Vehicle Recommendations List */}
             {isLoading ? (
-              <div className="py-16 text-center text-xs text-slate-400 dark:text-slate-500 space-y-2">
+              <div className="py-12 text-center text-xs text-slate-500 space-y-2">
                 <Car className="w-8 h-8 mx-auto animate-bounce text-brand-500" />
-                <p>Computing fleet availability for this schedule...</p>
+                <p>Computing intelligent suitability scores and schedule availability...</p>
               </div>
             ) : filteredVehicles.length === 0 ? (
               <div className="p-6 text-center bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs rounded-xl space-y-2">
                 <AlertCircle className="w-6 h-6 mx-auto text-amber-600 dark:text-amber-400" />
                 <p className="font-semibold">No vehicles found matching current filter</p>
                 <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                  Try clicking <strong>"Showing All Capacities"</strong> above or select <strong>"All Models"</strong>.
+                  Try clicking <strong>"All Capacities"</strong> above or select <strong>"All Models"</strong>.
                 </p>
               </div>
             ) : (
-              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
                 {filteredVehicles.map((item) => {
                   const v = item.vehicle;
                   const isAvail = item.isAvailable;
@@ -362,7 +355,6 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                       }`}
                     >
                       <div className="flex items-start gap-3.5">
-                        {/* Radio Checkbox */}
                         <div className="pt-1">
                           <input
                             type="radio"
@@ -374,8 +366,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                           />
                         </div>
 
-                        {/* Vehicle Photo */}
-                        <div className="w-20 h-14 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center shrink-0 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                        <div className="w-20 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center shrink-0 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
                           <img
                             src={v.imageUrl || fallbackImg}
                             alt={v.name}
@@ -383,7 +374,6 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                           />
                         </div>
 
-                        {/* Details */}
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center justify-between gap-1.5">
                             <div className="flex items-center gap-2">
@@ -395,7 +385,21 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                               </span>
                             </div>
 
-                            <Badge status={item.availabilityStatus} size="sm" />
+                            <div className="flex items-center gap-1.5">
+                              {isAvail ? (
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  item.score >= 80
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                                }`}>
+                                  {item.score}% Match
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300">
+                                  Unavailable
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
@@ -410,10 +414,20 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                             </span>
                           </div>
 
-                          {/* Conflict / Reason Explanation (No Cutoffs!) */}
-                          {!isAvail && item.reason && (
-                            <div className="mt-2 text-[11px] text-red-600 dark:text-red-400 font-medium bg-red-50/70 dark:bg-red-950/30 p-1.5 rounded-lg border border-red-200/60 dark:border-red-900/40">
-                              {item.reason}
+                          {/* Recommendation explanation reasons */}
+                          <div className="mt-2 space-y-1">
+                            {item.reasons.map((reason, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                                <span>{reason}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Conflict / Reason Explanation */}
+                          {item.conflictDetails && (
+                            <div className="mt-2 text-[11px] text-red-700 dark:text-red-300 font-medium bg-red-50/90 dark:bg-red-950/40 p-2 rounded-lg border border-red-200 dark:border-red-900/50">
+                              <span className="font-bold">Active Trip Conflict:</span> Assigned to #{item.conflictDetails.bookingReference} ({item.conflictDetails.destination}) from {formatEthiopianDateTime(item.conflictDetails.departureAt)} to {formatEthiopianDateTime(item.conflictDetails.expectedReturnAt)}
                             </div>
                           )}
                         </div>
@@ -428,18 +442,17 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
           {/* Right Column: Driver & Dispatch Coordination (lg:col-span-5) */}
           <div className="lg:col-span-5 space-y-4 bg-slate-50/70 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
             <div className="space-y-4">
-              {/* Header */}
               <div className="pb-2 border-b border-slate-200 dark:border-slate-700/80">
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Shield className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-                  Driver & Handover Details
+                  Driver & Dispatch Coordination
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Assign designated chauffeur and dispatch notes
+                  Assign qualified driver and dispatch instructions
                 </p>
               </div>
 
-              {/* Driver Type Switch */}
+              {/* Driver Mode Toggle */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">
                   Driver Assignment Mode:
@@ -454,7 +467,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                         : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                     }`}
                   >
-                    Company Driver
+                    Corporate Driver
                   </button>
 
                   <button
@@ -471,37 +484,63 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                 </div>
               </div>
 
-              {/* Company Driver Quick Presets */}
+              {/* Real Corporate Drivers Recommendations List */}
               {driverMode === 'company' && (
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
-                    Quick Assign Corporate Chauffeur:
+                    Available Verified Drivers (Live Status):
                   </span>
-                  <div className="flex flex-col gap-1.5">
-                    {FLEET_DRIVER_PRESETS.map((p) => {
-                      const isSelected = driverName === p.name;
-                      return (
-                        <button
-                          key={p.name}
-                          type="button"
-                          onClick={() => handleSelectDriverPreset(p)}
-                          className={`w-full text-left p-2 rounded-xl border text-xs flex items-center justify-between transition-all ${
-                            isSelected
-                              ? 'border-brand-500 bg-white dark:bg-slate-800 ring-2 ring-brand-500/20 font-semibold text-brand-700 dark:text-brand-300'
-                              : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          <div>
-                            <span>{p.name}</span>
-                            <span className="text-[10px] text-slate-400 block">{p.title}</span>
-                          </div>
-                          <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
-                            {p.phone}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {driverRecommendations.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                      No corporate drivers currently registered in staff roster. Enter driver details manually below.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto pr-1">
+                      {driverRecommendations.map((dRec) => {
+                        const isSelected = selectedDriverId === dRec.driver.id;
+                        const isAvail = dRec.isAvailable;
+                        return (
+                          <button
+                            key={dRec.driver.id}
+                            type="button"
+                            disabled={!isAvail}
+                            onClick={() => handleSelectDriver(dRec)}
+                            className={`w-full text-left p-2.5 rounded-xl border text-xs transition-all ${
+                              isSelected
+                                ? 'border-brand-500 bg-white dark:bg-slate-800 ring-2 ring-brand-500/20 font-semibold text-brand-700 dark:text-brand-300'
+                                : !isAvail
+                                ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500'
+                                : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-slate-900 dark:text-white">
+                                {dRec.driver.name}
+                              </span>
+                              {isAvail ? (
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-md">
+                                  Available
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded-md">
+                                  Schedule Conflict
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                              <span>{dRec.driver.phone || 'No phone'}</span>
+                              {dRec.driver.licenseNumber && <span>• Lic: {dRec.driver.licenseNumber}</span>}
+                            </div>
+                            {dRec.conflictDetails && (
+                              <div className="mt-1 text-[10px] text-red-600 font-medium">
+                                Conflict: #{dRec.conflictDetails.bookingReference} ({dRec.conflictDetails.destination})
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -583,7 +622,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
         {/* 3. Modal Actions Footer */}
         <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
           <p className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-left">
-            Assigning will notify the employee and lock the vehicle on the fleet calendar.
+            Assigning will notify the employee and driver, and lock the vehicle on the fleet calendar.
           </p>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">

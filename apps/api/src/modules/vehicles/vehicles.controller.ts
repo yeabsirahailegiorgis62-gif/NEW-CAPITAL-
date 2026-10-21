@@ -46,6 +46,47 @@ export class VehiclesController {
     return this.vehiclesService.getAvailability(departureAt, expectedReturnAt, capacity, category);
   }
 
+  @Get('recommendations')
+  @ApiOperation({ summary: 'Intelligent vehicle recommendation engine with matching scores & explanation' })
+  @ApiQuery({ name: 'departureAt', required: true })
+  @ApiQuery({ name: 'expectedReturnAt', required: true })
+  @ApiQuery({ name: 'passengerCount', required: true, type: Number })
+  @ApiQuery({ name: 'category', enum: VehicleCategory, required: false })
+  @ApiQuery({ name: 'preferredVehicleId', required: false })
+  getRecommendations(
+    @Query('departureAt') departureAtStr: string,
+    @Query('expectedReturnAt') expectedReturnAtStr: string,
+    @Query('passengerCount') passengerCountStr: string,
+    @Query('category') category?: VehicleCategory,
+    @Query('preferredVehicleId') preferredVehicleId?: string,
+  ) {
+    const departureAt = new Date(departureAtStr);
+    const expectedReturnAt = new Date(expectedReturnAtStr);
+    const passengerCount = parseInt(passengerCountStr || '1', 10);
+
+    return this.vehiclesService.getRecommendations({
+      departureAt,
+      expectedReturnAt,
+      passengerCount,
+      category,
+      preferredVehicleId,
+    });
+  }
+
+  @Get('drivers/recommendations')
+  @ApiOperation({ summary: 'Intelligent driver recommendation engine with availability & qualification check' })
+  @ApiQuery({ name: 'departureAt', required: true })
+  @ApiQuery({ name: 'expectedReturnAt', required: true })
+  getDriverRecommendations(
+    @Query('departureAt') departureAtStr: string,
+    @Query('expectedReturnAt') expectedReturnAtStr: string,
+  ) {
+    const departureAt = new Date(departureAtStr);
+    const expectedReturnAt = new Date(expectedReturnAtStr);
+
+    return this.vehiclesService.getDriverRecommendations(departureAt, expectedReturnAt);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get vehicle by ID with issues and assignment history' })
   findOne(@Param('id') id: string) {

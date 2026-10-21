@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateIssueDto, UpdateIssueDto } from './issues.dto';
-import { IssueStatus, VehicleOperationalStatus, BookingStatus } from '@prisma/client';
+import { IssueStatus, VehicleOperationalStatus, BookingStatus, UserRole } from '@prisma/client';
 
 @Injectable()
 export class IssuesService {
@@ -38,23 +38,34 @@ export class IssuesService {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id: dto.vehicleId } });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
+    const isSafetyConcern = Boolean(dto.immediateSafetyConcern);
+
     const issue = await this.prisma.vehicleIssue.create({
       data: {
         vehicleId: dto.vehicleId,
         reportedById: reporter.id,
+        category: dto.category || 'MECHANICAL',
         description: dto.description,
-        severity: dto.severity,
+        severity: dto.severity || 'MEDIUM',
         status: IssueStatus.OPEN,
+        odometer: dto.odometer || vehicle.mileage || null,
+        immediateSafetyConcern: isSafetyConcern,
+        photoUrl: dto.photoUrl || null,
       },
       include: { vehicle: true, reportedBy: true },
     });
 
-    // If marked for maintenance, update vehicle status and detect affected bookings
+    // If marked for maintenance OR flagged as immediate safety concern, update vehicle status
     let affectedBookings: any[] = [];
-    if (dto.setMaintenanceStatus) {
+    const shouldHaltVehicle = dto.setMaintenanceStatus || isSafetyConcern;
+
+    if (shouldHaltVehicle) {
       await this.prisma.vehicle.update({
         where: { id: dto.vehicleId },
-        data: { operationalStatus: VehicleOperationalStatus.MAINTENANCE },
+        data: {
+          operationalStatus: VehicleOperationalStatus.MAINTENANCE,
+          hasSafetyAlert: isSafetyConcern ? true : vehicle.hasSafetyAlert,
+        },
       });
 
       // Find upcoming active assignments that will be impacted by maintenance!
@@ -76,11 +87,29 @@ export class IssuesService {
       });
 
       affectedBookings = assignments.map((a) => a.booking);
+
+      // Notify logistics admins of immediate safety concern
+      const logisticsAdmins = await this.prisma.user.findMany({
+        where: { role: { in: [UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN] }, isActive: true },
+      });
+
+      for (const admin of logisticsAdmins) {
+        await this.prisma.notification.create({
+          data: {
+            recipientId: admin.id,
+            type: isSafetyConcern ? 'WARNING' : 'INFO',
+            title: isSafetyConcern
+              ? `CRITICAL SAFETY ALERT: ${vehicle.registrationNumber}`
+              : `Vehicle Issue Logged: ${vehicle.registrationNumber}`,
+            message: `${reporter.name || 'Staff'} reported: ${dto.description}. Vehicle placed in maintenance workshop lock.`,
+          },
+        });
+      }
     }
 
     return {
       issue,
-      maintenanceSet: !!dto.setMaintenanceStatus,
+      maintenanceSet: shouldHaltVehicle,
       affectedBookings,
     };
   }
@@ -100,9 +129,9 @@ export class IssuesService {
       include: { vehicle: true },
     });
 
-    // If resolved, check if vehicle has any other open issues
+    // If resolved, check if vehicle has any other open safety concerns or issues
     if (isResolving) {
-      const remainingIssues = await this.prisma.vehicleIssue.count({
+      const remainingUnresolved = await this.prisma.vehicleIssue.findMany({
         where: {
           vehicleId: existing.vehicleId,
           status: { in: [IssueStatus.OPEN, IssueStatus.IN_REVIEW] },
@@ -110,11 +139,22 @@ export class IssuesService {
         },
       });
 
-      if (remainingIssues === 0 && updated.vehicle.operationalStatus === VehicleOperationalStatus.MAINTENANCE) {
+      const hasRemainingSafetyConcern = remainingUnresolved.some((i) => i.immediateSafetyConcern);
+      const vehicleUpdate: any = {};
+
+      if (!hasRemainingSafetyConcern && updated.vehicle.hasSafetyAlert) {
+        vehicleUpdate.hasSafetyAlert = false;
+      }
+
+      if (remainingUnresolved.length === 0 && updated.vehicle.operationalStatus === VehicleOperationalStatus.MAINTENANCE) {
         // Return vehicle to ACTIVE status
+        vehicleUpdate.operationalStatus = VehicleOperationalStatus.ACTIVE;
+      }
+
+      if (Object.keys(vehicleUpdate).length > 0) {
         await this.prisma.vehicle.update({
           where: { id: existing.vehicleId },
-          data: { operationalStatus: VehicleOperationalStatus.ACTIVE },
+          data: vehicleUpdate,
         });
       }
     }

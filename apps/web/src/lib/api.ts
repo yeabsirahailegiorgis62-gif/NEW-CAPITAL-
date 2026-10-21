@@ -14,6 +14,11 @@ import {
   Department,
   BookingVerificationResult,
   SystemSettings,
+  VehicleMaintenance,
+  FuelRecord,
+  FuelStats,
+  VehicleRecommendation,
+  DriverRecommendation,
 } from '@/types';
 
 const API_BASE = '/api';
@@ -142,6 +147,14 @@ class ApiClient {
     return this.request(`/vehicles/availability?${params.toString()}`);
   }
 
+  async getVehicleRecommendations(bookingId: string): Promise<VehicleRecommendation[]> {
+    return this.request<VehicleRecommendation[]>(`/vehicles/recommendations/${bookingId}`);
+  }
+
+  async getDriverRecommendations(bookingId: string): Promise<DriverRecommendation[]> {
+    return this.request<DriverRecommendation[]>(`/vehicles/driver-recommendations/${bookingId}`);
+  }
+
   // --- BOOKINGS ---
   async createBooking(data: {
     destination: string;
@@ -155,6 +168,9 @@ class ApiClient {
     preferredVehicleId?: string;
     requiresDriver: boolean;
     additionalNotes?: string;
+    priority?: string;
+    passengerDetails?: string;
+    documentUrl?: string;
     weeklyDays?: Array<{
       dayOfWeek: string;
       tripDate: string;
@@ -200,24 +216,57 @@ class ApiClient {
     });
   }
 
-  async assignVehicle(bookingId: string, data: { vehicleId: string; driverName?: string; driverPhone?: string; assignmentNotes?: string }): Promise<VehicleAssignment> {
+  async assignVehicle(bookingId: string, data: { vehicleId: string; driverId?: string; driverName?: string; driverPhone?: string; assignmentNotes?: string }): Promise<VehicleAssignment> {
     return this.request<VehicleAssignment>(`/bookings/${bookingId}/assign`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
+  async confirmAssignment(assignmentId: string): Promise<VehicleAssignment> {
+    return this.request<VehicleAssignment>(`/bookings/assignments/${assignmentId}/confirm`, {
+      method: 'POST',
+    });
+  }
+
+  async declineAssignment(assignmentId: string, reason: string): Promise<VehicleAssignment> {
+    return this.request<VehicleAssignment>(`/bookings/assignments/${assignmentId}/decline`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
   async startTrip(bookingId: string, data?: { actualDepartureAt?: string; startOdometer?: number }): Promise<Booking> {
-    return this.request<Booking>(`/bookings/${bookingId}/start`, {
+    return this.request<Booking>(`/bookings/${bookingId}/start-trip`, {
       method: 'POST',
       body: JSON.stringify(data || {}),
     });
   }
 
-  async completeTrip(bookingId: string, data?: { actualReturnAt?: string; endOdometer?: number; notes?: string; reportedProblem?: string }): Promise<Booking> {
-    return this.request<Booking>(`/bookings/${bookingId}/complete`, {
+  async markArrival(bookingId: string): Promise<Booking> {
+    return this.request<Booking>(`/bookings/${bookingId}/mark-arrival`, {
+      method: 'POST',
+    });
+  }
+
+  async reportDelay(bookingId: string, reason: string): Promise<Booking> {
+    return this.request<Booking>(`/bookings/${bookingId}/report-delay`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async completeTrip(bookingId: string, data?: { actualReturnAt?: string; endOdometer?: number; tripNotes?: string; notes?: string; reportedProblem?: string }): Promise<Booking> {
+    return this.request<Booking>(`/bookings/${bookingId}/complete-trip`, {
       method: 'POST',
       body: JSON.stringify(data || {}),
+    });
+  }
+
+  async checkDuplicate(params: { tripDate: string; destination: string; departureTime?: string }): Promise<{ isDuplicate: boolean; matches: any[] }> {
+    return this.request('/bookings/check-duplicate', {
+      method: 'POST',
+      body: JSON.stringify(params),
     });
   }
 
@@ -227,6 +276,10 @@ class ApiClient {
 
   async verifyBooking(reference: string): Promise<BookingVerificationResult> {
     return this.request<BookingVerificationResult>(`/bookings/verify/${encodeURIComponent(reference)}`);
+  }
+
+  async verifyTripToken(token: string): Promise<BookingVerificationResult> {
+    return this.request<BookingVerificationResult>(`/bookings/verify-token/${encodeURIComponent(token)}`);
   }
 
   // --- VEHICLE ISSUES & MAINTENANCE ---
@@ -248,6 +301,57 @@ class ApiClient {
   async updateIssue(id: string, data: { status?: string; resolutionNotes?: string }): Promise<VehicleIssue> {
     return this.request<VehicleIssue>(`/vehicle-issues/${id}`, {
       method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- VEHICLE MAINTENANCE ---
+  async getMaintenance(vehicleId?: string): Promise<VehicleMaintenance[]> {
+    const params = new URLSearchParams();
+    if (vehicleId) params.append('vehicleId', vehicleId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this.request<VehicleMaintenance[]>(`/maintenance${qs}`);
+  }
+
+  async getMaintenanceOverview(): Promise<any> {
+    return this.request<any>('/maintenance/overview');
+  }
+
+  async createMaintenance(data: Partial<VehicleMaintenance>): Promise<VehicleMaintenance> {
+    return this.request<VehicleMaintenance>('/maintenance', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateMaintenance(id: string, data: Partial<VehicleMaintenance>): Promise<VehicleMaintenance> {
+    return this.request<VehicleMaintenance>(`/maintenance/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteMaintenance(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/maintenance/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- FUEL MANAGEMENT ---
+  async getFuelRecords(vehicleId?: string): Promise<FuelRecord[]> {
+    const params = new URLSearchParams();
+    if (vehicleId) params.append('vehicleId', vehicleId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this.request<FuelRecord[]>(`/fuel${qs}`);
+  }
+
+  async getFuelStats(): Promise<FuelStats> {
+    return this.request<FuelStats>('/fuel/stats');
+  }
+
+  async createFuelRecord(data: Partial<FuelRecord>): Promise<FuelRecord> {
+    return this.request<FuelRecord>('/fuel', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }

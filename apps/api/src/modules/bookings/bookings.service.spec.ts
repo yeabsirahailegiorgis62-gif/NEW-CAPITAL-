@@ -53,6 +53,13 @@ describe('BookingsService', () => {
               findMany: jest.fn().mockResolvedValue([
                 { id: 'admin-1', role: UserRole.LOGISTICS_ADMIN },
               ]),
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'user-1',
+                name: 'Abebe Girma',
+                employeeId: 'EMP-101',
+                phone: '+251911223344',
+                department: { id: 'dept-1', name: 'Engineering' },
+              }),
             },
             notification: {
               create: jest.fn().mockResolvedValue({ id: 'notif-1' }),

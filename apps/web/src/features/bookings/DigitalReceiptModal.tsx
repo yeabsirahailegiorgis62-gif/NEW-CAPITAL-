@@ -47,10 +47,12 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
   const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (booking?.bookingReference) {
-      const verificationUrl = `${window.location.origin}/?verify=${encodeURIComponent(
-        booking.bookingReference
-      )}`;
+    if (booking) {
+      const token = booking.verificationToken;
+      const verificationUrl = token
+        ? `${window.location.origin}/?token=${encodeURIComponent(token)}`
+        : `${window.location.origin}/?verify=${encodeURIComponent(booking.bookingReference)}`;
+
       QRCode.toDataURL(verificationUrl, {
         width: 320,
         margin: 2,
@@ -63,7 +65,7 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
         .then(setQrDataUrl)
         .catch(console.error);
     }
-  }, [booking?.bookingReference]);
+  }, [booking?.bookingReference, booking?.verificationToken]);
 
   if (!isOpen || !booking) return null;
 

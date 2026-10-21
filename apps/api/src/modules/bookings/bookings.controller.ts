@@ -8,6 +8,9 @@ import {
   StartTripDto,
   CompleteTripDto,
   UpdateBookingDayDto,
+  DeclineAssignmentDto,
+  ReportDelayDto,
+  CheckDuplicateDto,
 } from './bookings.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -25,9 +28,22 @@ export class BookingsController {
 
   @Public()
   @Get('verify/:reference')
-  @ApiOperation({ summary: 'Public secure verification endpoint for QR code validation' })
+  @ApiOperation({ summary: 'Public secure verification endpoint for QR code validation by reference or token' })
   verifyBooking(@Param('reference') reference: string) {
     return this.bookingsService.verifyBooking(reference);
+  }
+
+  @Public()
+  @Get('verify-token/:token')
+  @ApiOperation({ summary: 'Public secure QR token verification' })
+  verifyByToken(@Param('token') token: string) {
+    return this.bookingsService.verifyBooking(token);
+  }
+
+  @Post('check-duplicate')
+  @ApiOperation({ summary: 'Detect potentially duplicated requests before submission' })
+  checkDuplicate(@CurrentUser() user: any, @Body() dto: CheckDuplicateDto) {
+    return this.bookingsService.checkDuplicate(user.id, dto.destination, dto.departureAt);
   }
 
   @Post()
@@ -92,11 +108,39 @@ export class BookingsController {
     return this.bookingsService.assignVehicle(id, user, dto);
   }
 
+  @Post(':id/confirm-assignment')
+  @Roles(UserRole.DRIVER, UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN)
+  @ApiOperation({ summary: 'Driver confirms acceptance of assigned mission' })
+  confirmAssignment(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.bookingsService.confirmAssignment(id, user);
+  }
+
+  @Post(':id/decline-assignment')
+  @Roles(UserRole.DRIVER, UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN)
+  @ApiOperation({ summary: 'Driver declines assigned mission with required reason' })
+  declineAssignment(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: DeclineAssignmentDto) {
+    return this.bookingsService.declineAssignment(id, user, dto);
+  }
+
   @Post(':id/start')
   @Roles(UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.DRIVER)
   @ApiOperation({ summary: 'Record vehicle departure and begin trip execution' })
   startTrip(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: StartTripDto) {
     return this.bookingsService.startTrip(id, user, dto);
+  }
+
+  @Post(':id/mark-arrival')
+  @Roles(UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.DRIVER)
+  @ApiOperation({ summary: 'Mark arrival at mission destination' })
+  markArrival(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.bookingsService.markArrival(id, user);
+  }
+
+  @Post(':id/report-delay')
+  @Roles(UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.DRIVER)
+  @ApiOperation({ summary: 'Report trip delay with explanation' })
+  reportDelay(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: ReportDelayDto) {
+    return this.bookingsService.reportDelay(id, user, dto);
   }
 
   @Patch('days/:dayId')

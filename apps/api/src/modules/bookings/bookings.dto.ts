@@ -64,6 +64,15 @@ export class CreateBookingDto {
   @Min(1)
   passengerCount: number;
 
+  @ApiPropertyOptional({ example: 'NORMAL', enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'], default: 'NORMAL' })
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @ApiPropertyOptional({ example: [{ name: 'Alemayehu T.', phone: '+251911223344' }] })
+  @IsOptional()
+  passengerDetails?: any;
+
   @ApiPropertyOptional({ example: 'Optional preferred vehicle ID' })
   @IsOptional()
   @IsString()
@@ -79,9 +88,26 @@ export class CreateBookingDto {
   @IsString()
   additionalNotes?: string;
 
+  @ApiPropertyOptional({ example: 'https://example.com/site-plan.pdf' })
+  @IsOptional()
+  @IsString()
+  documentUrl?: string;
+
   @ApiPropertyOptional({ type: [WeeklyDayDto] })
   @IsOptional()
   weeklyDays?: WeeklyDayDto[];
+}
+
+export class CheckDuplicateDto {
+  @ApiProperty({ example: 'Bole Boulevard Project Site No. 4' })
+  @IsNotEmpty()
+  @IsString()
+  destination: string;
+
+  @ApiProperty({ example: '2026-10-14T08:30:00Z' })
+  @IsNotEmpty()
+  @IsDateString()
+  departureAt: string;
 }
 
 export class UpdateBookingDayDto {
@@ -113,11 +139,23 @@ export class RejectBookingDto {
   rejectionReason: string;
 }
 
+export class CancelBookingDto {
+  @ApiPropertyOptional({ example: 'Project meeting was postponed by client' })
+  @IsOptional()
+  @IsString()
+  cancellationReason?: string;
+}
+
 export class AssignVehicleDto {
   @ApiProperty({ example: 'vehicle-uuid-here' })
   @IsNotEmpty({ message: 'Vehicle ID is required' })
   @IsString()
   vehicleId: string;
+
+  @ApiPropertyOptional({ example: 'driver-uuid-here' })
+  @IsOptional()
+  @IsString()
+  driverId?: string;
 
   @ApiPropertyOptional({ example: 'Abebe Molla' })
   @IsOptional()
@@ -133,6 +171,20 @@ export class AssignVehicleDto {
   @IsOptional()
   @IsString()
   assignmentNotes?: string;
+}
+
+export class DeclineAssignmentDto {
+  @ApiProperty({ example: 'Assigned vehicle requires tire replacement or prior driver shift overlap' })
+  @IsNotEmpty({ message: 'Decline reason is required' })
+  @IsString()
+  reason: string;
+}
+
+export class ReportDelayDto {
+  @ApiProperty({ example: 'Heavy traffic congestion along Debre Zeit road due to construction' })
+  @IsNotEmpty({ message: 'Delay reason is required' })
+  @IsString()
+  delayReason: string;
 }
 
 export class StartTripDto {

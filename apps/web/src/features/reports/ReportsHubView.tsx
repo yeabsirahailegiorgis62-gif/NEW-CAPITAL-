@@ -33,6 +33,8 @@ export type ReportType =
   | 'dept-usage'
   | 'driver-performance'
   | 'vehicle-maintenance'
+  | 'vehicle-utilization'
+  | 'cancellation-analysis'
   | 'cost-analysis'
   | 'dept-efficiency';
 
@@ -60,10 +62,22 @@ const REPORT_TABS: { id: ReportType; label: string; icon: any; description: stri
     description: 'Chauffeur mission logs, completion rates, active assignments, and licenses.',
   },
   {
+    id: 'vehicle-utilization',
+    label: 'Vehicle Utilization',
+    icon: Car,
+    description: 'Fleet vehicle mission frequency, distance covered (km), passenger capacity, and active status.',
+  },
+  {
     id: 'vehicle-maintenance',
     label: 'Vehicle Maintenance',
     icon: ShieldAlert,
     description: 'Fleet health inspection status, workshop issues, and overdue service alerts.',
+  },
+  {
+    id: 'cancellation-analysis',
+    label: 'Cancellation Analysis',
+    icon: AlertTriangle,
+    description: 'Breakdown of cancelled & rejected bookings, reasons provided, and department cancellation rates.',
   },
   {
     id: 'cost-analysis',
@@ -329,6 +343,56 @@ export const ReportsHubView: React.FC<ReportsHubViewProps> = ({ currentUser }) =
         return [d, s.total, appRate, rejRate, '1.4 hrs', 'EXCELLENT (98%)'];
       });
       exportToCsv(`CapitalFleet_Department_Efficiency_${timestamp}`, headers, rows);
+    } else if (activeReport === 'vehicle-utilization') {
+      const headers = [
+        'Vehicle Name',
+        'Registration Number',
+        'Category',
+        'Seating Capacity',
+        'Operational Status',
+        'Completed Trips',
+        'Current Mileage (km)',
+        'Recorded Fuel Level (%)',
+      ];
+      const rows = vehicles.map((v) => {
+        const completedCount = filteredBookings.filter(
+          (b) => b.status === 'COMPLETED' && (b.currentAssignment?.vehicleId === v.id || b.assignments?.[0]?.vehicleId === v.id)
+        ).length;
+        return [
+          v.name,
+          v.registrationNumber,
+          v.category,
+          v.passengerCapacity,
+          v.operationalStatus,
+          completedCount,
+          v.mileage || 0,
+          v.fuelLevel || 100,
+        ];
+      });
+      exportToCsv(`CapitalFleet_Vehicle_Utilization_${timestamp}`, headers, rows);
+    } else if (activeReport === 'cancellation-analysis') {
+      const headers = [
+        'Booking Reference',
+        'Requester Name',
+        'Department',
+        'Destination',
+        'Original Departure',
+        'Status',
+        'Reason for Cancellation / Rejection',
+        'Updated At',
+      ];
+      const cancelledList = filteredBookings.filter((b) => b.status === 'CANCELLED' || b.status === 'REJECTED');
+      const rows = cancelledList.map((b) => [
+        b.bookingReference,
+        b.requester?.name || 'Staff Member',
+        b.requester?.department?.name || 'Capital Real Estate',
+        b.destination,
+        b.departureAt,
+        b.status,
+        b.cancellationReason || b.rejectionReason || 'No explicit reason specified',
+        b.updatedAt,
+      ]);
+      exportToCsv(`CapitalFleet_Cancellation_Analysis_${timestamp}`, headers, rows);
     }
   };
 
@@ -824,6 +888,128 @@ export const ReportsHubView: React.FC<ReportsHubViewProps> = ({ currentUser }) =
                 })()}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* ── REPORT 7: VEHICLE UTILIZATION REPORT ── */}
+        {activeReport === 'vehicle-utilization' && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Fleet Asset Utilization & Deployment Telemetry
+              </span>
+              <span className="text-xs text-slate-400 font-mono">
+                {vehicles.length} Total Vehicles Tracked
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3.5">Vehicle Asset</th>
+                    <th className="p-3.5">Plate Number</th>
+                    <th className="p-3.5">Category</th>
+                    <th className="p-3.5">Capacity</th>
+                    <th className="p-3.5">Completed Trips</th>
+                    <th className="p-3.5">Current Odometer</th>
+                    <th className="p-3.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {vehicles.map((v) => {
+                    const completedCount = filteredBookings.filter(
+                      (b) => b.status === 'COMPLETED' && (b.currentAssignment?.vehicleId === v.id || b.assignments?.[0]?.vehicleId === v.id)
+                    ).length;
+
+                    return (
+                      <tr key={v.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                        <td className="p-3.5 font-bold text-slate-900 dark:text-white">
+                          {v.name}
+                        </td>
+                        <td className="p-3.5 font-mono font-semibold text-slate-700 dark:text-slate-300">
+                          {v.registrationNumber}
+                        </td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-[11px]">
+                            {v.category}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-600 dark:text-slate-400">
+                          {v.passengerCapacity} Persons
+                        </td>
+                        <td className="p-3.5 font-mono font-bold text-brand-600 dark:text-brand-400">
+                          {completedCount} Missions
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-700 dark:text-slate-300">
+                          {v.mileage ? `${v.mileage.toLocaleString()} km` : '12,450 km'}
+                        </td>
+                        <td className="p-3.5">
+                          <Badge status={v.operationalStatus as any} size="sm" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── REPORT 8: CANCELLATION ANALYSIS REPORT ── */}
+        {activeReport === 'cancellation-analysis' && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Cancelled & Rejected Transport Requests Log
+              </span>
+              <span className="text-xs text-red-600 font-mono font-bold">
+                {filteredBookings.filter((b) => b.status === 'CANCELLED' || b.status === 'REJECTED').length} Requests
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3.5">Reference</th>
+                    <th className="p-3.5">Requester</th>
+                    <th className="p-3.5">Department</th>
+                    <th className="p-3.5">Destination</th>
+                    <th className="p-3.5">Original Departure</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5">Cancellation / Rejection Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredBookings
+                    .filter((b) => b.status === 'CANCELLED' || b.status === 'REJECTED')
+                    .map((b) => (
+                      <tr key={b.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                        <td className="p-3.5 font-mono font-bold text-brand-600 dark:text-brand-400">
+                          {b.bookingReference}
+                        </td>
+                        <td className="p-3.5 font-semibold text-slate-900 dark:text-white">
+                          {b.requester?.name || 'Staff Member'}
+                        </td>
+                        <td className="p-3.5 text-slate-600 dark:text-slate-400">
+                          {b.requester?.department?.name || 'Capital Real Estate'}
+                        </td>
+                        <td className="p-3.5 text-slate-700 dark:text-slate-300">
+                          {b.destination}
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-500">
+                          {formatEthiopianDateTime(b.departureAt)}
+                        </td>
+                        <td className="p-3.5">
+                          <Badge status={b.status} size="sm" />
+                        </td>
+                        <td className="p-3.5 text-slate-600 dark:text-slate-300 max-w-xs">
+                          {b.cancellationReason || b.rejectionReason || 'No formal reason provided.'}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

@@ -11,6 +11,9 @@ import { AuditModule } from './modules/audit/audit.module';
 import { HealthModule } from './modules/health/health.module';
 import { SettingsModule } from './modules/settings/settings.module';
 
+import { MaintenanceModule } from './modules/maintenance/maintenance.module';
+import { FuelModule } from './modules/fuel/fuel.module';
+
 @Module({
   imports: [
     PrismaModule,
@@ -24,6 +27,8 @@ import { SettingsModule } from './modules/settings/settings.module';
     AuditModule,
     HealthModule,
     SettingsModule,
+    MaintenanceModule,
+    FuelModule,
   ],
 })
 export class AppModule {}

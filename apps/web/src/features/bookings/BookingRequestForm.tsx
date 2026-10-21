@@ -34,6 +34,7 @@ import {
   Check,
   ExternalLink,
   ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface BookingRequestFormProps {
@@ -108,6 +109,11 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
   });
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [priority, setPriority] = useState<'NORMAL' | 'HIGH' | 'VIP'>('NORMAL');
+  const [passengerDetails, setPassengerDetails] = useState('');
+  const [documentUrl, setDocumentUrl] = useState('');
+  const [duplicateMatches, setDuplicateMatches] = useState<any[]>([]);
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submittedBooking, setSubmittedBooking] = useState<Booking | null>(null);
@@ -194,6 +200,28 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
     departureTime,
     returnTime,
   ]);
+
+  // Duplicate request detection advisory
+  useEffect(() => {
+    if (departureDate && destination.trim().length >= 3) {
+      const timer = setTimeout(() => {
+        setIsCheckingDuplicate(true);
+        api.checkDuplicate({
+          tripDate: departureDate,
+          destination: destination.trim(),
+          departureTime: departureTime || undefined,
+        })
+          .then((res) => {
+            setDuplicateMatches(res.matches || []);
+          })
+          .catch(() => setDuplicateMatches([]))
+          .finally(() => setIsCheckingDuplicate(false));
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setDuplicateMatches([]);
+    }
+  }, [departureDate, destination, departureTime]);
 
   // Compute trip duration summary
   const getScheduleSummary = () => {
@@ -298,6 +326,9 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
         preferredVehicleId: preferredVehicleId || undefined,
         requiresDriver,
         additionalNotes: additionalNotes.trim() || undefined,
+        priority,
+        passengerDetails: passengerDetails.trim() || undefined,
+        documentUrl: documentUrl.trim() || undefined,
       });
 
       setSubmittedBooking(booking);
@@ -788,6 +819,46 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                       onChange={(e) => setDestination(e.target.value)}
                       disabled={isLoading}
                     />
+
+                    {/* Duplicate Detection Warning Banner */}
+                    {duplicateMatches.length > 0 && (
+                      <div className="mt-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                        <div className="flex items-center gap-2 font-bold">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span>Potential Duplicate Trip Alert</span>
+                        </div>
+                        <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                          You already have {duplicateMatches.length} existing booking on {departureDate} ({duplicateMatches.map((m: any) => `#${m.bookingReference}`).join(', ')}). Multiple trips are permitted, but please confirm this is an intentional separate mission.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Priority Level */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
+                      Request Priority Level:
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['NORMAL', 'HIGH', 'VIP'] as const).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setPriority(p)}
+                          className={`py-2 px-3 text-xs font-bold rounded-xl border text-center transition-all ${
+                            priority === p
+                              ? p === 'VIP'
+                                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                : p === 'HIGH'
+                                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                                : 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          {p === 'VIP' ? 'Executive / VIP' : p === 'HIGH' ? 'High Priority' : 'Standard'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
@@ -1258,6 +1329,37 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
 
               <CardContent className="p-5 flex-1 flex flex-col justify-between space-y-4">
                 <div className="space-y-4">
+                  {/* Passenger Manifest Details */}
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="passengerDetails"
+                      className="block text-xs font-semibold text-slate-700 dark:text-slate-200"
+                    >
+                      Passenger Manifest & Team Details (Optional)
+                    </label>
+                    <textarea
+                      id="passengerDetails"
+                      rows={2}
+                      className="block w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
+                      placeholder="e.g. Eng. Yohannes (Site Lead), W/ro Sara (Project QA), Ato Dawit (Surveyor)"
+                      value={passengerDetails}
+                      onChange={(e) => setPassengerDetails(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  {/* Supporting Document / Memo Link */}
+                  <div>
+                    <Input
+                      id="documentUrl"
+                      label="Supporting Memo / Document Link (Optional)"
+                      placeholder="e.g. Internal DMS link, approved work order memo #REQ-2026-99"
+                      value={documentUrl}
+                      onChange={(e) => setDocumentUrl(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+
                   {/* Special Instructions */}
                   <div className="space-y-1.5">
                     <label

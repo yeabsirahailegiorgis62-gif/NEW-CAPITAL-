@@ -12,8 +12,13 @@ import {
   AssignVehicleDto,
   StartTripDto,
   CompleteTripDto,
+  UpdateBookingDayDto,
+  DeclineAssignmentDto,
+  ReportDelayDto,
+  CancelBookingDto,
 } from './bookings.dto';
 import { BookingStatus, UserRole, VehicleOperationalStatus, IssueSeverity, IssueStatus } from '@prisma/client';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class BookingsService {
@@ -35,28 +40,29 @@ export class BookingsService {
     });
 
     const minNoticeHours = settingsMap.get('minimumNoticeHours') ?? 24;
-    const maxCapacity = settingsMap.get('maxPassengerCapacity') ?? 14;
     const allowSameDay = settingsMap.get('allowSameDayRequests') ?? false;
     const allowWeekend = settingsMap.get('allowWeekendRequests') ?? false;
+    const maxCapacity = settingsMap.get('maxPassengerCapacity') ?? 14;
 
-    if (dto.passengerCount > maxCapacity) {
-      throw new BadRequestException(`Passenger count exceeds maximum allowed limit (${maxCapacity} passengers).`);
-    }
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      include: { department: true },
+    });
+    if (!requester) throw new NotFoundException('Requester account not found');
 
     const departure = new Date(dto.departureAt);
     const expectedReturn = new Date(dto.expectedReturnAt);
     const now = new Date();
 
     if (isNaN(departure.getTime()) || isNaN(expectedReturn.getTime())) {
-      throw new BadRequestException('Invalid departure or expected return date');
+      throw new BadRequestException('Invalid departure or return date/time format');
     }
 
-    if (departure >= expectedReturn) {
-      throw new BadRequestException('Departure time must be strictly before expected return time');
+    if (expectedReturn <= departure) {
+      throw new BadRequestException('Expected return time must be strictly after departure time');
     }
 
-    // Departure time in past check (with 5-minute grace period for network latency)
-    if (departure.getTime() < now.getTime() - 5 * 60 * 1000) {
+    if (departure < now) {
       throw new BadRequestException('Departure time cannot be in the past');
     }
 
@@ -93,7 +99,6 @@ export class BookingsService {
         }
         d.timeSlot = slot as any;
         if (!d.tripDate) {
-          // If no specific tripDate was sent, default to next occurrence
           d.tripDate = departure.toISOString();
         }
       }
@@ -103,28 +108,39 @@ export class BookingsService {
       throw new BadRequestException('Passenger count must be at least 1');
     }
 
+    if (dto.passengerCount > maxCapacity) {
+      throw new BadRequestException(`Passenger count exceeds system maximum capacity limit of ${maxCapacity}`);
+    }
+
     // Generate human-readable booking reference e.g. CR-2026-0042
     const year = departure.getFullYear();
     const count = await this.prisma.booking.count();
     const sequence = String(count + 1).padStart(4, '0');
     const bookingReference = `CR-${year}-${sequence}`;
 
+    // Cryptographic unguessable token for QR verification
+    const verificationToken = crypto.randomUUID();
+
     const booking = await this.prisma.booking.create({
       data: {
         bookingReference,
+        verificationToken,
         requesterId,
-        destination: dto.destination,
-        purpose: dto.purpose,
+        destination: dto.destination.trim(),
+        purpose: dto.purpose.trim(),
         departureAt: departure,
         expectedReturnAt: expectedReturn,
         passengerCount: dto.passengerCount,
+        priority: dto.priority || 'NORMAL',
+        passengerDetails: dto.passengerDetails ? dto.passengerDetails : undefined,
         preferredVehicleId: dto.preferredVehicleId || null,
         requiresDriver: dto.requiresDriver || false,
         additionalNotes: dto.additionalNotes || null,
+        documentUrl: dto.documentUrl || null,
         status: BookingStatus.PENDING_APPROVAL,
         requestType: dto.requestType || 'DAILY',
-        pickupLocation: dto.pickupLocation || null,
-        contactPhone: dto.contactPhone || null,
+        pickupLocation: dto.pickupLocation?.trim() || 'Capital Real Estate HQ, Bole Road',
+        contactPhone: dto.contactPhone?.trim() || requester.phone || null,
         bookingDays:
           dto.weeklyDays && dto.weeklyDays.length > 0
             ? {
@@ -179,12 +195,11 @@ export class BookingsService {
         entityId: booking.id,
         action: 'SUBMIT_REQUEST',
         newValues: {
-          bookingReference,
-          requestType: dto.requestType || 'DAILY',
-          destination: dto.destination,
-          departureAt: departure.toISOString(),
-          expectedReturnAt: expectedReturn.toISOString(),
-          weeklyDaysCount: dto.weeklyDays?.length || 0,
+          reference: booking.bookingReference,
+          destination: booking.destination,
+          passengerCount: booking.passengerCount,
+          departureAt: booking.departureAt.toISOString(),
+          requestType: booking.requestType,
         },
       },
     });
@@ -193,37 +208,69 @@ export class BookingsService {
   }
 
   /**
-   * List bookings according to user role and filters
+   * Check for duplicate requests by requester, destination, and approximate departure window (Part 2.E)
    */
-  async findAll(user: any, query?: { status?: BookingStatus; search?: string; from?: string; to?: string }) {
+  async checkDuplicate(requesterId: string, destination: string, departureAtStr: string) {
+    const departure = new Date(departureAtStr);
+    if (isNaN(departure.getTime())) {
+      return { hasPotentialDuplicate: false, duplicateBooking: null, warningMessage: null };
+    }
+
+    const windowStart = new Date(departure.getTime() - 4 * 60 * 60 * 1000);
+    const windowEnd = new Date(departure.getTime() + 4 * 60 * 60 * 1000);
+
+    const duplicate = await this.prisma.booking.findFirst({
+      where: {
+        requesterId,
+        destination: { equals: destination.trim(), mode: 'insensitive' },
+        departureAt: { gte: windowStart, lte: windowEnd },
+        status: { in: [BookingStatus.PENDING_APPROVAL, BookingStatus.APPROVED, BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
+      },
+      select: {
+        id: true,
+        bookingReference: true,
+        destination: true,
+        departureAt: true,
+        status: true,
+      },
+    });
+
+    return {
+      hasPotentialDuplicate: Boolean(duplicate),
+      duplicateBooking: duplicate,
+      warningMessage: duplicate
+        ? `Notice: You already have an active request (#${duplicate.bookingReference}) to "${duplicate.destination}" scheduled around this timeframe (${duplicate.status}).`
+        : null,
+    };
+  }
+
+  /**
+   * List bookings with role-based scoping and filtering
+   */
+  async findAll(
+    user: any,
+    query?: {
+      status?: BookingStatus;
+      search?: string;
+      from?: string;
+      to?: string;
+    },
+  ) {
     const where: any = {};
 
-    // Regular employee can ONLY see their own bookings
+    // Role-based visibility scoping
     if (user.role === UserRole.EMPLOYEE) {
       where.requesterId = user.id;
     } else if (user.role === UserRole.DRIVER) {
-      where.assignments = {
-        some: {
-          OR: [
-            { driverId: user.id },
-            { driverName: { contains: user.name, mode: 'insensitive' } },
-            ...(user.phone ? [{ driverPhone: user.phone }] : []),
-          ],
-        },
-      };
+      where.OR = [
+        { assignments: { some: { driverId: user.id, unassignedAt: null } } },
+        { assignments: { some: { driverName: { equals: user.name, mode: 'insensitive' }, unassignedAt: null } } },
+        { bookingDays: { some: { driverId: user.id } } },
+      ];
     }
 
     if (query?.status) {
       where.status = query.status;
-    }
-
-    if (query?.search) {
-      where.OR = [
-        { bookingReference: { contains: query.search, mode: 'insensitive' } },
-        { destination: { contains: query.search, mode: 'insensitive' } },
-        { purpose: { contains: query.search, mode: 'insensitive' } },
-        { requester: { name: { contains: query.search, mode: 'insensitive' } } },
-      ];
     }
 
     if (query?.from || query?.to) {
@@ -232,11 +279,28 @@ export class BookingsService {
       if (query.to) where.departureAt.lte = new Date(query.to);
     }
 
+    if (query?.search) {
+      where.OR = [
+        ...(where.OR || []),
+        { bookingReference: { contains: query.search, mode: 'insensitive' } },
+        { destination: { contains: query.search, mode: 'insensitive' } },
+        { purpose: { contains: query.search, mode: 'insensitive' } },
+        { requester: { name: { contains: query.search, mode: 'insensitive' } } },
+      ];
+    }
+
     return this.prisma.booking.findMany({
       where,
       include: {
         requester: {
-          select: { id: true, name: true, email: true, employeeId: true, department: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            employeeId: true,
+            phone: true,
+            department: true,
+          },
         },
         preferredVehicle: true,
         bookingDays: {
@@ -244,31 +308,36 @@ export class BookingsService {
             vehicle: true,
             driver: { select: { id: true, name: true, phone: true } },
           },
-          orderBy: { tripDate: 'asc' },
         },
         assignments: {
-          where: { unassignedAt: null },
           include: {
             vehicle: true,
+            driver: { select: { id: true, name: true, phone: true } },
             assignedBy: { select: { id: true, name: true } },
           },
           orderBy: { assignedAt: 'desc' },
-          take: 1,
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { departureAt: 'desc' },
     });
   }
 
   /**
-   * Get single booking details with strict access control
+   * Find single booking with authorization check
    */
   async findOne(id: string, user: any) {
     const booking = await this.prisma.booking.findUnique({
       where: { id },
       include: {
         requester: {
-          select: { id: true, name: true, email: true, employeeId: true, department: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            employeeId: true,
+            phone: true,
+            department: true,
+          },
         },
         preferredVehicle: true,
         bookingDays: {
@@ -276,11 +345,11 @@ export class BookingsService {
             vehicle: true,
             driver: { select: { id: true, name: true, phone: true } },
           },
-          orderBy: { tripDate: 'asc' },
         },
         assignments: {
           include: {
             vehicle: true,
+            driver: { select: { id: true, name: true, phone: true } },
             assignedBy: { select: { id: true, name: true } },
           },
           orderBy: { assignedAt: 'desc' },
@@ -290,19 +359,14 @@ export class BookingsService {
 
     if (!booking) throw new NotFoundException('Booking not found');
 
-    // Ownership check for employees
     if (user.role === UserRole.EMPLOYEE && booking.requesterId !== user.id) {
       throw new ForbiddenException('You are not authorized to view this booking record');
     }
 
-    // Authorization check for drivers
     if (user.role === UserRole.DRIVER) {
-      const isAssigned = booking.assignments.some(
-        (a: any) =>
-          a.driverId === user.id ||
-          (user.name && a.driverName && a.driverName.toLowerCase() === user.name.toLowerCase()) ||
-          (user.phone && a.driverPhone === user.phone)
-      );
+      const isAssigned =
+        booking.assignments.some((a: any) => a.driverId === user.id || a.driverName?.toLowerCase() === user.name?.toLowerCase()) ||
+        booking.bookingDays.some((bd: any) => bd.driverId === user.id);
       if (!isAssigned) {
         throw new ForbiddenException('You are not assigned as the driver for this trip');
       }
@@ -312,9 +376,9 @@ export class BookingsService {
   }
 
   /**
-   * Update an individual day of a weekly booking
+   * Update individual day of weekly booking
    */
-  async updateBookingDay(dayId: string, actor: any, dto: any) {
+  async updateBookingDay(dayId: string, actor: any, dto: UpdateBookingDayDto) {
     const day = await this.prisma.bookingDay.findUnique({
       where: { id: dayId },
       include: { booking: true },
@@ -325,8 +389,8 @@ export class BookingsService {
     if (dto.vehicleId) {
       const vehicle = await this.prisma.vehicle.findUnique({ where: { id: dto.vehicleId } });
       if (!vehicle) throw new NotFoundException('Vehicle not found');
-      if (vehicle.operationalStatus !== VehicleOperationalStatus.ACTIVE) {
-        throw new BadRequestException(`Vehicle is ${vehicle.operationalStatus} and cannot be assigned.`);
+      if (vehicle.operationalStatus !== VehicleOperationalStatus.ACTIVE || vehicle.hasSafetyAlert) {
+        throw new BadRequestException(`Vehicle is ${vehicle.operationalStatus} or has a safety alert and cannot be assigned.`);
       }
     }
 
@@ -340,7 +404,7 @@ export class BookingsService {
     const updated = await this.prisma.bookingDay.update({
       where: { id: dayId },
       data: {
-        status: dto.status !== undefined ? dto.status : day.status,
+        status: dto.status !== undefined ? (dto.status as any) : day.status,
         vehicleId: dto.vehicleId !== undefined ? dto.vehicleId : day.vehicleId,
         driverId: dto.driverId !== undefined ? dto.driverId : day.driverId,
         notes: dto.notes !== undefined ? dto.notes : day.notes,
@@ -358,7 +422,7 @@ export class BookingsService {
         entityType: 'BookingDay',
         entityId: dayId,
         action: 'UPDATE_BOOKING_DAY',
-        newValues: dto,
+        newValues: dto as any,
       },
     });
 
@@ -381,41 +445,36 @@ export class BookingsService {
       throw new BadRequestException('Booking is already cancelled');
     }
 
-    // If employee: only permitted if PENDING_APPROVAL
-    if (user.role === UserRole.EMPLOYEE && booking.status !== BookingStatus.PENDING_APPROVAL) {
-      throw new ForbiddenException('Approved or assigned bookings can only be cancelled by Logistics Department');
-    }
-
-    // Release any active vehicle assignment
-    await this.prisma.$transaction(async (tx) => {
-      await tx.vehicleAssignment.updateMany({
-        where: { bookingId: id, unassignedAt: null },
-        data: { unassignedAt: new Date() },
-      });
-
-      await tx.booking.update({
-        where: { id },
-        data: {
-          status: BookingStatus.CANCELLED,
-          cancelledAt: new Date(),
-          additionalNotes: reason ? `${booking.additionalNotes || ''}\nCancellation Reason: ${reason}`.trim() : booking.additionalNotes,
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          actorId: user.id,
-          actorName: user.name,
-          entityType: 'Booking',
-          entityId: id,
-          action: 'CANCEL_BOOKING',
-          previousValues: { status: booking.status },
-          newValues: { status: BookingStatus.CANCELLED, reason },
-        },
-      });
+    const cancelled = await this.prisma.booking.update({
+      where: { id },
+      data: {
+        status: BookingStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancellationReason: reason || null,
+      },
+      include: { requester: true, assignments: { where: { unassignedAt: null } } },
     });
 
-    return this.findOne(id, user);
+    // Unassign active vehicle
+    await this.prisma.vehicleAssignment.updateMany({
+      where: { bookingId: id, unassignedAt: null },
+      data: { unassignedAt: new Date() },
+    });
+
+    // Audit log
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: user.id,
+        actorName: user.name,
+        entityType: 'Booking',
+        entityId: id,
+        action: 'CANCEL_BOOKING',
+        previousValues: { status: booking.status },
+        newValues: { status: BookingStatus.CANCELLED, reason },
+      },
+    });
+
+    return cancelled;
   }
 
   /**
@@ -424,12 +483,12 @@ export class BookingsService {
   async approve(id: string, actor: any) {
     const booking = await this.prisma.booking.findUnique({
       where: { id },
-      include: { requester: true, preferredVehicle: true },
+      include: { requester: true },
     });
     if (!booking) throw new NotFoundException('Booking not found');
 
     if (booking.status !== BookingStatus.PENDING_APPROVAL) {
-      throw new BadRequestException(`Cannot approve booking in ${booking.status} status`);
+      throw new BadRequestException(`Cannot approve booking in ${booking.status} status. It must be PENDING_APPROVAL.`);
     }
 
     const updated = await this.prisma.booking.update({
@@ -438,16 +497,13 @@ export class BookingsService {
       include: { requester: true },
     });
 
-    const bookingDateStr = new Date(booking.departureAt).toLocaleDateString('en-GB');
-
-    // Notify employee with polished corporate notification format
     await this.prisma.notification.create({
       data: {
         recipientId: booking.requesterId,
         bookingId: id,
         type: 'BOOKING_APPROVED',
-        title: 'Vehicle Booking Approved',
-        message: `Your vehicle booking has been approved.\n\nDestination: ${booking.destination}\nBooking Date: ${bookingDateStr}\nReference: ${booking.bookingReference}\nStatus: Approved by Logistics (Awaiting vehicle allocation)\n\nAction: View Digital Receipt`,
+        title: 'Booking Request Approved',
+        message: `Your booking ${booking.bookingReference} has been approved by Logistics. Vehicle assignment is underway.`,
       },
     });
 
@@ -490,7 +546,6 @@ export class BookingsService {
       include: { requester: true },
     });
 
-    // Notify employee
     await this.prisma.notification.create({
       data: {
         recipientId: booking.requesterId,
@@ -517,11 +572,10 @@ export class BookingsService {
   }
 
   /**
-   * Concurrency-safe atomic vehicle assignment with strict overlapping conflict detection
+   * Concurrency-safe atomic vehicle & driver assignment with double-booking prevention (Part 3)
    */
   async assignVehicle(bookingId: string, actor: any, dto: AssignVehicleDto) {
     return this.prisma.$transaction(async (tx) => {
-      // 1. Fetch booking with locking
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
         include: { requester: true },
@@ -533,31 +587,26 @@ export class BookingsService {
         throw new BadRequestException(`Cannot assign vehicle to booking in ${booking.status} status. Request must be APPROVED first.`);
       }
 
-      // 2. Fetch vehicle
       const vehicle = await tx.vehicle.findUnique({
         where: { id: dto.vehicleId },
       });
 
       if (!vehicle) throw new NotFoundException('Vehicle not found');
 
-      // 3. Operational status check
-      if (vehicle.operationalStatus !== VehicleOperationalStatus.ACTIVE) {
+      if (vehicle.operationalStatus !== VehicleOperationalStatus.ACTIVE || vehicle.hasSafetyAlert) {
         throw new BadRequestException(
-          `Vehicle ${vehicle.name} (${vehicle.registrationNumber}) is currently ${vehicle.operationalStatus.toLowerCase().replace('_', ' ')} and cannot be assigned.`
+          `Vehicle ${vehicle.name} (${vehicle.registrationNumber}) is currently ${vehicle.operationalStatus.toLowerCase().replace('_', ' ')}${vehicle.hasSafetyAlert ? ' with active safety alert' : ''} and cannot be assigned.`,
         );
       }
 
-      // 4. Passenger capacity check
       if (vehicle.passengerCapacity < booking.passengerCount) {
         throw new BadRequestException(
-          `Vehicle capacity (${vehicle.passengerCapacity} seats) is insufficient for ${booking.passengerCount} passengers.`
+          `Vehicle capacity (${vehicle.passengerCapacity} seats) is insufficient for ${booking.passengerCount} passengers.`,
         );
       }
 
-      // 5. Strict Overlapping Interval check: [booking.departureAt, booking.expectedReturnAt)
-      // Any other active assignment for this vehicle where:
-      // other.departureAt < booking.expectedReturnAt AND other.expectedReturnAt > booking.departureAt
-      const overlapping = await tx.vehicleAssignment.findFirst({
+      // Check vehicle overlapping assignments
+      const overlappingVehicle = await tx.vehicleAssignment.findFirst({
         where: {
           vehicleId: dto.vehicleId,
           unassignedAt: null,
@@ -568,43 +617,84 @@ export class BookingsService {
             expectedReturnAt: { gt: booking.departureAt },
           },
         },
-        include: {
-          booking: true,
-        },
+        include: { booking: true },
       });
 
-      if (overlapping) {
+      if (overlappingVehicle) {
         throw new ConflictException(
-          `Vehicle ${vehicle.name} (${vehicle.registrationNumber}) is already assigned to booking ${overlapping.booking.bookingReference} for an overlapping period.`
+          `Vehicle ${vehicle.name} (${vehicle.registrationNumber}) is already assigned to booking #${overlappingVehicle.booking.bookingReference} for an overlapping period.`,
         );
       }
 
-      // 6. If this booking already had an active assignment, unassign it (Reassignment flow)
+      // Check driver overlap if driverId is supplied
+      let driverName = dto.driverName || null;
+      let driverPhone = dto.driverPhone || null;
+
+      if (dto.driverId) {
+        const driver = await tx.user.findUnique({ where: { id: dto.driverId } });
+        if (!driver || !driver.isActive) {
+          throw new BadRequestException('Selected driver is inactive or does not exist');
+        }
+        driverName = driver.name;
+        driverPhone = driver.phone || dto.driverPhone || null;
+
+        const driverOverlap = await tx.vehicleAssignment.findFirst({
+          where: {
+            driverId: dto.driverId,
+            unassignedAt: null,
+            status: { in: ['PENDING_CONFIRMATION', 'CONFIRMED'] },
+            booking: {
+              id: { not: bookingId },
+              status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
+              departureAt: { lt: booking.expectedReturnAt },
+              expectedReturnAt: { gt: booking.departureAt },
+            },
+          },
+          include: { booking: true },
+        });
+
+        if (driverOverlap) {
+          throw new ConflictException(
+            `Driver ${driver.name} is already assigned to overlapping mission #${driverOverlap.booking.bookingReference} (${driverOverlap.booking.destination}).`,
+          );
+        }
+      }
+
+      // Unassign existing assignment if reassigning
       await tx.vehicleAssignment.updateMany({
         where: { bookingId, unassignedAt: null },
         data: { unassignedAt: new Date() },
       });
 
-      // 7. Create new assignment record
+      // Ensure booking has verification token
+      if (!booking.verificationToken) {
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: { verificationToken: crypto.randomUUID() },
+        });
+      }
+
+      // Create new assignment
       const assignment = await tx.vehicleAssignment.create({
         data: {
           bookingId,
           vehicleId: dto.vehicleId,
           assignedById: actor.id,
-          driverName: dto.driverName || null,
-          driverPhone: dto.driverPhone || null,
+          driverId: dto.driverId || null,
+          driverName,
+          driverPhone,
           assignmentNotes: dto.assignmentNotes || null,
+          status: dto.driverId ? 'PENDING_CONFIRMATION' : 'CONFIRMED',
         },
-        include: { vehicle: true },
+        include: { vehicle: true, driver: true },
       });
 
-      // 8. Transition booking status to ASSIGNED
       await tx.booking.update({
         where: { id: bookingId },
         data: { status: BookingStatus.ASSIGNED },
       });
 
-      // 9. Notify employee with structured receipt details
+      // Notify requester
       const bookingDateStr = new Date(booking.departureAt).toLocaleDateString('en-GB');
       await tx.notification.create({
         data: {
@@ -612,11 +702,23 @@ export class BookingsService {
           bookingId,
           type: 'VEHICLE_ASSIGNED',
           title: 'Vehicle Booking Approved & Assigned',
-          message: `Your vehicle booking has been approved.\n\nAssigned Vehicle: ${vehicle.make} ${vehicle.model} (${vehicle.name})\nRegistration: ${vehicle.registrationNumber}\nBooking Date: ${bookingDateStr}\nReference: ${booking.bookingReference}${dto.driverName ? `\nAssigned Driver: ${dto.driverName}` : ''}\n\nAction: View Digital Receipt`,
+          message: `Your vehicle booking has been approved.\n\nAssigned Vehicle: ${vehicle.make} ${vehicle.model} (${vehicle.name})\nRegistration: ${vehicle.registrationNumber}\nBooking Date: ${bookingDateStr}\nReference: ${booking.bookingReference}${driverName ? `\nAssigned Driver: ${driverName}` : ''}`,
         },
       });
 
-      // 10. Audit log
+      // Notify driver if assigned
+      if (dto.driverId) {
+        await tx.notification.create({
+          data: {
+            recipientId: dto.driverId,
+            bookingId,
+            type: 'DRIVER_CONFIRMATION_REQUIRED',
+            title: 'New Mission Assignment Pending Confirmation',
+            message: `You have been assigned to trip ${booking.bookingReference} to ${booking.destination} on ${bookingDateStr}. Please confirm or decline in your Driver Portal.`,
+          },
+        });
+      }
+
       await tx.auditLog.create({
         data: {
           actorId: actor.id,
@@ -629,7 +731,7 @@ export class BookingsService {
             status: BookingStatus.ASSIGNED,
             vehicleId: vehicle.id,
             vehicle: `${vehicle.name} (${vehicle.registrationNumber})`,
-            driver: dto.driverName || 'Self-driven / Unassigned',
+            driver: driverName || 'Self-driven / Unassigned',
           },
         },
       });
@@ -639,7 +741,129 @@ export class BookingsService {
   }
 
   /**
-   * Trip Departure: Start trip
+   * Driver Assignment Confirmation (Part 3.D & 6.D)
+   */
+  async confirmAssignment(bookingId: string, driver: any) {
+    const assignment = await this.prisma.vehicleAssignment.findFirst({
+      where: {
+        bookingId,
+        driverId: driver.id,
+        unassignedAt: null,
+      },
+      include: { booking: true, vehicle: true },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Active driver assignment not found for this mission');
+    }
+
+    const updated = await this.prisma.vehicleAssignment.update({
+      where: { id: assignment.id },
+      data: {
+        status: 'CONFIRMED',
+        confirmedAt: new Date(),
+      },
+      include: { booking: true, vehicle: true },
+    });
+
+    // Notify logistics admins
+    const logisticsAdmins = await this.prisma.user.findMany({
+      where: { role: { in: [UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN] }, isActive: true },
+    });
+
+    for (const a of logisticsAdmins) {
+      await this.prisma.notification.create({
+        data: {
+          recipientId: a.id,
+          bookingId,
+          type: 'DRIVER_CONFIRMED',
+          title: 'Driver Confirmed Assignment',
+          message: `Chauffeur ${driver.name} confirmed assignment for trip ${assignment.booking.bookingReference}.`,
+        },
+      });
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: driver.id,
+        actorName: driver.name,
+        entityType: 'VehicleAssignment',
+        entityId: assignment.id,
+        action: 'CONFIRM_ASSIGNMENT',
+        newValues: { status: 'CONFIRMED' },
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Driver Assignment Decline with required reason (Part 3.D & 6.D)
+   */
+  async declineAssignment(bookingId: string, driver: any, dto: DeclineAssignmentDto) {
+    const assignment = await this.prisma.vehicleAssignment.findFirst({
+      where: {
+        bookingId,
+        driverId: driver.id,
+        unassignedAt: null,
+      },
+      include: { booking: true, vehicle: true },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Active driver assignment not found for this mission');
+    }
+
+    const updated = await this.prisma.vehicleAssignment.update({
+      where: { id: assignment.id },
+      data: {
+        status: 'DECLINED',
+        declineReason: dto.reason,
+        declinedAt: new Date(),
+        unassignedAt: new Date(),
+      },
+      include: { booking: true, vehicle: true },
+    });
+
+    // Reset booking status to APPROVED so logistics can reassign
+    await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: BookingStatus.APPROVED },
+    });
+
+    // Notify logistics admins immediately
+    const logisticsAdmins = await this.prisma.user.findMany({
+      where: { role: { in: [UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN] }, isActive: true },
+    });
+
+    for (const a of logisticsAdmins) {
+      await this.prisma.notification.create({
+        data: {
+          recipientId: a.id,
+          bookingId,
+          type: 'DRIVER_DECLINED',
+          title: `ALERT: Driver Declined Trip ${assignment.booking.bookingReference}`,
+          message: `Chauffeur ${driver.name} declined assignment. Reason: "${dto.reason}". Reassignment required.`,
+        },
+      });
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: driver.id,
+        actorName: driver.name,
+        entityType: 'VehicleAssignment',
+        entityId: assignment.id,
+        action: 'DECLINE_ASSIGNMENT',
+        newValues: { status: 'DECLINED', reason: dto.reason },
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Trip Departure: Start trip (Part 6.D)
    */
   async startTrip(bookingId: string, actor: any, dto: StartTripDto) {
     const booking = await this.prisma.booking.findUnique({
@@ -665,6 +889,17 @@ export class BookingsService {
       include: { assignments: { include: { vehicle: true } } },
     });
 
+    // Notify requester
+    await this.prisma.notification.create({
+      data: {
+        recipientId: booking.requesterId,
+        bookingId,
+        type: 'TRIP_STARTED',
+        title: 'Trip In Progress',
+        message: `Your transport trip ${booking.bookingReference} has departed towards ${booking.destination}.`,
+      },
+    });
+
     await this.prisma.auditLog.create({
       data: {
         actorId: actor.id,
@@ -685,7 +920,89 @@ export class BookingsService {
   }
 
   /**
-   * Trip Return: Complete trip
+   * Mark arrival at destination (Part 6.D)
+   */
+  async markArrival(bookingId: string, actor: any) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { requester: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (booking.status !== BookingStatus.IN_PROGRESS) {
+      throw new BadRequestException('Trip must be IN_PROGRESS to record arrival');
+    }
+
+    const arrivedAt = new Date();
+    const updated = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { arrivedAt },
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        recipientId: booking.requesterId,
+        bookingId,
+        type: 'TRIP_ARRIVED',
+        title: 'Vehicle Arrived at Destination',
+        message: `Your transport mission ${booking.bookingReference} has arrived safely at ${booking.destination}.`,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: actor.id,
+        actorName: actor.name,
+        entityType: 'Booking',
+        entityId: bookingId,
+        action: 'MARK_ARRIVAL',
+        newValues: { arrivedAt: arrivedAt.toISOString() },
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Report trip delay (Part 6.D)
+   */
+  async reportDelay(bookingId: string, actor: any, dto: ReportDelayDto) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { requester: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const updated = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { delayReason: dto.delayReason },
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        recipientId: booking.requesterId,
+        bookingId,
+        type: 'TRIP_DELAYED',
+        title: 'Transport Delay Reported',
+        message: `Trip ${booking.bookingReference}: Chauffeur reported delay: "${dto.delayReason}".`,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: actor.id,
+        actorName: actor.name,
+        entityType: 'Booking',
+        entityId: bookingId,
+        action: 'REPORT_DELAY',
+        newValues: { delayReason: dto.delayReason },
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Trip Return: Complete trip (Part 6.D)
    */
   async completeTrip(bookingId: string, actor: any, dto: CompleteTripDto) {
     const booking = await this.prisma.booking.findUnique({
@@ -702,7 +1019,6 @@ export class BookingsService {
     }
 
     const actualReturn = dto.actualReturnAt ? new Date(dto.actualReturnAt) : new Date();
-
     const assignedVehicle = booking.assignments[0]?.vehicle;
 
     await this.prisma.$transaction(async (tx) => {
@@ -713,11 +1029,28 @@ export class BookingsService {
           status: BookingStatus.COMPLETED,
           actualReturnAt: actualReturn,
           endOdometer: dto.endOdometer || null,
-          additionalNotes: dto.notes ? `${booking.additionalNotes || ''}\nReturn Notes: ${dto.notes}`.trim() : booking.additionalNotes,
+          tripNotes: dto.notes || null,
+          additionalNotes: dto.notes
+            ? `${booking.additionalNotes || ''}\nReturn Notes: ${dto.notes}`.trim()
+            : booking.additionalNotes,
         },
       });
 
-      // 2. If problem reported, create a vehicle issue
+      // 2. Unassign active assignment
+      await tx.vehicleAssignment.updateMany({
+        where: { bookingId, unassignedAt: null },
+        data: { unassignedAt: actualReturn },
+      });
+
+      // 3. Update vehicle mileage if higher
+      if (assignedVehicle && dto.endOdometer && (!assignedVehicle.mileage || dto.endOdometer > assignedVehicle.mileage)) {
+        await tx.vehicle.update({
+          where: { id: assignedVehicle.id },
+          data: { mileage: dto.endOdometer },
+        });
+      }
+
+      // 4. If problem reported, create a vehicle issue
       if (dto.reportedProblem && assignedVehicle) {
         await tx.vehicleIssue.create({
           data: {
@@ -730,7 +1063,7 @@ export class BookingsService {
         });
       }
 
-      // 3. Audit log
+      // 5. Audit log
       await tx.auditLog.create({
         data: {
           actorId: actor.id,
@@ -759,7 +1092,7 @@ export class BookingsService {
   }
 
   /**
-   * Operational Logistics Dashboard Metrics calculated live from database
+   * Operational Logistics Dashboard Metrics calculated live from database (Part 9)
    */
   async getDashboardStats() {
     const now = new Date();
@@ -773,6 +1106,9 @@ export class BookingsService {
       totalVehicles,
       vehiclesInMaintenance,
       todayAssignmentsCount,
+      driversAwaitingConfirmation,
+      seriousIssuesCount,
+      totalDrivers,
     ] = await Promise.all([
       this.prisma.booking.count({ where: { status: BookingStatus.PENDING_APPROVAL } }),
       this.prisma.booking.count({ where: { status: BookingStatus.APPROVED } }),
@@ -782,14 +1118,21 @@ export class BookingsService {
       this.prisma.vehicleAssignment.count({
         where: {
           unassignedAt: null,
-          booking: {
-            departureAt: { gte: todayStart, lte: todayEnd },
-          },
+          booking: { departureAt: { gte: todayStart, lte: todayEnd } },
         },
+      }),
+      this.prisma.vehicleAssignment.count({
+        where: { status: 'PENDING_CONFIRMATION', unassignedAt: null },
+      }),
+      this.prisma.vehicleIssue.count({
+        where: { immediateSafetyConcern: true, status: { in: ['OPEN', 'IN_REVIEW'] } },
+      }),
+      this.prisma.user.count({
+        where: { role: UserRole.DRIVER, isActive: true },
       }),
     ]);
 
-    // Available vehicles currently = Active vehicles NOT currently on an active trip
+    // Available vehicles currently = Active vehicles NOT currently on an in-progress trip
     const busyVehicleIds = await this.prisma.vehicleAssignment.findMany({
       where: {
         unassignedAt: null,
@@ -800,6 +1143,18 @@ export class BookingsService {
     const uniqueBusyIds = new Set(busyVehicleIds.map((v) => v.vehicleId));
     const availableVehicles = Math.max(0, totalVehicles - uniqueBusyIds.size);
 
+    // Available drivers currently = Active drivers not currently in progress
+    const busyDriverIds = await this.prisma.vehicleAssignment.findMany({
+      where: {
+        unassignedAt: null,
+        booking: { status: BookingStatus.IN_PROGRESS },
+        driverId: { not: null },
+      },
+      select: { driverId: true },
+    });
+    const uniqueBusyDriverIds = new Set(busyDriverIds.map((d) => d.driverId));
+    const availableDrivers = Math.max(0, totalDrivers - uniqueBusyDriverIds.size);
+
     return {
       pendingRequests,
       approvedAwaitingAssignment,
@@ -807,16 +1162,20 @@ export class BookingsService {
       availableVehicles,
       tripsInProgress,
       vehiclesInMaintenance,
+      driversAwaitingConfirmation,
+      availableDrivers,
+      seriousIssuesCount,
     };
   }
 
   /**
-   * Public Secure QR Verification Service
-   * Validates booking reference against backend records and returns sanitized verification data.
+   * Public Secure QR Verification by Token or Reference (Part 18)
    */
-  async verifyBooking(reference: string) {
-    const booking = await this.prisma.booking.findUnique({
-      where: { bookingReference: reference },
+  async verifyBooking(referenceOrToken: string) {
+    const booking = await this.prisma.booking.findFirst({
+      where: {
+        OR: [{ bookingReference: referenceOrToken }, { verificationToken: referenceOrToken }],
+      },
       include: {
         requester: {
           select: {
@@ -840,10 +1199,7 @@ export class BookingsService {
               },
             },
             assignedBy: {
-              select: {
-                name: true,
-                role: true,
-              },
+              select: { name: true, role: true },
             },
           },
           orderBy: { assignedAt: 'desc' },
@@ -858,8 +1214,7 @@ export class BookingsService {
       return {
         isValid: false,
         verificationStatus: 'INVALID',
-        message: `Booking reference "${reference}" does not match any corporate record.`,
-        bookingReference: reference,
+        message: 'Security validation failed. Verification token does not match any corporate record.',
         verifiedAt: now.toISOString(),
       };
     }
@@ -867,7 +1222,6 @@ export class BookingsService {
     const returnTime = new Date(booking.expectedReturnAt);
     const activeAssignment = booking.assignments?.[0];
 
-    // Determine verification state
     let verificationStatus: 'VALID' | 'EXPIRED' | 'CANCELLED' | 'REJECTED' | 'PENDING' | 'COMPLETED';
     let isValid = false;
 
@@ -884,11 +1238,9 @@ export class BookingsService {
       verificationStatus = 'COMPLETED';
       isValid = true;
     } else if (now.getTime() > returnTime.getTime() + 12 * 60 * 60 * 1000) {
-      // Overdue beyond schedule threshold
       verificationStatus = 'EXPIRED';
       isValid = false;
     } else {
-      // APPROVED, ASSIGNED, or IN_PROGRESS
       verificationStatus = 'VALID';
       isValid = true;
     }
@@ -911,16 +1263,18 @@ export class BookingsService {
         passengerCount: booking.passengerCount,
         requiresDriver: booking.requiresDriver,
       },
-      assignment: activeAssignment ? {
-        vehicleName: activeAssignment.vehicle.name,
-        make: activeAssignment.vehicle.make,
-        model: activeAssignment.vehicle.model,
-        registrationNumber: activeAssignment.vehicle.registrationNumber,
-        category: activeAssignment.vehicle.category,
-        driverName: activeAssignment.driverName || 'Self-Driven / None',
-        assignedBy: activeAssignment.assignedBy?.name || 'Logistics Operations',
-        assignedAt: activeAssignment.assignedAt,
-      } : null,
+      assignment: activeAssignment
+        ? {
+            vehicleName: activeAssignment.vehicle.name,
+            make: activeAssignment.vehicle.make,
+            model: activeAssignment.vehicle.model,
+            registrationNumber: activeAssignment.vehicle.registrationNumber,
+            category: activeAssignment.vehicle.category,
+            driverName: activeAssignment.driverName || 'Self-Driven / None',
+            assignedBy: activeAssignment.assignedBy?.name || 'Logistics Operations',
+            assignedAt: activeAssignment.assignedAt,
+          }
+        : null,
       approvalDate: activeAssignment?.assignedAt || booking.updatedAt,
       verifiedAt: now.toISOString(),
       securityNotice: 'Verified against Capital Real Estate Enterprise Logistics System',
