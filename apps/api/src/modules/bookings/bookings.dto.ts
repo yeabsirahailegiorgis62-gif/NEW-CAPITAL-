@@ -1,7 +1,44 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
+export class WeeklyDayDto {
+  @ApiProperty({ example: 'MONDAY', enum: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] })
+  @IsNotEmpty()
+  @IsString()
+  dayOfWeek: string;
+
+  @ApiProperty({ example: '2026-10-26T00:00:00.000Z' })
+  @IsNotEmpty()
+  @IsDateString()
+  tripDate: string;
+
+  @ApiProperty({ example: 'MORNING', enum: ['MORNING', 'AFTERNOON'] })
+  @IsNotEmpty()
+  @IsString()
+  timeSlot: 'MORNING' | 'AFTERNOON';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
 export class CreateBookingDto {
+  @ApiPropertyOptional({ example: 'DAILY', enum: ['DAILY', 'WEEKLY'], default: 'DAILY' })
+  @IsOptional()
+  @IsString()
+  requestType?: 'DAILY' | 'WEEKLY';
+
+  @ApiPropertyOptional({ example: 'Headquarters, Bole Medhanialem' })
+  @IsOptional()
+  @IsString()
+  pickupLocation?: string;
+
+  @ApiPropertyOptional({ example: '+251 91 123 4567' })
+  @IsOptional()
+  @IsString()
+  contactPhone?: string;
+
   @ApiProperty({ example: 'Bole Boulevard Project Site No. 4' })
   @IsNotEmpty({ message: 'Destination is required' })
   @IsString()
@@ -41,6 +78,32 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   additionalNotes?: string;
+
+  @ApiPropertyOptional({ type: [WeeklyDayDto] })
+  @IsOptional()
+  weeklyDays?: WeeklyDayDto[];
+}
+
+export class UpdateBookingDayDto {
+  @ApiPropertyOptional({ enum: ['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'ASSIGNED', 'COMPLETED', 'CANCELLED'] })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  vehicleId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  driverId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class RejectBookingDto {

@@ -15,6 +15,8 @@ import {
   BarChart3,
   Settings,
   Building,
+  UserCog,
+  CalendarRange,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +26,13 @@ interface SidebarProps {
   onTabChange: (tabId: string) => void;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
+}
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: any;
+  section?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,43 +47,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isLogistics = currentUser.role === 'LOGISTICS_ADMIN';
   const isSystemAdmin = currentUser.role === 'SYSTEM_ADMIN';
 
-  const employeeLinks = [
-    { id: 'dashboard', label: 'My Dashboard', icon: LayoutDashboard },
-    { id: 'new-booking', label: 'Book a Vehicle', icon: PlusCircle },
-    { id: 'my-bookings', label: 'My Bookings', icon: Clock },
-    { id: 'availability', label: 'Fleet Calendar', icon: CalendarDays },
+  const employeeLinks: NavItem[] = [
+    { section: 'OVERVIEW', id: 'dashboard', label: 'My Dashboard', icon: LayoutDashboard },
+    { section: 'TRANSPORT', id: 'new-booking', label: 'Book a Vehicle', icon: PlusCircle },
+    { section: 'TRANSPORT', id: 'my-bookings', label: 'My Bookings', icon: Clock },
+    { section: 'TRANSPORT', id: 'availability', label: 'Fleet Calendar', icon: CalendarDays },
+    { section: 'ACCOUNT', id: 'profile-settings', label: 'Profile Settings', icon: UserCog },
   ];
 
-  const driverLinks = [
-    { id: 'dashboard', label: 'Driver Dashboard', icon: LayoutDashboard },
-    { id: 'availability', label: 'Fleet Calendar', icon: CalendarDays },
+  const driverLinks: NavItem[] = [
+    { section: 'OVERVIEW', id: 'dashboard', label: 'Driver Dashboard', icon: LayoutDashboard },
+    { section: 'OPERATIONS', id: 'availability', label: 'Fleet Calendar', icon: CalendarDays },
+    { section: 'ACCOUNT', id: 'profile-settings', label: 'Profile Settings', icon: UserCog },
   ];
 
-  const logisticsLinks = [
-    { id: 'dashboard', label: 'Logistics Overview', icon: LayoutDashboard },
-    { id: 'requests-queue', label: 'Review Requests', icon: ClipboardList },
-    { id: 'assign-queue', label: 'Assign Vehicles', icon: KeyRound },
-    { id: 'availability', label: 'Schedule & Calendar', icon: CalendarDays },
-    { id: 'vehicles', label: 'Fleet Inventory', icon: Car },
-    { id: 'drivers', label: 'Chauffeur Registry', icon: UserCheck },
-    { id: 'maintenance', label: 'Vehicle Issues', icon: Wrench },
-    { id: 'reports', label: 'Reports & Analytics', icon: BarChart3 },
+  const logisticsLinks: NavItem[] = [
+    { section: 'OVERVIEW', id: 'dashboard', label: 'Dashboard Overview', icon: LayoutDashboard },
+    { section: 'TRANSPORT OPERATIONS', id: 'requests-queue', label: 'Transport Requests', icon: ClipboardList },
+    { section: 'TRANSPORT OPERATIONS', id: 'weekly-requests', label: 'Weekly Requests', icon: CalendarRange },
+    { section: 'TRANSPORT OPERATIONS', id: 'assign-queue', label: 'Vehicle Assignments', icon: KeyRound },
+    { section: 'TRANSPORT OPERATIONS', id: 'availability', label: 'Schedule / Calendar', icon: CalendarDays },
+    { section: 'FLEET MANAGEMENT', id: 'vehicles', label: 'Vehicles', icon: Car },
+    { section: 'FLEET MANAGEMENT', id: 'maintenance', label: 'Maintenance & Issues', icon: Wrench },
+    { section: 'DRIVER MANAGEMENT', id: 'drivers', label: 'Chauffeur Registry', icon: UserCheck },
+    { section: 'REPORTING', id: 'reports', label: 'Reports Hub', icon: BarChart3 },
+    { section: 'ACCOUNT', id: 'profile-settings', label: 'Profile Settings', icon: UserCog },
   ];
 
-  const adminLinks = [
-    { id: 'dashboard', label: 'Analytics & Command', icon: LayoutDashboard },
-    { id: 'departments', label: 'Departments', icon: Building },
-    { id: 'users', label: 'Staff Accounts', icon: Users },
-    { id: 'vehicles', label: 'Fleet Inventory', icon: Car },
-    { id: 'requests-queue', label: 'Review Requests', icon: ClipboardList },
-    { id: 'assign-queue', label: 'Assign Vehicles', icon: KeyRound },
-    { id: 'drivers', label: 'Chauffeur Registry', icon: UserCheck },
-    { id: 'reports', label: 'Reports & Analytics', icon: BarChart3 },
-    { id: 'settings', label: 'System Settings', icon: Settings },
-    { id: 'audit-logs', label: 'System Audit Logs', icon: ShieldCheck },
+  const adminLinks: NavItem[] = [
+    { section: 'OVERVIEW', id: 'dashboard', label: 'Analytics & Command', icon: LayoutDashboard },
+    { section: 'STAFF & STRUCTURE', id: 'users', label: 'Staff Directory', icon: Users },
+    { section: 'STAFF & STRUCTURE', id: 'departments', label: 'Departments', icon: Building },
+    { section: 'STAFF & STRUCTURE', id: 'drivers', label: 'Chauffeurs', icon: UserCheck },
+    { section: 'FLEET & LOGISTICS', id: 'vehicles', label: 'Fleet Inventory', icon: Car },
+    { section: 'FLEET & LOGISTICS', id: 'requests-queue', label: 'Review Requests', icon: ClipboardList },
+    { section: 'FLEET & LOGISTICS', id: 'assign-queue', label: 'Assign Vehicles', icon: KeyRound },
+    { section: 'REPORTING', id: 'reports', label: 'Reports & Analytics', icon: BarChart3 },
+    { section: 'SYSTEM & SECURITY', id: 'settings', label: 'System Settings', icon: Settings },
+    { section: 'SYSTEM & SECURITY', id: 'audit-logs', label: 'System Audit Logs', icon: ShieldCheck },
+    { section: 'ACCOUNT', id: 'profile-settings', label: 'Profile Settings', icon: UserCog },
   ];
 
-  const links = isDriver ? driverLinks : isEmployee ? employeeLinks : isSystemAdmin ? adminLinks : logisticsLinks;
+  const links: NavItem[] = isDriver ? driverLinks : isEmployee ? employeeLinks : isSystemAdmin ? adminLinks : logisticsLinks;
 
 
   const handleSelect = (id: string) => {
@@ -94,28 +108,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto min-h-0">
-        {links.map((link) => {
+        {links.map((link, idx) => {
           const Icon = link.icon;
           const isActive = activeTab === link.id;
+          const prevLink = links[idx - 1];
+          const showSectionHeader = link.section && (!prevLink || prevLink.section !== link.section);
+
           return (
-            <button
-              key={link.id}
-              onClick={() => handleSelect(link.id)}
-              className={cn(
-                'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-left relative group',
-                isActive
-                  ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-md shadow-brand-900/40 font-semibold'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80'
+            <React.Fragment key={link.id}>
+              {showSectionHeader && (
+                <div className="pt-3.5 pb-1 px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  {link.section}
+                </div>
               )}
-            >
-              <div className="flex items-center gap-3">
-                <Icon className={cn('w-4 h-4 shrink-0 transition-colors', isActive ? 'text-white' : 'text-slate-400 group-hover:text-brand-600 dark:group-hover:text-brand-400')} />
-                <span>{link.label}</span>
-              </div>
-              {isActive && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-white/30 animate-pulse" />
-              )}
-            </button>
+              <button
+                onClick={() => handleSelect(link.id)}
+                className={cn(
+                  'w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-sm font-medium transition-all text-left relative group',
+                  isActive
+                    ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-md shadow-brand-900/40 font-semibold'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className={cn('w-4 h-4 shrink-0 transition-colors', isActive ? 'text-white' : 'text-slate-400 group-hover:text-brand-600 dark:group-hover:text-brand-400')} />
+                  <span>{link.label}</span>
+                </div>
+                {isActive && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-white/30 animate-pulse" />
+                )}
+              </button>
+            </React.Fragment>
           );
         })}
       </nav>

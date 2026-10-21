@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Driver, Vehicle, User } from '@/types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { User, Vehicle, Booking } from '@/types';
 import { api } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { useToast } from '@/components/ui/Toast';
+import { formatEthiopianDateTime, formatEthiopianDateOnly } from '@/lib/utils';
 import {
   Users,
   UserCheck,
@@ -19,481 +21,611 @@ import {
   Clock,
   Shield,
   Edit2,
-  Trash2,
+  RotateCw,
+  Mail,
   Award,
+  CreditCard,
+  MapPin,
+  Calendar,
 } from 'lucide-react';
-
-const INITIAL_DRIVERS: Driver[] = [
-  {
-    id: 'd-1',
-    name: 'Abebe Molla',
-    phone: '+251 91 123 4567',
-    licenseNumber: 'ETH-DL-8849',
-    licenseClass: 'Class 3 (Light Commercial & SUV)',
-    status: 'ON_MISSION',
-    totalTrips: 24,
-    completedTrips: 23,
-    notes: 'Primary executive driver for VIP corporate delegations.',
-    createdAt: '2026-01-10T08:00:00Z',
-  },
-  {
-    id: 'd-2',
-    name: 'Mulugeta Tadesse',
-    phone: '+251 92 345 6789',
-    licenseNumber: 'ETH-DL-9102',
-    licenseClass: 'Class 4 (Heavy Commercial & Minibus)',
-    status: 'AVAILABLE',
-    totalTrips: 31,
-    completedTrips: 30,
-    notes: 'Certified for interstate long-distance transit.',
-    createdAt: '2026-02-15T09:00:00Z',
-  },
-  {
-    id: 'd-3',
-    name: 'Kebede Worku',
-    phone: '+251 93 456 7890',
-    licenseNumber: 'ETH-DL-7421',
-    licenseClass: 'Class 3 (Light Commercial & SUV)',
-    status: 'AVAILABLE',
-    totalTrips: 19,
-    completedTrips: 19,
-    notes: 'Assigned to site inspection & procurement logistics.',
-    createdAt: '2026-03-01T10:00:00Z',
-  },
-  {
-    id: 'd-4',
-    name: 'Tewodros Kassahun',
-    phone: '+251 91 555 7891',
-    licenseNumber: 'ETH-DL-6310',
-    licenseClass: 'Class 4 (Minibus & Staff Commuter)',
-    status: 'OFF_DUTY',
-    totalTrips: 42,
-    completedTrips: 41,
-    notes: 'Designated commuter transit operator.',
-    createdAt: '2025-11-20T08:00:00Z',
-  },
-];
 
 interface DriversManagementViewProps {
   currentUser?: User;
 }
 
 export const DriversManagementView: React.FC<DriversManagementViewProps> = ({ currentUser }) => {
-  const [drivers, setDrivers] = useState<Driver[]>(() => {
-    const saved = localStorage.getItem('capital_fleet_drivers');
-    return saved ? JSON.parse(saved) : INITIAL_DRIVERS;
-  });
-
+  const toast = useToast();
+  const [users, setUsers] = useState<User[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'ON_MISSION' | 'INACTIVE'>('ALL');
 
-  // Modal states
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  // Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<User | null>(null);
+  const [viewingDriver, setViewingDriver] = useState<User | null>(null);
+
+  // Form State
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('+251 9');
+  const [employeeId, setEmployeeId] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
-  const [licenseClass, setLicenseClass] = useState('Class 3 (Light Commercial & SUV)');
-  const [status, setStatus] = useState<'AVAILABLE' | 'ON_MISSION' | 'OFF_DUTY'>('AVAILABLE');
-  const [notes, setNotes] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [jobTitle, setJobTitle] = useState('Fleet Chauffeur');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [usersData, vehiclesData, bookingsData] = await Promise.all([
+        api.getUsers(),
+        api.getVehicles(),
+        api.getBookings(),
+      ]);
+      setUsers(usersData);
+      setVehicles(vehiclesData);
+      setBookings(bookingsData);
+    } catch (err: any) {
+      console.error('Failed to load drivers data', err);
+      toast.error('Failed to load drivers', err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem('capital_fleet_drivers', JSON.stringify(drivers));
-  }, [drivers]);
-
-  useEffect(() => {
-    api.getVehicles().then(setVehicles).catch(console.error);
+    loadData();
   }, []);
+
+  // Filter to drivers only
+  const allDrivers = useMemo(() => {
+    return users.filter(
+      (u) =>
+        u.role === 'DRIVER' ||
+        u.jobTitle?.toLowerCase().includes('driver') ||
+        u.jobTitle?.toLowerCase().includes('chauffeur')
+    );
+  }, [users]);
+
+  // Active trips by driver ID
+  const activeMissionMap = useMemo(() => {
+    const map = new Map<string, { booking: Booking; vehicle?: Vehicle }>();
+    bookings
+      .filter((b) => b.status === 'IN_PROGRESS' || b.status === 'ASSIGNED')
+      .forEach((b) => {
+        b.assignments?.forEach((a) => {
+          if (a.driverId) {
+            map.set(a.driverId, {
+              booking: b,
+              vehicle: vehicles.find((v) => v.id === a.vehicleId),
+            });
+          }
+        });
+      });
+    return map;
+  }, [bookings, vehicles]);
+
+  // Filtered drivers
+  const filteredDrivers = useMemo(() => {
+    return allDrivers.filter((d) => {
+      const isMission = activeMissionMap.has(d.id);
+      const isActive = d.isActive;
+
+      if (statusFilter === 'ON_MISSION' && !isMission) return false;
+      if (statusFilter === 'AVAILABLE' && (isMission || !isActive)) return false;
+      if (statusFilter === 'INACTIVE' && isActive) return false;
+
+      if (searchTerm.trim()) {
+        const s = searchTerm.toLowerCase();
+        const matchName = d.name.toLowerCase().includes(s);
+        const matchPhone = (d.phone || '').toLowerCase().includes(s);
+        const matchEmail = d.email.toLowerCase().includes(s);
+        const matchLic = (d.licenseNumber || '').toLowerCase().includes(s);
+        const matchId = (d.employeeId || '').toLowerCase().includes(s);
+        if (!matchName && !matchPhone && !matchEmail && !matchLic && !matchId) return false;
+      }
+      return true;
+    });
+  }, [allDrivers, activeMissionMap, statusFilter, searchTerm]);
+
+  const onMissionCount = allDrivers.filter((d) => activeMissionMap.has(d.id)).length;
+  const availableCount = allDrivers.filter((d) => d.isActive && !activeMissionMap.has(d.id)).length;
+  const inactiveCount = allDrivers.filter((d) => !d.isActive).length;
 
   const openAddModal = () => {
     setEditingDriver(null);
     setName('');
+    setEmail(`driver.${Date.now().toString().slice(-4)}@capitalre.com`);
     setPhone('+251 9');
-    setLicenseNumber('');
-    setLicenseClass('Class 3 (Light Commercial & SUV)');
-    setStatus('AVAILABLE');
-    setNotes('');
-    setError(null);
-    setIsModalOpen(true);
+    setEmployeeId(`DRV-${Date.now().toString().slice(-3)}`);
+    setLicenseNumber('ET-COMMERCIAL-CLASS4');
+    setJobTitle('Fleet Chauffeur');
+    setFormError(null);
+    setIsAddModalOpen(true);
   };
 
-  const openEditModal = (d: Driver) => {
+  const openEditModal = (d: User) => {
     setEditingDriver(d);
     setName(d.name);
-    setPhone(d.phone);
-    setLicenseNumber(d.licenseNumber);
-    setLicenseClass(d.licenseClass || 'Class 3 (Light Commercial & SUV)');
-    setStatus(d.status);
-    setNotes(d.notes || '');
-    setError(null);
-    setIsModalOpen(true);
+    setEmail(d.email);
+    setPhone(d.phone || '');
+    setEmployeeId(d.employeeId || '');
+    setLicenseNumber(d.licenseNumber || '');
+    setJobTitle(d.jobTitle || 'Fleet Chauffeur');
+    setFormError(null);
+    setIsAddModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSaveDriver = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !phone.trim() || !licenseNumber.trim()) {
-      setError('Name, phone, and license number are required.');
+    setFormError(null);
+
+    if (!name.trim()) {
+      setFormError('Driver name is required.');
       return;
     }
 
-    if (editingDriver) {
-      setDrivers((prev) =>
-        prev.map((d) =>
-          d.id === editingDriver.id
-            ? { ...d, name, phone, licenseNumber, licenseClass, status, notes }
-            : d
-        )
+    try {
+      setIsSubmitting(true);
+      if (editingDriver) {
+        await api.updateUser(editingDriver.id, {
+          name: name.trim(),
+          phone: phone.trim() || undefined,
+          employeeId: employeeId.trim() || undefined,
+          licenseNumber: licenseNumber.trim() || undefined,
+          jobTitle: jobTitle.trim() || undefined,
+        });
+        toast.success('Driver Updated', `Profile details for ${name} have been updated.`);
+      } else {
+        await api.createUser({
+          name: name.trim(),
+          email: email.trim(),
+          password: 'CapitalDriver2026!',
+          role: 'DRIVER',
+          phone: phone.trim() || undefined,
+          employeeId: employeeId.trim() || undefined,
+          licenseNumber: licenseNumber.trim() || undefined,
+          jobTitle: jobTitle.trim() || 'Fleet Chauffeur',
+        });
+        toast.success('Driver Registered', `${name} has been enrolled in the chauffeur directory.`);
+      }
+      setIsAddModalOpen(false);
+      await loadData();
+    } catch (err: any) {
+      setFormError(err.message || 'Failed to save driver.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleActive = async (driver: User) => {
+    try {
+      const updated = await api.updateUser(driver.id, { isActive: !driver.isActive });
+      toast.info(
+        `Driver ${updated.isActive ? 'Activated' : 'Deactivated'}`,
+        `${driver.name} is now ${updated.isActive ? 'active' : 'inactive'}.`
       );
-    } else {
-      const newDriver: Driver = {
-        id: `d-${Date.now()}`,
-        name: name.trim(),
-        phone: phone.trim(),
-        licenseNumber: licenseNumber.trim().toUpperCase(),
-        licenseClass,
-        status,
-        totalTrips: 0,
-        completedTrips: 0,
-        notes: notes.trim(),
-        createdAt: new Date().toISOString(),
-      };
-      setDrivers((prev) => [newDriver, ...prev]);
-    }
-
-    setIsModalOpen(false);
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to remove this chauffeur from the registry?')) {
-      setDrivers((prev) => prev.filter((d) => d.id !== id));
+      await loadData();
+    } catch (err: any) {
+      toast.error('Update Failed', err.message);
     }
   };
-
-  const filteredDrivers = drivers.filter((d) => {
-    if (statusFilter !== 'ALL' && d.status !== statusFilter) return false;
-    if (searchTerm.trim()) {
-      const s = searchTerm.toLowerCase();
-      const matchName = d.name.toLowerCase().includes(s);
-      const matchPhone = d.phone.toLowerCase().includes(s);
-      const matchLic = d.licenseNumber.toLowerCase().includes(s);
-      if (!matchName && !matchPhone && !matchLic) return false;
-    }
-    return true;
-  });
-
-  const availableCount = drivers.filter((d) => d.status === 'AVAILABLE').length;
-  const onMissionCount = drivers.filter((d) => d.status === 'ON_MISSION').length;
-  const offDutyCount = drivers.filter((d) => d.status === 'OFF_DUTY').length;
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Users className="w-5 h-5 text-brand-600 dark:text-brand-400" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+              Fleet Personnel
+            </span>
+            <span className="text-xs text-slate-400">•</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Chauffeur Dispatch Registry
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
             Corporate Driver & Chauffeur Registry
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Full directory of authorized company drivers, license certifications, mission stats, and live availability.
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+            Audit licensed enterprise chauffeurs, monitor active transit assignments, and verify driver credentials.
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={openAddModal}
-          leftIcon={<Plus className="w-4 h-4" />}
-          className="font-bold shadow-sm"
-        >
-          Add Fleet Chauffeur
-        </Button>
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadData}
+            disabled={isLoading}
+            className="flex items-center gap-1.5"
+          >
+            <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={openAddModal}
+            leftIcon={<Plus className="w-4 h-4" />}
+            className="shadow-sm shadow-brand-500/20 font-bold"
+          >
+            Enroll Fleet Chauffeur
+          </Button>
+        </div>
       </div>
 
       {/* KPI Stats Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Total Drivers</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Drivers</span>
             <Users className="w-4 h-4 text-brand-500" />
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            {drivers.length}
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900 dark:text-white">{allDrivers.length}</span>
+            <span className="text-[11px] text-slate-400 font-medium">Registered</span>
           </div>
-          <span className="text-[11px] text-slate-400">Certified staff operators</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Available for Dispatch</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Available on Standby</span>
             <UserCheck className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-            {availableCount}
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900 dark:text-white">{availableCount}</span>
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">Ready</span>
           </div>
-          <span className="text-[11px] text-emerald-600">Ready for assignment</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">On Active Mission</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Currently on Trip</span>
             <Car className="w-4 h-4 text-blue-500" />
           </div>
-          <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
-            {onMissionCount}
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900 dark:text-white">{onMissionCount}</span>
+            <span className="text-[11px] text-blue-600 dark:text-blue-400 font-bold">Dispatched</span>
           </div>
-          <span className="text-[11px] text-blue-600">Currently in transit</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Off Duty / Leave</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Inactive / Off Duty</span>
             <UserX className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-2xl font-black text-slate-600 dark:text-slate-400 mt-1">
-            {offDutyCount}
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900 dark:text-white">{inactiveCount}</span>
+            <span className="text-[11px] text-slate-400 font-medium">Off Roster</span>
           </div>
-          <span className="text-[11px] text-slate-400">Scheduled rest interval</span>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {['ALL', 'AVAILABLE', 'ON_MISSION', 'OFF_DUTY'].map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
-                statusFilter === s
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-              }`}
-            >
-              {s === 'ALL' ? 'All Drivers' : s.replace('_', ' ')}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      {/* Filter & Search Strip */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search driver name, phone, license..."
+            placeholder="Search chauffeurs by name, phone, license, or staff ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full text-xs pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-full pl-10 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500 focus:outline-none"
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="text-xs py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium focus:ring-2 focus:ring-brand-500"
+          >
+            <option value="ALL">All Chauffeurs ({allDrivers.length})</option>
+            <option value="AVAILABLE">Available for Dispatch ({availableCount})</option>
+            <option value="ON_MISSION">On Mission / Dispatched ({onMissionCount})</option>
+            <option value="INACTIVE">Inactive Accounts ({inactiveCount})</option>
+          </select>
         </div>
       </div>
 
-      {/* Driver Cards Grid */}
+      {/* Drivers Card Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredDrivers.map((d) => (
-          <Card key={d.id} className="overflow-hidden shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <div className="p-5 space-y-4">
-              {/* Header with Avatar & Status */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800 flex items-center justify-center font-bold text-base text-brand-700 dark:text-brand-300 shrink-0">
-                    {d.name.charAt(0)}
+        {filteredDrivers.length === 0 ? (
+          <div className="col-span-full p-12 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400">
+            <Users className="w-12 h-12 mx-auto mb-2 opacity-40" />
+            <p className="font-semibold text-sm">No chauffeurs found matching your criteria.</p>
+          </div>
+        ) : (
+          filteredDrivers.map((driver) => {
+            const activeMission = activeMissionMap.get(driver.id);
+            const isMission = !!activeMission;
+
+            return (
+              <Card
+                key={driver.id}
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs hover:shadow-md transition-shadow overflow-hidden flex flex-col justify-between"
+              >
+                <div>
+                  <CardHeader className="p-4 border-b border-slate-100 dark:border-slate-800/80">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {driver.avatarUrl ? (
+                          <img
+                            src={driver.avatarUrl}
+                            alt={driver.name}
+                            className="w-11 h-11 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                            {driver.name.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight">
+                            {driver.name}
+                          </h3>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                            {driver.employeeId ? `ID: #${driver.employeeId}` : driver.email}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      {isMission ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                          On Mission
+                        </span>
+                      ) : driver.isActive ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Available
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-4 space-y-3 text-xs">
+                    {/* Active Mission Banner if dispatched */}
+                    {activeMission && (
+                      <div className="p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 space-y-1">
+                        <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider block">
+                          Current Assignment:
+                        </span>
+                        <div className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 truncate">
+                          <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span>{activeMission.booking.destination}</span>
+                        </div>
+                        {activeMission.vehicle && (
+                          <div className="text-[11px] text-blue-800 dark:text-blue-300 font-mono">
+                            {activeMission.vehicle.registrationNumber} · {activeMission.vehicle.model}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5 text-slate-600 dark:text-slate-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Commercial License:</span>
+                        <strong className="font-mono text-slate-800 dark:text-slate-200">
+                          {driver.licenseNumber || 'ET-COMMERCIAL-CLASS4'}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Contact Phone:</span>
+                        <strong className="text-slate-800 dark:text-slate-200">
+                          {driver.phone || '+251 91 123 4567'}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Department:</span>
+                        <span>{driver.department?.name || 'Capital Fleet Operations'}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </div>
+
+                <div className="p-3 bg-slate-50/70 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setViewingDriver(driver)}
+                    className="text-xs h-7 text-slate-600 dark:text-slate-300 hover:text-brand-600"
+                  >
+                    View Details
+                  </Button>
+
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditModal(driver)}
+                      className="text-xs h-7 px-2"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant={driver.isActive ? 'outline' : 'primary'}
+                      size="sm"
+                      onClick={() => handleToggleActive(driver)}
+                      className="text-xs h-7 px-2 font-semibold"
+                    >
+                      {driver.isActive ? 'Deactivate' : 'Activate'}
+                    </Button>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight">
-                      {d.name}
-                    </h3>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                      <Phone className="w-3 h-3" /> {d.phone}
-                    </span>
-                  </div>
                 </div>
-
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    d.status === 'AVAILABLE'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                      : d.status === 'ON_MISSION'
-                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                  }`}
-                >
-                  {d.status.replace('_', ' ')}
-                </span>
-              </div>
-
-              {/* License & Certification Box */}
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-1.5 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Driving License</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                    {d.licenseNumber}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                  {d.licenseClass || 'Commercial Class 3'}
-                </div>
-              </div>
-
-              {/* Mission Statistics Strip */}
-              <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                <div className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/60">
-                  <span className="text-[10px] text-slate-400 block font-medium">Total Trips</span>
-                  <span className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
-                    {d.totalTrips}
-                  </span>
-                </div>
-                <div className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/60">
-                  <span className="text-[10px] text-slate-400 block font-medium">Completed</span>
-                  <span className="text-base font-extrabold text-emerald-600 font-mono">
-                    {d.completedTrips}
-                  </span>
-                </div>
-              </div>
-
-              {d.notes && (
-                <p className="text-[11px] text-slate-500 italic border-t border-slate-100 dark:border-slate-800 pt-2">
-                  "{d.notes}"
-                </p>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openEditModal(d)}
-                  leftIcon={<Edit2 className="w-3.5 h-3.5" />}
-                  className="text-xs"
-                >
-                  Edit Driver
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(d.id)}
-                  leftIcon={<Trash2 className="w-3.5 h-3.5 text-red-500" />}
-                  className="text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                >
-                  Remove
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
+              </Card>
+            );
+          })
+        )}
       </div>
 
-      {/* Add / Edit Driver Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editingDriver ? 'Edit Fleet Chauffeur' : 'Register New Fleet Chauffeur'}
-        description="Manage driver license details, emergency contact, and operational status"
-        maxWidth="lg"
-      >
-        <form onSubmit={handleSave} className="space-y-4">
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs rounded-xl">
-              {error}
-            </div>
-          )}
-
-          <Input
-            id="driverName"
-            label="Chauffeur Full Name"
-            placeholder="e.g. Abebe Molla"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              id="driverPhone"
-              label="Contact Phone Number"
-              placeholder="+251 91 123 4567"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
+      {/* ── Add / Edit Driver Modal ── */}
+      {isAddModalOpen && (
+        <Modal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title={editingDriver ? `Edit Driver: ${editingDriver.name}` : 'Enroll New Fleet Chauffeur'}
+          maxWidth="md"
+        >
+          <form onSubmit={handleSaveDriver} className="space-y-4">
+            {formError && (
+              <div className="p-3 rounded-xl bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 text-red-800 dark:text-red-200 text-xs font-semibold">
+                {formError}
+              </div>
+            )}
 
             <Input
-              id="driverLicense"
-              label="Driver License Number"
-              placeholder="e.g. ETH-DL-8849"
-              value={licenseNumber}
-              onChange={(e) => setLicenseNumber(e.target.value)}
+              id="driverName"
+              label="Full Legal Name"
               required
+              placeholder="e.g. Abebe Molla"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isSubmitting}
             />
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
-              License Category & Classification:
-            </label>
-            <select
-              value={licenseClass}
-              onChange={(e) => setLicenseClass(e.target.value)}
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-            >
-              <option value="Class 3 (Light Commercial & SUV)">Class 3 (Light Commercial & SUV)</option>
-              <option value="Class 4 (Heavy Commercial & Minibus)">Class 4 (Heavy Commercial & Minibus)</option>
-              <option value="Class 2 (Automobile & Sedans)">Class 2 (Automobile & Sedans)</option>
-              <option value="Executive Chauffeur Grade A">Executive Chauffeur Grade A</option>
-            </select>
-          </div>
+            {!editingDriver && (
+              <Input
+                id="driverEmail"
+                label="System Account Email"
+                required
+                type="email"
+                placeholder="e.g. abebe.driver@capitalre.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isSubmitting}
+              />
+            )}
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
-              Operational Duty Status:
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'AVAILABLE', label: 'Available' },
-                { id: 'ON_MISSION', label: 'On Mission' },
-                { id: 'OFF_DUTY', label: 'Off Duty' },
-              ].map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setStatus(s.id as any)}
-                  className={`p-2 rounded-xl text-xs font-semibold border text-center transition-all ${
-                    status === s.id
-                      ? 'border-brand-600 bg-brand-500 text-white shadow-xs'
-                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                id="driverPhone"
+                label="Phone Number"
+                required
+                placeholder="+251 91 123 4567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={isSubmitting}
+              />
+              <Input
+                id="driverEmployeeId"
+                label="Staff Driver ID"
+                placeholder="e.g. DRV-084"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                id="driverLicense"
+                label="Commercial License Number"
+                required
+                placeholder="e.g. ETH-DL-8849"
+                value={licenseNumber}
+                onChange={(e) => setLicenseNumber(e.target.value)}
+                disabled={isSubmitting}
+              />
+              <Input
+                id="driverTitle"
+                label="Role Designation"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAddModalOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                disabled={isSubmitting}
+                isLoading={isSubmitting}
+              >
+                {editingDriver ? 'Save Profile' : 'Enroll Driver'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── View Driver Details Modal ── */}
+      {viewingDriver && (
+        <Modal
+          isOpen={!!viewingDriver}
+          onClose={() => setViewingDriver(null)}
+          title={`Chauffeur Dossier: ${viewingDriver.name}`}
+          maxWidth="md"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+              <div className="w-14 h-14 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xl">
+                {viewingDriver.name.charAt(0)}
+              </div>
+              <div>
+                <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                  {viewingDriver.name}
+                </h4>
+                <p className="text-slate-500 dark:text-slate-400">
+                  {viewingDriver.email} · {viewingDriver.phone}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge status={viewingDriver.isActive ? 'ACTIVE' : 'INACTIVE'} />
+                  {viewingDriver.employeeId && (
+                    <span className="font-mono text-slate-500 font-semibold">
+                      #{viewingDriver.employeeId}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400">License Certification:</span>
+                <strong className="font-mono">{viewingDriver.licenseNumber || 'ET-COMMERCIAL-VALID'}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Operational Category:</span>
+                <span>Executive & Standard Fleet Chauffeur</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Enrolled In System:</span>
+                <span>{formatEthiopianDateOnly(viewingDriver.createdAt)}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button variant="primary" size="sm" onClick={() => setViewingDriver(null)}>
+                Close
+              </Button>
             </div>
           </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
-              Operational Notes & Assignment Details:
-            </label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Primary chauffeur for executive regional delegations."
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit">
-              {editingDriver ? 'Save Changes' : 'Register Chauffeur'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        </Modal>
+      )}
     </div>
   );
 };

@@ -60,6 +60,10 @@ describe('BookingsService', () => {
             auditLog: {
               create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
             },
+            systemSetting: {
+              findMany: jest.fn().mockResolvedValue([]),
+              findUnique: jest.fn(),
+            },
             $transaction: jest.fn(),
           },
         },

@@ -13,6 +13,7 @@ import {
   UserRole,
   Department,
   BookingVerificationResult,
+  SystemSettings,
 } from '@/types';
 
 const API_BASE = '/api';
@@ -148,9 +149,18 @@ class ApiClient {
     departureAt: string;
     expectedReturnAt: string;
     passengerCount: number;
+    requestType?: 'DAILY' | 'WEEKLY';
+    pickupLocation?: string;
+    contactPhone?: string;
     preferredVehicleId?: string;
     requiresDriver: boolean;
     additionalNotes?: string;
+    weeklyDays?: Array<{
+      dayOfWeek: string;
+      tripDate: string;
+      timeSlot: 'MORNING' | 'AFTERNOON';
+      notes?: string;
+    }>;
   }): Promise<Booking> {
     return this.request<Booking>('/bookings', {
       method: 'POST',
@@ -334,8 +344,66 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  // --- AUTH & PROFILE ---
+  async forgotPassword(identifier: string): Promise<{ success: boolean; message: string; resetToken?: string; expiresAt?: string }> {
+    return this.request('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ identifier }),
+    });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    });
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
+  async adminResetPassword(userId: string, forcePasswordChange = true): Promise<{ success: boolean; message: string; resetToken?: string; expiresAt?: string }> {
+    return this.request(`/auth/admin/reset-password/${userId}`, {
+      method: 'POST',
+      body: JSON.stringify({ forcePasswordChange }),
+    });
+  }
+
+
+  // --- SETTINGS & DANGER ZONE ---
+  async getSettings(): Promise<SystemSettings> {
+    return this.request<SystemSettings>('/settings');
+  }
+
+  async updateSettings(data: Partial<SystemSettings>): Promise<SystemSettings> {
+    return this.request<SystemSettings>('/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async purgeOperationsData(adminPassword: string, confirmationPhrase: string): Promise<{ success: boolean; message: string; purgedSummary: any; retained: string[] }> {
+    return this.request('/settings/danger/purge-operations', {
+      method: 'POST',
+      body: JSON.stringify({ adminPassword, confirmationPhrase }),
+    });
+  }
+
+  // --- BOOKING DAYS ---
+  async updateBookingDay(dayId: string, data: { status?: string; vehicleId?: string; driverId?: string; notes?: string }): Promise<any> {
+    return this.request(`/bookings/days/${dayId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const api = new ApiClient();
+
 
 

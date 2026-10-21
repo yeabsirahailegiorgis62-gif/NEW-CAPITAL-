@@ -7,6 +7,7 @@ import {
   AssignVehicleDto,
   StartTripDto,
   CompleteTripDto,
+  UpdateBookingDayDto,
 } from './bookings.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -96,6 +97,17 @@ export class BookingsController {
   @ApiOperation({ summary: 'Record vehicle departure and begin trip execution' })
   startTrip(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: StartTripDto) {
     return this.bookingsService.startTrip(id, user, dto);
+  }
+
+  @Patch('days/:dayId')
+  @Roles(UserRole.LOGISTICS_ADMIN, UserRole.SYSTEM_ADMIN)
+  @ApiOperation({ summary: 'Update status or assignment of a specific day in a weekly request' })
+  updateBookingDay(
+    @Param('dayId') dayId: string,
+    @CurrentUser() user: any,
+    @Body() dto: UpdateBookingDayDto,
+  ) {
+    return this.bookingsService.updateBookingDay(dayId, user, dto);
   }
 
   @Post(':id/complete')

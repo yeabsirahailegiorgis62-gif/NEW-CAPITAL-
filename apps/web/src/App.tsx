@@ -3,6 +3,7 @@ import { User, Booking, Vehicle, InAppNotification, BookingStatus } from '@/type
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { LoginPage } from '@/pages/LoginPage';
+import { LandingPage } from '@/pages/LandingPage';
 import { AppShell } from '@/components/layout/AppShell';
 import { EmployeeDashboard } from '@/features/dashboard/EmployeeDashboard';
 import { LogisticsDashboard } from '@/features/dashboard/LogisticsDashboard';
@@ -29,12 +30,21 @@ import { PrintableTransportFormModal } from '@/features/bookings/PrintableTransp
 import { DriverDashboard } from '@/features/dashboard/DriverDashboard';
 import { AdminAnalyticsDashboard } from '@/features/dashboard/AdminAnalyticsDashboard';
 import { DepartmentsManagementView } from '@/features/admin/DepartmentsManagementView';
+import { ProfileSettingsView } from '@/features/profile/ProfileSettingsView';
 
 export function App() {
   const toast = useToast();
 
   const [isAppLoading, setIsAppLoading] = useState(false);
-  const [currentView, setCurrentView] = useState<'login' | 'workspace'>('login');
+  const [currentView, setCurrentView] = useState<'landing' | 'login' | 'workspace'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'login' || window.location.pathname === '/auth') {
+        return 'login';
+      }
+    }
+    return 'landing';
+  });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
@@ -136,7 +146,7 @@ export function App() {
     setCurrentUser(null);
     setNotifications([]);
     setBookings([]);
-    setCurrentView('login');
+    setCurrentView('landing');
     setActiveTab('dashboard');
   };
 
@@ -262,15 +272,29 @@ export function App() {
     return <AutomotiveLoadingScreen onFinish={() => setIsAppLoading(false)} minDuration={1800} />;
   }
 
+  if (currentView === 'landing') {
+    return (
+      <>
+        <LandingPage onSignInClick={() => setCurrentView('login')} />
+        <BookingVerificationModal
+          isOpen={verificationReference !== null && !currentUser}
+          onClose={() => setVerificationReference(null)}
+          initialReference={verificationReference}
+        />
+      </>
+    );
+  }
+
   if (currentView === 'login') {
     return (
       <>
         <LoginPage
           onLoginSubmit={handleLogin}
           onOpenVerification={() => setVerificationReference('')}
+          onBackToLanding={() => setCurrentView('landing')}
         />
         <BookingVerificationModal
-          isOpen={verificationReference !== null}
+          isOpen={verificationReference !== null && !currentUser}
           onClose={() => setVerificationReference(null)}
           initialReference={verificationReference}
         />
@@ -439,6 +463,29 @@ export function App() {
 
       {activeTab === 'audit-logs' && !isEmployee && (
         <AuditLogsView />
+      )}
+
+      {activeTab === 'weekly-requests' && !isEmployee && (
+        <ReviewRequestsQueue
+          currentUser={currentUser!}
+          bookings={bookings.filter((b) => b.requestType === 'WEEKLY')}
+          initialTab="pending"
+          onRefreshQueue={refreshAllData}
+          onSelectBooking={(b) => setSelectedBookingForDetails(b)}
+          onAssignVehicle={(b) => setAssigningBooking(b)}
+          onApprove={handleApproveBooking}
+          onReject={handleRejectBooking}
+          onOpenReceipt={handleOpenReceipt}
+          onPrintForm={(b) => setPrintableBooking(b)}
+        />
+      )}
+
+      {activeTab === 'profile-settings' && (
+        <ProfileSettingsView
+          currentUser={currentUser!}
+          onProfileUpdated={refreshAllData}
+          onLogout={handleLogout}
+        />
       )}
 
       {/* Booking Details Modal */}

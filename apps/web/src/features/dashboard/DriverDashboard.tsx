@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { User, Booking } from '@/types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { User, Booking, Vehicle } from '@/types';
 import { api } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
+import { PrintableTransportFormModal } from '@/features/bookings/PrintableTransportFormModal';
 import { formatEthiopianDateTime, formatEthiopianDateOnly } from '@/lib/utils';
 import {
   Car,
@@ -15,15 +17,16 @@ import {
   UserCheck,
   ShieldCheck,
   RotateCw,
-  QrCode,
-  FileText,
+  Printer,
   Navigation,
   Compass,
   Gauge,
   Fuel,
   ArrowRight,
-  Sparkles,
   AlertCircle,
+  Users,
+  Wrench,
+  CheckCircle,
 } from 'lucide-react';
 
 interface DriverDashboardProps {
@@ -44,15 +47,39 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({
   onRefresh,
 }) => {
   const [driverBookings, setDriverBookings] = useState<Booking[]>([]);
+  const [assignedVehicle, setAssignedVehicle] = useState<Vehicle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [filterMode, setFilterMode] = useState<'all' | 'active' | 'completed'>('all');
 
-  const fetchDriverTrips = async () => {
+  // Sub-tabs: 'trips' | 'vehicle'
+  const [activeSubTab, setActiveSubTab] = useState<'trips' | 'vehicle'>('trips');
+
+  // Return confirmation modal state
+  const [confirmReturnBooking, setConfirmReturnBooking] = useState<Booking | null>(null);
+  const [returnDatetime, setReturnDatetime] = useState<string>(() => {
+    const now = new Date();
+    return now.toISOString().slice(0, 16);
+  });
+  const [odometerStartInput, setOdometerStartInput] = useState<string>('');
+  const [odometerEndInput, setOdometerEndInput] = useState<string>('');
+  const [vehicleNotes, setVehicleNotes] = useState<string>('');
+  const [isSubmittingReturn, setIsSubmittingReturn] = useState(false);
+
+  // Printable Form Modal state
+  const [selectedVoucherBooking, setSelectedVoucherBooking] = useState<Booking | null>(null);
+
+  const fetchDriverData = async () => {
     try {
       setIsLoading(true);
-      const bookings = await api.getBookings();
-      // Scoped automatically by API or client fallback
+      const [bookings, vehicles] = await Promise.all([
+        api.getBookings(),
+        api.getVehicles(),
+      ]);
+
       setDriverBookings(bookings);
+
+      // Find vehicle assigned to driver if any
+      const vehicle = vehicles.find((v) => v.operationalStatus === 'ACTIVE');
+      if (vehicle) setAssignedVehicle(vehicle);
     } catch (err) {
       console.error('Failed to load driver assignments', err);
     } finally {
@@ -61,36 +88,72 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({
   };
 
   useEffect(() => {
-    fetchDriverTrips();
+    fetchDriverData();
   }, []);
 
   const handleRefresh = async () => {
-    await fetchDriverTrips();
+    await fetchDriverData();
     if (onRefresh) onRefresh();
   };
 
-  // Trips in progress or ready to depart
-  const activeMission = driverBookings.find(
-    (b) => b.status === 'IN_PROGRESS' || (b.status === 'APPROVED' && b.assignments && b.assignments.length > 0)
-  );
+  // Trips filtering: Today vs Upcoming
+  const todayStr = new Date().toISOString().split('T')[0];
 
-  const upcomingTrips = driverBookings.filter(
-    (b) => b.status === 'APPROVED' && b.id !== activeMission?.id
-  );
+  const todayTrips = useMemo(() => {
+    return driverBookings.filter((b) => {
+      try {
+        const depStr = new Date(b.departureAt).toISOString().split('T')[0];
+        return (depStr === todayStr || b.status === 'IN_PROGRESS') && b.status !== 'CANCELLED' && b.status !== 'REJECTED';
+      } catch {
+        return false;
+      }
+    });
+  }, [driverBookings, todayStr]);
 
-  const completedTrips = driverBookings.filter((b) => b.status === 'COMPLETED');
+  const upcomingTrips = useMemo(() => {
+    const now = new Date();
+    return driverBookings.filter((b) => {
+      try {
+        const dep = new Date(b.departureAt);
+        const depStr = dep.toISOString().split('T')[0];
+        return depStr !== todayStr && dep > now && b.status !== 'COMPLETED' && b.status !== 'CANCELLED' && b.status !== 'REJECTED';
+      } catch {
+        return false;
+      }
+    });
+  }, [driverBookings, todayStr]);
 
-  // Statistics
-  const totalMissions = driverBookings.length;
-  const completedCount = completedTrips.length;
-  const inProgressCount = driverBookings.filter((b) => b.status === 'IN_PROGRESS').length;
-  const totalKmDriven = completedTrips.reduce((acc, b) => {
-    const a = b.assignments?.[0];
-    if (a?.startOdometer && a?.endOdometer && a.endOdometer >= a.startOdometer) {
-      return acc + (a.endOdometer - a.startOdometer);
+  const completedTrips = useMemo(() => {
+    return driverBookings.filter((b) => b.status === 'COMPLETED');
+  }, [driverBookings]);
+
+  // Handle Return Confirmation Dialog
+  const handleOpenReturnModal = (booking: Booking) => {
+    const a = booking.assignments?.[0];
+    setConfirmReturnBooking(booking);
+    setOdometerStartInput(a?.startOdometer ? String(a.startOdometer) : '12400');
+    setOdometerEndInput(a?.endOdometer ? String(a.endOdometer) : '12465');
+    setReturnDatetime(new Date().toISOString().slice(0, 16));
+    setVehicleNotes('');
+  };
+
+  const handleConfirmReturnSubmit = async () => {
+    if (!confirmReturnBooking) return;
+    try {
+      setIsSubmittingReturn(true);
+      await api.completeTrip(confirmReturnBooking.id, {
+        actualReturnAt: new Date(returnDatetime).toISOString(),
+        endOdometer: odometerEndInput ? Number(odometerEndInput) : undefined,
+        notes: vehicleNotes || 'Trip completed according to schedule.',
+      });
+      setConfirmReturnBooking(null);
+      await fetchDriverData();
+    } catch (err: any) {
+      alert(`Failed to complete trip: ${err.message || err}`);
+    } finally {
+      setIsSubmittingReturn(false);
     }
-    return acc;
-  }, 0);
+  };
 
   return (
     <div className="space-y-6">
@@ -137,413 +200,426 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({
                   <ShieldCheck className="w-3.5 h-3.5" />
                   License: {currentUser.licenseNumber || 'ET-DL-VERIFIED'}
                 </span>
-                {currentUser.phone && (
-                  <>
-                    <span>•</span>
-                    <span className="font-mono text-slate-300 flex items-center gap-1">
-                      <Phone className="w-3.5 h-3.5" />
-                      {currentUser.phone}
-                    </span>
-                  </>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Quick Telematics Metric Badges */}
-          <div className="flex items-center gap-3 sm:gap-4 bg-slate-900/80 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/80 shadow-inner">
-            <div className="text-center px-3 border-r border-slate-700">
-              <div className="text-2xl font-black text-amber-400 font-mono">
-                {completedCount}
-              </div>
-              <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                Completed
-              </div>
-            </div>
+          {/* Sub-Tab Navigation Switcher */}
+          <div className="flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-700/80">
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('trips')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                activeSubTab === 'trips'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              My Trips ({todayTrips.length + upcomingTrips.length})
+            </button>
 
-            <div className="text-center px-3 border-r border-slate-700">
-              <div className="text-2xl font-black text-emerald-400 font-mono">
-                {inProgressCount}
-              </div>
-              <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                En Route
-              </div>
-            </div>
-
-            <div className="text-center px-3">
-              <div className="text-2xl font-black text-white font-mono">
-                {totalKmDriven.toLocaleString()}
-              </div>
-              <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                Km Logged
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('vehicle')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                activeSubTab === 'vehicle'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Car className="w-4 h-4" />
+              My Vehicle
+            </button>
 
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              className="ml-2 bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700"
+              className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800"
               title="Refresh assignments"
             >
-              <RotateCw className="w-4 h-4" />
+              <RotateCw className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
       </div>
 
-      {/* ── Active Mission Focus Banner (If Any) ── */}
-      {activeMission ? (
-        <Card className="border-2 border-amber-500/80 dark:border-amber-500/60 bg-gradient-to-r from-amber-500/5 via-white to-amber-500/10 dark:from-amber-950/30 dark:via-slate-900 dark:to-amber-950/20 shadow-lg rounded-3xl overflow-hidden">
-          <CardHeader className="border-b border-amber-200/60 dark:border-amber-800/60 bg-amber-500/10 py-3.5 px-6 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="p-1.5 rounded-xl bg-amber-500 text-white shadow-xs">
-                <Navigation className="w-4 h-4 animate-spin-slow" />
-              </span>
-              <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                  Active Chauffeur Mission · #{activeMission.bookingReference}
-                </h3>
-                <p className="text-xs text-amber-800 dark:text-amber-300">
-                  {activeMission.status === 'IN_PROGRESS'
-                    ? 'Trip currently underway. Keep dispatch updated upon arrival.'
-                    : 'Assigned mission ready for departure.'}
-                </p>
-              </div>
+      {/* ── Sub-Tab 1: My Trips ── */}
+      {activeSubTab === 'trips' && (
+        <div className="space-y-8">
+          {/* Section: Today */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Today ({todayTrips.length})
+              </h2>
             </div>
 
-            <Badge status={activeMission.status} size="md" />
-          </CardHeader>
-
-          <CardContent className="p-6 space-y-5">
-            {/* Split Route & Vehicle Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Destination */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Destination
-                </span>
-                <div className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
-                  <MapPin className="w-4 h-4 text-red-500 shrink-0" />
-                  <span>{activeMission.destination}</span>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                  Purpose: {activeMission.purpose}
-                </div>
-              </div>
-
-              {/* Schedule */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Departure Time
-                </span>
-                <div className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-brand-500 shrink-0" />
-                  <span>{formatEthiopianDateTime(activeMission.departureAt)}</span>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  Return: {formatEthiopianDateTime(activeMission.expectedReturnAt)}
-                </div>
-              </div>
-
-              {/* Assigned Vehicle */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Assigned Vehicle
-                </span>
-                <div className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
-                  <Car className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span>{activeMission.assignments?.[0]?.vehicle?.name || 'Assigned Vehicle'}</span>
-                </div>
-                <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  {activeMission.assignments?.[0]?.vehicle?.registrationNumber || 'Pending Plate'}
-                </div>
-              </div>
-
-              {/* Passenger Contact */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Requester / Lead Passenger
-                </span>
-                <div className="text-sm font-extrabold text-slate-900 dark:text-white truncate">
-                  {activeMission.requester?.name || 'Staff Member'}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  {activeMission.requester?.department?.name || 'Capital Real Estate'}
-                </div>
-                {activeMission.requester?.phone && (
-                  <a
-                    href={`tel:${activeMission.requester.phone}`}
-                    className="inline-flex items-center gap-1 text-xs font-mono font-bold text-brand-600 dark:text-brand-400 hover:underline pt-0.5"
-                  >
-                    <Phone className="w-3 h-3" />
-                    {activeMission.requester.phone}
-                  </a>
-                )}
-              </div>
-            </div>
-
-            {/* Chauffeur Actions Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onOpenBooking(activeMission)}
-                  leftIcon={<FileText className="w-3.5 h-3.5" />}
-                  className="text-xs"
-                >
-                  View Mission Details
-                </Button>
-                {onOpenReceipt && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onOpenReceipt(activeMission)}
-                    leftIcon={<QrCode className="w-3.5 h-3.5" />}
-                    className="text-xs"
-                  >
-                    Gate Pass
-                  </Button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                {activeMission.status === 'APPROVED' && (
-                  <Button
-                    variant="primary"
-                    size="md"
-                    onClick={() => onStartTrip(activeMission)}
-                    className="bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30 font-bold"
-                    leftIcon={<Gauge className="w-4 h-4" />}
-                  >
-                    Start Trip & Record Odometer
-                  </Button>
-                )}
-
-                {activeMission.status === 'IN_PROGRESS' && (
-                  <Button
-                    variant="primary"
-                    size="md"
-                    onClick={() => onCompleteTrip(activeMission)}
-                    className="bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 font-bold"
-                    leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                  >
-                    Complete Trip & Record Return Odometer
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-6 text-center">
-          <div className="max-w-md mx-auto space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              No Active Trip Underway
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              You are currently on standby. Any new vehicle dispatch or upcoming assignment assigned by logistics will appear directly here.
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {/* ── Upcoming Assignments & Completed History ── */}
-      <div className="space-y-4">
-        {/* Navigation Tabs */}
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFilterMode('all')}
-              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                filterMode === 'all'
-                  ? 'bg-brand-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              All Assignments ({totalMissions})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode('active')}
-              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                filterMode === 'active'
-                  ? 'bg-brand-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Upcoming ({upcomingTrips.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode('completed')}
-              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                filterMode === 'completed'
-                  ? 'bg-brand-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Completed Log ({completedTrips.length})
-            </button>
-          </div>
-
-          <span className="text-xs font-mono text-slate-400">
-            {driverBookings.length} Total Assignments
-          </span>
-        </div>
-
-        {/* Assignments Table */}
-        <Card className="rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-          <CardContent className="p-0">
-            {driverBookings.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 dark:text-slate-500 text-sm">
-                <Car className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                No assignments found for this chauffeur account.
+            {todayTrips.length === 0 ? (
+              <div className="p-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center text-sm text-slate-500">
+                <Calendar className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                No trips scheduled for today. Check back later or review upcoming assignments.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800">
-                    <tr>
-                      <th className="py-3 px-4">Ref & Date</th>
-                      <th className="py-3 px-4">Destination & Purpose</th>
-                      <th className="py-3 px-4">Lead Traveler</th>
-                      <th className="py-3 px-4">Assigned Vehicle</th>
-                      <th className="py-3 px-4">Odometer Log</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {(filterMode === 'active'
-                      ? upcomingTrips
-                      : filterMode === 'completed'
-                      ? completedTrips
-                      : driverBookings
-                    ).map((b) => {
-                      const a = b.assignments?.[0];
-                      const distance =
-                        a?.startOdometer && a?.endOdometer && a.endOdometer >= a.startOdometer
-                          ? a.endOdometer - a.startOdometer
-                          : null;
+              <div className="grid gap-4 md:grid-cols-2">
+                {todayTrips.map((b) => {
+                  const assignment = b.assignments?.[0];
+                  const isInProgress = b.status === 'IN_PROGRESS';
+                  const isAssigned = b.status === 'APPROVED' || b.status === 'ASSIGNED';
 
-                      return (
-                        <tr
-                          key={b.id}
-                          className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
-                        >
-                          <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white">
-                            <div>#{b.bookingReference}</div>
-                            <div className="text-[11px] font-normal text-slate-500">
-                              {formatEthiopianDateOnly(b.departureAt)}
-                            </div>
-                          </td>
+                  return (
+                    <Card
+                      key={b.id}
+                      className={`rounded-2xl transition-all shadow-sm hover:shadow-md ${
+                        isInProgress
+                          ? 'border-emerald-300 dark:border-emerald-800 bg-gradient-to-br from-emerald-50/40 dark:from-emerald-950/20 to-white dark:to-slate-900'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
+                      }`}
+                    >
+                      <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-mono text-base font-bold text-brand-600 dark:text-brand-400">
+                            {b.bookingReference}
+                          </span>
+                          <Badge status={b.status} size="sm" />
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {b.requester?.department?.name || 'Department'} · Requester: {b.requester?.name || 'Staff'}
+                        </p>
+                      </CardHeader>
 
-                          <td className="py-3.5 px-4">
-                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1 truncate max-w-xs">
-                              <MapPin className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-                              <span>{b.destination}</span>
-                            </div>
-                            <div className="text-[11px] text-slate-500 truncate max-w-xs">
-                              {b.purpose}
-                            </div>
-                          </td>
+                      <CardContent className="p-5 space-y-3 text-sm">
+                        <div className="flex items-center gap-2 text-slate-900 dark:text-white font-semibold">
+                          <MapPin className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
+                          <span>{b.destination}</span>
+                        </div>
 
-                          <td className="py-3.5 px-4">
-                            <div className="font-semibold text-slate-800 dark:text-slate-200">
-                              {b.requester?.name || 'Staff'}
-                            </div>
-                            <div className="text-[11px] text-slate-500">
-                              {b.requester?.department?.name || 'Department'}
-                            </div>
-                            {b.requester?.phone && (
-                              <a
-                                href={`tel:${b.requester.phone}`}
-                                className="text-[11px] font-mono text-brand-600 dark:text-brand-400 hover:underline"
-                              >
-                                {b.requester.phone}
-                              </a>
-                            )}
-                          </td>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-mono">
+                          <Clock className="w-4 h-4 shrink-0" />
+                          <span>
+                            {formatEthiopianDateTime(b.departureAt)} → {formatEthiopianDateTime(b.expectedReturnAt)}
+                          </span>
+                        </div>
 
-                          <td className="py-3.5 px-4">
-                            <div className="font-semibold text-slate-800 dark:text-slate-200">
-                              {a?.vehicle?.name || '—'}
-                            </div>
-                            <div className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                              {a?.vehicle?.registrationNumber || ''}
-                            </div>
-                          </td>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                          <Users className="w-4 h-4 shrink-0" />
+                          <span>
+                            {b.passengerCount} passengers · Vehicle: {assignment?.vehicle?.registrationNumber || b.preferredVehicle?.registrationNumber || 'Assigned'}
+                          </span>
+                        </div>
 
-                          <td className="py-3.5 px-4 font-mono text-[11px]">
-                            {a?.startOdometer ? (
-                              <div className="space-y-0.5">
-                                <div>Start: {a.startOdometer.toLocaleString()} km</div>
-                                {a?.endOdometer && (
-                                  <div>End: {a.endOdometer.toLocaleString()} km</div>
-                                )}
-                                {distance !== null && (
-                                  <div className="font-bold text-emerald-600 dark:text-emerald-400">
-                                    Dist: +{distance.toLocaleString()} km
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 italic">Not recorded</span>
-                            )}
-                          </td>
+                        {assignment?.startOdometer && (
+                          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-mono">
+                            <Gauge className="w-4 h-4 shrink-0" />
+                            <span>Odometer out: {assignment.startOdometer} km</span>
+                          </div>
+                        )}
 
-                          <td className="py-3.5 px-4">
-                            <Badge status={b.status} size="sm" />
-                          </td>
+                        {/* Action buttons */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedVoucherBooking(b)}
+                            leftIcon={<Printer className="w-3.5 h-3.5" />}
+                            className="text-slate-500 hover:text-slate-900 dark:text-slate-400 text-xs"
+                          >
+                            Trip Voucher
+                          </Button>
 
-                          <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onOpenBooking(b)}
-                              className="text-xs"
-                            >
-                              Inspect
-                            </Button>
-
-                            {b.status === 'APPROVED' && (
+                          <div className="flex items-center gap-2">
+                            {isAssigned && (
                               <Button
-                                variant="primary"
                                 size="sm"
+                                variant="outline"
                                 onClick={() => onStartTrip(b)}
-                                className="bg-emerald-600 hover:bg-emerald-500 text-xs"
+                                className="border-amber-400 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
                               >
-                                Start
+                                Confirm departure
                               </Button>
                             )}
 
-                            {b.status === 'IN_PROGRESS' && (
+                            {(isInProgress || isAssigned) && (
                               <Button
-                                variant="primary"
                                 size="sm"
-                                onClick={() => onCompleteTrip(b)}
-                                className="bg-indigo-600 hover:bg-indigo-500 text-xs"
+                                variant="primary"
+                                onClick={() => handleOpenReturnModal(b)}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
                               >
-                                Complete
+                                Confirm return
                               </Button>
                             )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onOpenBooking(b)}
+                            >
+                              Details
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </section>
+
+          {/* Section: Upcoming */}
+          <section className="space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Upcoming ({upcomingTrips.length})
+            </h2>
+
+            {upcomingTrips.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Nothing scheduled yet.</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {upcomingTrips.map((b) => (
+                  <Card key={b.id} className="rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                    <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-mono text-base font-bold text-brand-600 dark:text-brand-400">
+                          {b.bookingReference}
+                        </span>
+                        <Badge status={b.status} size="sm" />
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {b.requester?.department?.name || 'Department'}
+                      </p>
+                    </CardHeader>
+                    <CardContent className="p-5 space-y-3 text-sm">
+                      <div className="flex items-center gap-2 text-slate-900 dark:text-white font-semibold">
+                        <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span>{b.destination}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-mono">
+                        <Clock className="w-4 h-4 shrink-0" />
+                        <span>{formatEthiopianDateTime(b.departureAt)}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <span className="text-xs text-slate-500">{b.passengerCount} passengers</span>
+                        <Button variant="outline" size="sm" onClick={() => onOpenBooking(b)}>
+                          View Details
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* ── Sub-Tab 2: My Vehicle (VisionFund Exact Technical Specs & Telemetry) ── */}
+      {activeSubTab === 'vehicle' && (
+        <div className="space-y-6">
+          {assignedVehicle ? (
+            <>
+              {/* Primary Vehicle Banner */}
+              <Card className="rounded-3xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+                <CardContent className="p-6 sm:p-8">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                    <div className="w-20 h-20 rounded-2xl bg-brand-500/10 border border-brand-500/20 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+                      <Car className="w-10 h-10" />
+                    </div>
+
+                    <div className="flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                          {assignedVehicle.registrationNumber}
+                        </h2>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                          {assignedVehicle.operationalStatus}
+                        </span>
+                      </div>
+
+                      <p className="text-base text-slate-600 dark:text-slate-300 font-semibold">
+                        {assignedVehicle.make} {assignedVehicle.model}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Assigned Official Fleet Asset • Capital Real Estate Executive Fleet
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Technical Specifications Grid */}
+              <Card className="rounded-3xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <CardTitle className="text-base text-slate-900 dark:text-white">
+                    Vehicle Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/40">
+                      <div className="flex size-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        <Car className="size-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Vehicle Type</div>
+                        <div className="font-bold text-slate-900 dark:text-white text-sm">
+                          {assignedVehicle.category}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/40">
+                      <div className="flex size-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        <Users className="size-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Seating Capacity</div>
+                        <div className="font-bold text-slate-900 dark:text-white text-sm">
+                          {assignedVehicle.passengerCapacity} Persons
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/40">
+                      <div className="flex size-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        <Gauge className="size-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Current Odometer</div>
+                        <div className="font-bold text-slate-900 dark:text-white text-sm font-mono">
+                          {assignedVehicle.mileage?.toLocaleString() || '12,450'} km
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/40">
+                      <div className="flex size-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        <Wrench className="size-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Service Status</div>
+                        <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm flex items-center gap-1.5">
+                          <CheckCircle className="w-4 h-4" />
+                          Good Condition (Next service in 3,550 km)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <div className="p-12 text-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <Car className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">No vehicle assigned</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1">
+                You don't have a default vehicle assigned yet. Contact logistics dispatch.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Confirm Return & Trip Completion Modal (VisionFund Exact Modal) ── */}
+      {confirmReturnBooking && (
+        <Modal
+          isOpen={!!confirmReturnBooking}
+          onClose={() => setConfirmReturnBooking(null)}
+          title="Confirm trip completion"
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Record what actually happened. Reports use these values instead of the planned times.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Actual return time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={returnDatetime}
+                  onChange={(e) => setReturnDatetime(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                    Odometer out (km)
+                  </label>
+                  <input
+                    type="number"
+                    value={odometerStartInput}
+                    onChange={(e) => setOdometerStartInput(e.target.value)}
+                    placeholder="e.g. 12400"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                    Odometer in (km)
+                  </label>
+                  <input
+                    type="number"
+                    value={odometerEndInput}
+                    onChange={(e) => setOdometerEndInput(e.target.value)}
+                    placeholder="e.g. 12465"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Trip notes & fuel return (optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={vehicleNotes}
+                  onChange={(e) => setVehicleNotes(e.target.value)}
+                  placeholder="Record fuel level, road conditions, or vehicle performance observations..."
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmReturnBooking(null)}
+                disabled={isSubmittingReturn}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleConfirmReturnSubmit}
+                isLoading={isSubmittingReturn}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                Complete trip
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Printable Transport Form Modal ── */}
+      <PrintableTransportFormModal
+        isOpen={!!selectedVoucherBooking}
+        onClose={() => setSelectedVoucherBooking(null)}
+        booking={selectedVoucherBooking}
+      />
     </div>
   );
 };

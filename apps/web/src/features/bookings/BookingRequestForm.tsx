@@ -43,6 +43,34 @@ interface BookingRequestFormProps {
   onPrintForm?: (booking: Booking) => void;
 }
 
+const WEEKDAYS = [
+  { key: 'MONDAY', label: 'Monday', dayOffset: 0 },
+  { key: 'TUESDAY', label: 'Tuesday', dayOffset: 1 },
+  { key: 'WEDNESDAY', label: 'Wednesday', dayOffset: 2 },
+  { key: 'THURSDAY', label: 'Thursday', dayOffset: 3 },
+  { key: 'FRIDAY', label: 'Friday', dayOffset: 4 },
+  { key: 'SATURDAY', label: 'Saturday', dayOffset: 5 },
+  { key: 'SUNDAY', label: 'Sunday', dayOffset: 6 },
+] as const;
+
+function getUpcomingMonday(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = d.getDate() + ((8 - day) % 7 || 7);
+  const nextMon = new Date(d.setDate(diff));
+  return nextMon.toISOString().split('T')[0];
+}
+
+function getDayDateStr(startDateStr: string, offset: number): string {
+  try {
+    const d = new Date(`${startDateStr}T00:00:00`);
+    d.setDate(d.getDate() + offset);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  } catch {
+    return '';
+  }
+}
+
 export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
   onSuccess,
   onCancel,
@@ -51,16 +79,33 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
 }) => {
   const toast = useToast();
   const [requestType, setRequestType] = useState<'daily' | 'weekly'>('daily');
+  const [pickupLocation, setPickupLocation] = useState('Capital Real Estate HQ, Bole Tower');
+  const [contactPhone, setContactPhone] = useState('+251 91 123 4567');
   const [destination, setDestination] = useState('');
   const [purpose, setPurpose] = useState('');
   const [departureDate, setDepartureDate] = useState('');
   const [departureTime, setDepartureTime] = useState('08:30');
   const [returnDate, setReturnDate] = useState('');
   const [returnTime, setReturnTime] = useState('17:00');
+  const [dailyTimeSlot, setDailyTimeSlot] = useState<'MORNING' | 'AFTERNOON' | 'CUSTOM'>('MORNING');
   const [passengerCount, setPassengerCount] = useState(1);
   const [preferredVehicleId, setPreferredVehicleId] = useState('');
   const [requiresDriver, setRequiresDriver] = useState(false);
   const [additionalNotes, setAdditionalNotes] = useState('');
+
+  // Weekly Scheduling State
+  const [weekStartDate, setWeekStartDate] = useState(getUpcomingMonday);
+  const [weeklyDaysSchedule, setWeeklyDaysSchedule] = useState<
+    Record<string, { selected: boolean; timeSlot: 'MORNING' | 'AFTERNOON'; notes?: string }>
+  >({
+    MONDAY: { selected: true, timeSlot: 'MORNING' },
+    TUESDAY: { selected: true, timeSlot: 'AFTERNOON' },
+    WEDNESDAY: { selected: false, timeSlot: 'MORNING' },
+    THURSDAY: { selected: true, timeSlot: 'MORNING' },
+    FRIDAY: { selected: false, timeSlot: 'MORNING' },
+    SATURDAY: { selected: false, timeSlot: 'MORNING' },
+    SUNDAY: { selected: false, timeSlot: 'MORNING' },
+  });
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,6 +138,63 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
     api.getVehicles({ status: 'ACTIVE' }).then(setVehicles).catch(console.error);
   }, []);
 
+  const DRAFT_KEY = 'capital_transport_request_draft';
+
+  // Restore draft on initial load
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const d = JSON.parse(saved);
+        if (d.destination) setDestination(d.destination);
+        if (d.purpose) setPurpose(d.purpose);
+        if (d.requestType) setRequestType(d.requestType);
+        if (d.passengerCount) setPassengerCount(d.passengerCount);
+        if (d.preferredVehicleId) setPreferredVehicleId(d.preferredVehicleId);
+        if (typeof d.requiresDriver === 'boolean') setRequiresDriver(d.requiresDriver);
+        if (d.additionalNotes) setAdditionalNotes(d.additionalNotes);
+        if (d.departureTime) setDepartureTime(d.departureTime);
+        if (d.returnTime) setReturnTime(d.returnTime);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Auto-save draft on changes
+  useEffect(() => {
+    if (destination || purpose || additionalNotes) {
+      try {
+        localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            destination,
+            purpose,
+            requestType,
+            passengerCount,
+            preferredVehicleId,
+            requiresDriver,
+            additionalNotes,
+            departureTime,
+            returnTime,
+          })
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }, [
+    destination,
+    purpose,
+    requestType,
+    passengerCount,
+    preferredVehicleId,
+    requiresDriver,
+    additionalNotes,
+    departureTime,
+    returnTime,
+  ]);
+
   // Compute trip duration summary
   const getScheduleSummary = () => {
     if (!departureDate || !returnDate) return null;
@@ -123,27 +225,62 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
       setError('Trip purpose is required.');
       return;
     }
-
-    const departureIso = new Date(`${departureDate}T${departureTime}:00`).toISOString();
-    const returnIso = new Date(`${returnDate}T${returnTime}:00`).toISOString();
-
-    const depTime = new Date(departureIso).getTime();
-    const retTime = new Date(returnIso).getTime();
-    const now = new Date().getTime();
-
-    if (depTime < now) {
-      setError('Departure time cannot be in the past.');
-      return;
-    }
-
-    if (depTime >= retTime) {
-      setError('Departure time must be earlier than the expected return time.');
-      return;
-    }
-
     if (passengerCount < 1) {
       setError('At least 1 passenger is required.');
       return;
+    }
+
+    let departureIso: string;
+    let returnIso: string;
+    let weeklyDaysPayload:
+      | Array<{ dayOfWeek: string; tripDate: string; timeSlot: 'MORNING' | 'AFTERNOON'; notes?: string }>
+      | undefined = undefined;
+
+    if (requestType === 'weekly') {
+      const selectedEntries = WEEKDAYS.filter((w) => weeklyDaysSchedule[w.key]?.selected);
+      if (selectedEntries.length === 0) {
+        setError('Please select at least one day of the week for your weekly schedule.');
+        return;
+      }
+
+      weeklyDaysPayload = selectedEntries.map((w) => {
+        const d = new Date(`${weekStartDate}T00:00:00`);
+        d.setDate(d.getDate() + w.dayOffset);
+        return {
+          dayOfWeek: w.key,
+          tripDate: d.toISOString(),
+          timeSlot: weeklyDaysSchedule[w.key].timeSlot,
+          notes: weeklyDaysSchedule[w.key].notes || undefined,
+        };
+      });
+
+      const firstEntry = weeklyDaysPayload[0];
+      const lastEntry = weeklyDaysPayload[weeklyDaysPayload.length - 1];
+
+      const firstDate = new Date(firstEntry.tripDate);
+      firstDate.setHours(firstEntry.timeSlot === 'MORNING' ? 8 : 13, 30, 0, 0);
+      departureIso = firstDate.toISOString();
+
+      const lastDate = new Date(lastEntry.tripDate);
+      lastDate.setHours(lastEntry.timeSlot === 'MORNING' ? 12 : 17, 30, 0, 0);
+      returnIso = lastDate.toISOString();
+    } else {
+      departureIso = new Date(`${departureDate}T${departureTime}:00`).toISOString();
+      returnIso = new Date(`${returnDate}T${returnTime}:00`).toISOString();
+
+      const depTime = new Date(departureIso).getTime();
+      const retTime = new Date(returnIso).getTime();
+      const now = new Date().getTime();
+
+      if (depTime < now) {
+        setError('Departure time cannot be in the past.');
+        return;
+      }
+
+      if (depTime >= retTime) {
+        setError('Departure time must be earlier than the expected return time.');
+        return;
+      }
     }
 
     try {
@@ -154,12 +291,21 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
         departureAt: departureIso,
         expectedReturnAt: returnIso,
         passengerCount,
+        requestType: requestType === 'weekly' ? 'WEEKLY' : 'DAILY',
+        pickupLocation: pickupLocation.trim() || undefined,
+        contactPhone: contactPhone.trim() || undefined,
+        weeklyDays: weeklyDaysPayload,
         preferredVehicleId: preferredVehicleId || undefined,
         requiresDriver,
         additionalNotes: additionalNotes.trim() || undefined,
       });
 
       setSubmittedBooking(booking);
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        // ignore
+      }
       toast.success(
         'Request submitted!',
         `Booking ${booking.bookingReference} is now pending Logistics review.`
@@ -613,6 +759,25 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
 
               <CardContent className="p-5 flex-1 flex flex-col justify-between space-y-4">
                 <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      id="pickupLocation"
+                      label="Pickup Location / Site"
+                      placeholder="e.g. Head Office Main Gate, Bole"
+                      value={pickupLocation}
+                      onChange={(e) => setPickupLocation(e.target.value)}
+                      disabled={isLoading}
+                    />
+                    <Input
+                      id="contactPhone"
+                      label="Contact Phone Number"
+                      placeholder="e.g. +251 911 234567"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+
                   <div>
                     <Input
                       id="destination"
@@ -635,75 +800,219 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                     <textarea
                       id="purpose"
                       required
-                      rows={3}
-                      className="block w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                      placeholder="e.g. Structural concrete inspection, client site walkthrough, and project milestone review"
+                      rows={2}
+                      className="block w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
+                      placeholder="e.g. Structural inspection, client site walkthrough, and project milestone review"
                       value={purpose}
                       onChange={(e) => setPurpose(e.target.value)}
                       disabled={isLoading}
                     />
                   </div>
 
-                  {/* Schedule Inputs */}
-                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-                      <Clock className="w-3.5 h-3.5 text-brand-600" />
-                      <span>Departure Window</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        id="departureDate"
-                        label="Date"
-                        type="date"
-                        required
-                        value={departureDate}
-                        onChange={(e) => {
-                          setDepartureDate(e.target.value);
-                          if (returnDate < e.target.value) setReturnDate(e.target.value);
-                        }}
-                        disabled={isLoading}
-                      />
-                      <Input
-                        id="departureTime"
-                        label="Time"
-                        type="time"
-                        required
-                        value={departureTime}
-                        onChange={(e) => setDepartureTime(e.target.value)}
-                        disabled={isLoading}
-                      />
-                    </div>
+                  {/* Conditional Schedule: Daily Request vs. Weekly Request */}
+                  {requestType === 'daily' ? (
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                          <Clock className="w-3.5 h-3.5 text-brand-600" />
+                          <span>Daily Time Window</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDailyTimeSlot('MORNING');
+                              setDepartureTime('08:30');
+                              setReturnTime('12:30');
+                            }}
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-colors ${
+                              dailyTimeSlot === 'MORNING'
+                                ? 'bg-brand-600 text-white'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                            }`}
+                          >
+                            Morning (08:30)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDailyTimeSlot('AFTERNOON');
+                              setDepartureTime('13:30');
+                              setReturnTime('17:30');
+                            }}
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-colors ${
+                              dailyTimeSlot === 'AFTERNOON'
+                                ? 'bg-brand-600 text-white'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                            }`}
+                          >
+                            Afternoon (13:30)
+                          </button>
+                        </div>
+                      </div>
 
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 pt-1">
-                      <Calendar className="w-3.5 h-3.5 text-brand-600" />
-                      <span>Expected Return Window</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          id="departureDate"
+                          label="Trip Date"
+                          type="date"
+                          required
+                          value={departureDate}
+                          onChange={(e) => {
+                            setDepartureDate(e.target.value);
+                            setReturnDate(e.target.value);
+                          }}
+                          disabled={isLoading}
+                        />
+                        <Input
+                          id="departureTime"
+                          label="Departure Time"
+                          type="time"
+                          required
+                          value={departureTime}
+                          onChange={(e) => setDepartureTime(e.target.value)}
+                          disabled={isLoading}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <Input
+                          id="returnDate"
+                          label="Return Date"
+                          type="date"
+                          required
+                          value={returnDate}
+                          onChange={(e) => setReturnDate(e.target.value)}
+                          disabled={isLoading}
+                        />
+                        <Input
+                          id="returnTime"
+                          label="Return Time"
+                          type="time"
+                          required
+                          value={returnTime}
+                          onChange={(e) => setReturnTime(e.target.value)}
+                          disabled={isLoading}
+                        />
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        id="returnDate"
-                        label="Date"
-                        type="date"
-                        required
-                        value={returnDate}
-                        onChange={(e) => setReturnDate(e.target.value)}
-                        disabled={isLoading}
-                      />
-                      <Input
-                        id="returnTime"
-                        label="Time"
-                        type="time"
-                        required
-                        value={returnTime}
-                        onChange={(e) => setReturnTime(e.target.value)}
-                        disabled={isLoading}
-                      />
+                  ) : (
+                    /* Weekly Request dedicated scheduling section */
+                    <div className="p-3.5 rounded-2xl bg-brand-50/50 dark:bg-brand-950/20 border border-brand-200/80 dark:border-brand-900/40 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-brand-900 dark:text-brand-200">
+                          <Calendar className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                          <span>Weekly Schedule (Monday – Sunday)</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-brand-700 dark:text-brand-300">
+                          {WEEKDAYS.filter((w) => weeklyDaysSchedule[w.key]?.selected).length} Days Selected
+                        </span>
+                      </div>
+
+                      <div>
+                        <Input
+                          id="weekStartDate"
+                          label="Week Start Date (Monday)"
+                          type="date"
+                          required
+                          value={weekStartDate}
+                          onChange={(e) => setWeekStartDate(e.target.value)}
+                          disabled={isLoading}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 pt-1">
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                          Select Operating Days & Time Slot:
+                        </label>
+                        <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                          {WEEKDAYS.map((day) => {
+                            const isChecked = weeklyDaysSchedule[day.key]?.selected || false;
+                            const slot = weeklyDaysSchedule[day.key]?.timeSlot || 'MORNING';
+
+                            // calculate specific date for this day
+                            const targetDate = new Date(`${weekStartDate}T00:00:00`);
+                            targetDate.setDate(targetDate.getDate() + day.dayOffset);
+                            const formattedDate = targetDate.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            });
+
+                            return (
+                              <div
+                                key={day.key}
+                                className={`flex items-center justify-between p-2 rounded-xl border transition-all text-xs ${
+                                  isChecked
+                                    ? 'bg-white dark:bg-slate-800 border-brand-300 dark:border-brand-700 shadow-xs'
+                                    : 'bg-slate-50/70 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 opacity-60'
+                                }`}
+                              >
+                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setWeeklyDaysSchedule((prev) => ({
+                                        ...prev,
+                                        [day.key]: {
+                                          ...prev[day.key],
+                                          selected: checked,
+                                        },
+                                      }));
+                                    }}
+                                    className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 dark:border-slate-700"
+                                  />
+                                  <div>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                                      {day.label}
+                                    </span>
+                                    <span className="ml-1.5 text-[10px] text-slate-400">
+                                      ({formattedDate})
+                                    </span>
+                                  </div>
+                                </label>
+
+                                <div className="flex items-center gap-1">
+                                  <select
+                                    disabled={!isChecked || isLoading}
+                                    value={slot}
+                                    onChange={(e) => {
+                                      const val = e.target.value as 'MORNING' | 'AFTERNOON';
+                                      setWeeklyDaysSchedule((prev) => ({
+                                        ...prev,
+                                        [day.key]: {
+                                          ...prev[day.key],
+                                          timeSlot: val,
+                                        },
+                                      }));
+                                    }}
+                                    className={`text-[11px] font-semibold py-1 px-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-brand-500 transition-colors ${
+                                      isChecked
+                                        ? 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100'
+                                        : 'bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed'
+                                    }`}
+                                  >
+                                    <option value="MORNING">Morning (08:30 – 12:30)</option>
+                                    <option value="AFTERNOON">Afternoon (13:30 – 17:30)</option>
+                                  </select>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="pt-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 border-t border-slate-100 dark:border-slate-800">
                   <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>Departure must be scheduled strictly in the future.</span>
+                  <span>
+                    {requestType === 'weekly'
+                      ? 'Logistics will assign vehicles and drivers for each approved weekday individually.'
+                      : 'Departure must be scheduled strictly in the future.'}
+                  </span>
                 </div>
               </CardContent>
             </Card>

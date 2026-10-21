@@ -9,7 +9,12 @@ export function exportToCsv(
 ): void {
   const escapeCell = (val: string | number | boolean | null | undefined): string => {
     if (val === null || val === undefined) return '""';
-    const str = String(val).replace(/"/g, '""');
+    let str = String(val);
+    // Spreadsheet Formula Injection protection (CWE-1236)
+    if (/^[=+@\-\t\r]/.test(str)) {
+      str = `'${str}`;
+    }
+    str = str.replace(/"/g, '""');
     return `"${str}"`;
   };
 

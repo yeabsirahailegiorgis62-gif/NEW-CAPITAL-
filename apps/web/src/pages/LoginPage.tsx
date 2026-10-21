@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -25,10 +26,12 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { useTheme } from '@/context/ThemeContext';
 import { BrandLogo } from '@/components/ui/BrandLogo';
+import { ForgotPasswordModal } from '@/features/auth/ForgotPasswordModal';
 
 interface LoginPageProps {
   onLoginSubmit: (emailOrEmployeeId: string, password: string) => Promise<boolean>;
   onOpenVerification?: () => void;
+  onBackToLanding?: () => void;
   isLoading?: boolean;
 }
 
@@ -240,12 +243,14 @@ const QUICK_FILL_PERSONAS: QuickFillPersona[] = [
 export const LoginPage: React.FC<LoginPageProps> = ({
   onLoginSubmit,
   onOpenVerification,
+  onBackToLanding,
   isLoading = false,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
   const [personaCategory, setPersonaCategory] = useState<'all' | 'driver' | 'admin' | 'department'>('all');
 
@@ -358,6 +363,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* Back to Landing Page Button */}
+          {onBackToLanding && (
+            <button
+              type="button"
+              onClick={onBackToLanding}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900/90 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 hover:border-brand-500/50 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+              <span className="hidden sm:inline">Back to Portal</span>
+              <span className="sm:hidden">Back</span>
+            </button>
+          )}
+
           {/* Public QR Code Ticket Verification Button */}
           {onOpenVerification && (
             <button
@@ -639,12 +657,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1">
-                <div className="flex items-center gap-1.5 font-mono text-[11px]">
+              <div className="flex items-center justify-between text-xs pt-1">
+                <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                   <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                   <span>Stateless 7-Day JWT</span>
                 </div>
-                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Auto-Renewing</span>
+                <button
+                  type="button"
+                  onClick={() => setIsForgotPasswordOpen(true)}
+                  className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 hover:underline"
+                >
+                  Forgot Password?
+                </button>
               </div>
 
               <Button
@@ -822,6 +846,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </a>
         </div>
       </footer>
+
+      <ForgotPasswordModal
+        isOpen={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+        onSuccess={() => {
+          setIsForgotPasswordOpen(false);
+          setError(null);
+        }}
+      />
     </div>
   );
 };

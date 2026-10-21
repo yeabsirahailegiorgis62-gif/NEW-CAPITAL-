@@ -77,17 +77,22 @@ model User {
   phone         String?
   avatarUrl     String?
   jobTitle      String?
-  licenseNumber String?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  licenseNumber       String?
+  mustChangePassword  Boolean             @default(false)
+  failedLoginAttempts Int                 @default(0)
+  lockedUntil         DateTime?
+  isActive            Boolean             @default(true)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
-  department   Department? @relation(fields: [departmentId], references: [id])
-  bookings     Booking[]   @relation("RequesterBookings")
-  assignedVehicles VehicleAssignment[] @relation("AssignedByLogistics")
-  driverAssignments VehicleAssignment[] @relation("DriverAssignments")
-  reportedIssues VehicleIssue[] @relation("ReportedByUser")
-  notifications Notification[] @relation("UserNotifications")
+  department          Department?         @relation(fields: [departmentId], references: [id])
+  bookings            Booking[]           @relation("RequesterBookings")
+  assignedVehicles    VehicleAssignment[] @relation("AssignedByLogistics")
+  driverAssignments   VehicleAssignment[] @relation("DriverAssignments")
+  driverBookingDays   BookingDay[]        @relation("DriverBookingDays")
+  reportedIssues      VehicleIssue[]      @relation("ReportedByUser")
+  notifications       Notification[]      @relation("UserNotifications")
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
@@ -112,6 +117,7 @@ model Vehicle {
   updatedAt          DateTime                 @updatedAt
 
   assignments        VehicleAssignment[]
+  bookingDays        BookingDay[]
   issues             VehicleIssue[]
   preferredInBookings Booking[]              @relation("PreferredVehicle")
 
@@ -135,6 +141,9 @@ model Booking {
   passengerCount     Int           @default(1)
   preferredVehicleId String?
   requiresDriver     Boolean       @default(false)
+  requestType        String        @default("DAILY") // "DAILY" | "WEEKLY"
+  pickupLocation     String?
+  contactPhone       String?
   status             BookingStatus @default(PENDING_APPROVAL)
   additionalNotes    String?
   rejectionReason    String?
@@ -146,10 +155,12 @@ model Booking {
   preferredVehicle   Vehicle?      @relation("PreferredVehicle", fields: [preferredVehicleId], references: [id])
   assignments        VehicleAssignment[]
   notifications      Notification[]
+  bookingDays        BookingDay[]
 
   @@index([status])
   @@index([requesterId])
   @@index([departureAt, expectedReturnAt])
+  @@index([requestType])
   @@map("bookings")
 }
 
@@ -230,4 +241,52 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([actorId])
   @@map("audit_logs")
+}
+
+model BookingDay {
+  id          String        @id @default(uuid())
+  bookingId   String
+  dayOfWeek   String        // MONDAY, TUESDAY, WEDNESDAY, etc.
+  tripDate    DateTime
+  timeSlot    String        @default("MORNING") // MORNING, AFTERNOON
+  status      BookingStatus @default(PENDING_APPROVAL)
+  vehicleId   String?
+  driverId    String?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle?      @relation(fields: [vehicleId], references: [id])
+  driver      User?         @relation("DriverBookingDays", fields: [driverId], references: [id])
+
+  @@index([bookingId])
+  @@index([tripDate])
+  @@map("booking_days")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  category    String   @default("GENERAL") // SECURITY, REQUEST_RULES, LIFECYCLE, ASSIGNMENT
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
 }

@@ -23,6 +23,26 @@ export class BookingsService {
    * Submit a new vehicle booking request
    */
   async create(requesterId: string, dto: CreateBookingDto) {
+    // Read system settings for booking rules
+    const settingsList = await this.prisma.systemSetting.findMany();
+    const settingsMap = new Map<string, any>();
+    settingsList.forEach((s) => {
+      try {
+        settingsMap.set(s.key, JSON.parse(s.value));
+      } catch {
+        settingsMap.set(s.key, s.value);
+      }
+    });
+
+    const minNoticeHours = settingsMap.get('minimumNoticeHours') ?? 24;
+    const maxCapacity = settingsMap.get('maxPassengerCapacity') ?? 14;
+    const allowSameDay = settingsMap.get('allowSameDayRequests') ?? false;
+    const allowWeekend = settingsMap.get('allowWeekendRequests') ?? false;
+
+    if (dto.passengerCount > maxCapacity) {
+      throw new BadRequestException(`Passenger count exceeds maximum allowed limit (${maxCapacity} passengers).`);
+    }
+
     const departure = new Date(dto.departureAt);
     const expectedReturn = new Date(dto.expectedReturnAt);
     const now = new Date();
@@ -38,6 +58,45 @@ export class BookingsService {
     // Departure time in past check (with 5-minute grace period for network latency)
     if (departure.getTime() < now.getTime() - 5 * 60 * 1000) {
       throw new BadRequestException('Departure time cannot be in the past');
+    }
+
+    // Notice validation
+    const hoursNotice = (departure.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const isSameDay = departure.toDateString() === now.toDateString();
+
+    if (!allowSameDay && isSameDay) {
+      throw new BadRequestException('Same-day transport requests are currently not permitted by system policy.');
+    }
+
+    if (hoursNotice < minNoticeHours && !isSameDay) {
+      throw new BadRequestException(`Requests require a minimum notice of ${minNoticeHours} hours in advance.`);
+    }
+
+    const depDay = departure.getDay(); // 0 is Sun, 6 is Sat
+    if (!allowWeekend && (depDay === 0 || depDay === 6)) {
+      throw new BadRequestException('Weekend transport requests are not permitted by system policy.');
+    }
+
+    if (dto.requestType === 'WEEKLY') {
+      if (!dto.weeklyDays || dto.weeklyDays.length === 0) {
+        throw new BadRequestException('At least one day must be selected for weekly transport requests.');
+      }
+      const seenDays = new Set<string>();
+      for (const d of dto.weeklyDays) {
+        if (seenDays.has(d.dayOfWeek)) {
+          throw new BadRequestException(`Duplicate day selected in weekly request: ${d.dayOfWeek}`);
+        }
+        seenDays.add(d.dayOfWeek);
+        const slot = (d.timeSlot || (d as any).timePreference || '').toUpperCase();
+        if (!['MORNING', 'AFTERNOON'].includes(slot)) {
+          throw new BadRequestException(`Invalid time slot for ${d.dayOfWeek}. Must be MORNING or AFTERNOON.`);
+        }
+        d.timeSlot = slot as any;
+        if (!d.tripDate) {
+          // If no specific tripDate was sent, default to next occurrence
+          d.tripDate = departure.toISOString();
+        }
+      }
     }
 
     if (dto.passengerCount < 1) {
@@ -63,12 +122,33 @@ export class BookingsService {
         requiresDriver: dto.requiresDriver || false,
         additionalNotes: dto.additionalNotes || null,
         status: BookingStatus.PENDING_APPROVAL,
+        requestType: dto.requestType || 'DAILY',
+        pickupLocation: dto.pickupLocation || null,
+        contactPhone: dto.contactPhone || null,
+        bookingDays:
+          dto.weeklyDays && dto.weeklyDays.length > 0
+            ? {
+                create: dto.weeklyDays.map((wd) => ({
+                  dayOfWeek: wd.dayOfWeek,
+                  tripDate: new Date(wd.tripDate),
+                  timeSlot: wd.timeSlot,
+                  notes: wd.notes || null,
+                  status: 'PENDING_APPROVAL',
+                })),
+              }
+            : undefined,
       },
       include: {
         requester: {
           select: { id: true, name: true, email: true, employeeId: true, department: true },
         },
         preferredVehicle: true,
+        bookingDays: {
+          include: {
+            vehicle: true,
+            driver: { select: { id: true, name: true, phone: true } },
+          },
+        },
       },
     });
 
@@ -100,9 +180,11 @@ export class BookingsService {
         action: 'SUBMIT_REQUEST',
         newValues: {
           bookingReference,
+          requestType: dto.requestType || 'DAILY',
           destination: dto.destination,
           departureAt: departure.toISOString(),
           expectedReturnAt: expectedReturn.toISOString(),
+          weeklyDaysCount: dto.weeklyDays?.length || 0,
         },
       },
     });
@@ -157,6 +239,13 @@ export class BookingsService {
           select: { id: true, name: true, email: true, employeeId: true, department: true },
         },
         preferredVehicle: true,
+        bookingDays: {
+          include: {
+            vehicle: true,
+            driver: { select: { id: true, name: true, phone: true } },
+          },
+          orderBy: { tripDate: 'asc' },
+        },
         assignments: {
           where: { unassignedAt: null },
           include: {
@@ -182,6 +271,13 @@ export class BookingsService {
           select: { id: true, name: true, email: true, employeeId: true, department: true },
         },
         preferredVehicle: true,
+        bookingDays: {
+          include: {
+            vehicle: true,
+            driver: { select: { id: true, name: true, phone: true } },
+          },
+          orderBy: { tripDate: 'asc' },
+        },
         assignments: {
           include: {
             vehicle: true,
@@ -213,6 +309,60 @@ export class BookingsService {
     }
 
     return booking;
+  }
+
+  /**
+   * Update an individual day of a weekly booking
+   */
+  async updateBookingDay(dayId: string, actor: any, dto: any) {
+    const day = await this.prisma.bookingDay.findUnique({
+      where: { id: dayId },
+      include: { booking: true },
+    });
+
+    if (!day) throw new NotFoundException('Booking day not found');
+
+    if (dto.vehicleId) {
+      const vehicle = await this.prisma.vehicle.findUnique({ where: { id: dto.vehicleId } });
+      if (!vehicle) throw new NotFoundException('Vehicle not found');
+      if (vehicle.operationalStatus !== VehicleOperationalStatus.ACTIVE) {
+        throw new BadRequestException(`Vehicle is ${vehicle.operationalStatus} and cannot be assigned.`);
+      }
+    }
+
+    if (dto.driverId) {
+      const driver = await this.prisma.user.findUnique({ where: { id: dto.driverId } });
+      if (!driver || !driver.isActive) {
+        throw new BadRequestException('Selected driver is inactive or does not exist.');
+      }
+    }
+
+    const updated = await this.prisma.bookingDay.update({
+      where: { id: dayId },
+      data: {
+        status: dto.status !== undefined ? dto.status : day.status,
+        vehicleId: dto.vehicleId !== undefined ? dto.vehicleId : day.vehicleId,
+        driverId: dto.driverId !== undefined ? dto.driverId : day.driverId,
+        notes: dto.notes !== undefined ? dto.notes : day.notes,
+      },
+      include: {
+        vehicle: true,
+        driver: { select: { id: true, name: true, phone: true } },
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: actor.id,
+        actorName: actor.name,
+        entityType: 'BookingDay',
+        entityId: dayId,
+        action: 'UPDATE_BOOKING_DAY',
+        newValues: dto,
+      },
+    });
+
+    return updated;
   }
 
   /**

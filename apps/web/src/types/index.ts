@@ -52,6 +52,26 @@ export type BookingStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
+export interface BookingDay {
+  id: string;
+  bookingId: string;
+  dayOfWeek: string;
+  tripDate: string;
+  timeSlot: 'MORNING' | 'AFTERNOON';
+  status: BookingStatus | string;
+  vehicleId?: string | null;
+  vehicle?: Vehicle | null;
+  driverId?: string | null;
+  driver?: {
+    id: string;
+    name: string;
+    phone?: string | null;
+  } | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Booking {
   id: string;
   bookingReference: string;
@@ -68,6 +88,9 @@ export interface Booking {
       name: string;
     } | null;
   };
+  requestType?: 'DAILY' | 'WEEKLY';
+  pickupLocation?: string | null;
+  contactPhone?: string | null;
   destination: string;
   purpose: string;
   departureAt: string;
@@ -88,6 +111,37 @@ export interface Booking {
   cancelledAt?: string | null;
   assignments?: VehicleAssignment[];
   currentAssignment?: VehicleAssignment | null;
+  bookingDays?: BookingDay[];
+}
+
+export interface SystemSettings {
+  maxFailedLoginAttempts: number;
+  accountLockoutDuration: number;
+  sessionTimeout: number;
+  requireStrongPassword: boolean;
+  minPasswordLength: number;
+  requireUppercase: boolean;
+  requireNumber: boolean;
+  requireSpecialChar: boolean;
+  forcePasswordChangeAfterReset: boolean;
+  passwordResetExpiresMinutes: number;
+  minimumNoticeHours: number;
+  maxPassengerCapacity: number;
+  allowSameDayRequests: boolean;
+  allowWeekendRequests: boolean;
+  allowHolidayRequests: boolean;
+  requireRequestApproval: boolean;
+  pendingRequestExpirationHours: number;
+  allowCancelPending: boolean;
+  allowEditPending: boolean;
+  allowCancelAfterApproval: boolean;
+  preventDoubleVehicleAssignment: boolean;
+  preventDoubleDriverAssignment: boolean;
+  onlyShowAvailableVehicles: boolean;
+  onlyShowActiveDrivers: boolean;
+  requireDriverConfirmation: boolean;
+  autoSuggestSuitableVehicle: boolean;
+  [key: string]: any;
 }
 
 export interface VehicleAssignment {

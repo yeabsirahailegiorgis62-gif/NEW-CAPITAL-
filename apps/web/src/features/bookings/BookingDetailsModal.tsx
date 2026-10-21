@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Booking, User } from '@/types';
+import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { formatEthiopianDateTime } from '@/lib/utils';
+import { formatEthiopianDateTime, formatEthiopianDateOnly } from '@/lib/utils';
 import {
   MapPin,
   Calendar,
@@ -277,14 +278,25 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
         {/* Trip Details Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2.5">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              <MapPin className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-              Destination & Purpose
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <MapPin className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                Destination & Purpose
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">
+                {booking.requestType || 'DAILY'} Request
+              </span>
             </div>
             <div>
               <span className="text-[11px] text-slate-400 dark:text-slate-500 block font-medium">Destination:</span>
               <div className="font-bold text-base text-slate-900 dark:text-white leading-snug">{booking.destination}</div>
             </div>
+            {booking.pickupLocation && (
+              <div>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 block font-medium">Pickup Location:</span>
+                <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">{booking.pickupLocation}</div>
+              </div>
+            )}
             <div>
               <span className="text-[11px] text-slate-400 dark:text-slate-500 block font-medium">Trip Purpose:</span>
               <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 mt-1">
@@ -307,9 +319,90 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                 <span className="text-[11px] text-slate-400 dark:text-slate-500 block font-medium">Expected Return:</span>
                 <span className="font-semibold text-slate-900 dark:text-white text-xs">{formatEthiopianDateTime(booking.expectedReturnAt)}</span>
               </div>
+              {booking.contactPhone && (
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 block font-medium">Contact Phone:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white text-xs font-mono">{booking.contactPhone}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Weekly Day Schedule Breakdown */}
+        {booking.bookingDays && booking.bookingDays.length > 0 && (
+          <div className="p-4 rounded-2xl border border-brand-200 dark:border-brand-900/60 bg-brand-50/40 dark:bg-brand-950/20 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-brand-900 dark:text-brand-200">
+                <Calendar className="w-4 h-4 text-brand-600" />
+                <span>Weekly Schedule Breakdown ({booking.bookingDays.length} Operating Days)</span>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded">
+                Day-Level Allocation
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {booking.bookingDays.map((day) => (
+                <div
+                  key={day.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-slate-800 dark:text-slate-100">
+                      {day.dayOfWeek}
+                    </span>
+                    <span className="text-slate-500 font-mono text-[11px]">
+                      {formatEthiopianDateOnly(day.tripDate)}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      {day.timeSlot}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-[11px] text-slate-500">
+                      {day.vehicle ? (
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {day.vehicle.registrationNumber} {day.driver ? `· ${day.driver.name}` : ''}
+                        </span>
+                      ) : (
+                        <span className="italic text-slate-400">Vehicle unallocated</span>
+                      )}
+                    </div>
+
+                    <Badge status={day.status as any} size="sm" />
+
+                    {isLogisticsOrAdmin && day.status === 'PENDING' && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                          onClick={async () => {
+                            await api.updateBookingDay(day.id, { status: 'APPROVED' });
+                            day.status = 'APPROVED';
+                          }}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                          onClick={async () => {
+                            await api.updateBookingDay(day.id, { status: 'REJECTED' });
+                            day.status = 'REJECTED';
+                          }}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Vehicle & Passenger Requirements */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">

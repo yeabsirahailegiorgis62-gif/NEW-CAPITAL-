@@ -39,6 +39,19 @@ describe('AuthService', () => {
             user: {
               findFirst: jest.fn(),
               findUnique: jest.fn(),
+              update: jest.fn().mockResolvedValue(mockUser),
+            },
+            systemSetting: {
+              findMany: jest.fn().mockResolvedValue([]),
+              findUnique: jest.fn(),
+            },
+            passwordResetToken: {
+              create: jest.fn(),
+              findUnique: jest.fn(),
+              update: jest.fn(),
+            },
+            auditLog: {
+              create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
             },
           },
         },
