@@ -122,6 +122,19 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                 <Button variant="success" size="sm" onClick={() => onApprove && onApprove(booking.id)} leftIcon={<CheckCircle className="w-4 h-4" />}>
                   Approve Request
                 </Button>
+                {onAssign && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={async () => {
+                      if (onApprove) await onApprove(booking.id);
+                      onAssign({ ...booking, status: 'APPROVED' });
+                    }}
+                    leftIcon={<Car className="w-4 h-4" />}
+                  >
+                    Review & Assign
+                  </Button>
+                )}
               </>
             )}
 
@@ -153,21 +166,17 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
             )}
 
             {/* Digital Receipt action button in footer */}
-            {(booking.status === 'APPROVED' ||
-              booking.status === 'ASSIGNED' ||
-              booking.status === 'IN_PROGRESS' ||
-              booking.status === 'COMPLETED') &&
-              onOpenReceipt && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onOpenReceipt(booking)}
-                  leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
-                  className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 font-semibold shadow-2xs"
-                >
-                  Digital Receipt & QR
-                </Button>
-              )}
+            {onOpenReceipt && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onOpenReceipt(booking)}
+                leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 font-semibold shadow-2xs"
+              >
+                Digital Receipt & QR
+              </Button>
+            )}
 
             {onPrintForm && (
               <Button

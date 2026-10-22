@@ -995,6 +995,28 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
                     {/* Pending Actions */}
                     {b.status === 'PENDING_APPROVAL' && (
                       <>
+                        {onCancelBooking && (
+                          <Button
+                            variant="outline"
+                            size="md"
+                            onClick={() => onCancelBooking(b)}
+                            leftIcon={<XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
+                            className="h-11 px-4 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-semibold shadow-2xs"
+                          >
+                            Cancel Booking
+                          </Button>
+                        )}
+                        {onOpenReceipt && (
+                          <Button
+                            variant="outline"
+                            size="md"
+                            onClick={() => onOpenReceipt(b)}
+                            leftIcon={<QrCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+                            className="h-11 px-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100 font-semibold shadow-2xs"
+                          >
+                            Digital Receipt & QR
+                          </Button>
+                        )}
                         <Button
                           variant="danger"
                           size="md"
@@ -1013,6 +1035,20 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
                           className="h-11 px-5 font-bold shadow-xs"
                         >
                           {isProcessingId === b.id ? 'Approving...' : 'Approve Request'}
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="md"
+                          disabled={isProcessingId === b.id}
+                          onClick={async () => {
+                            await handleApprove(b.id);
+                            onAssignVehicle({ ...b, status: 'APPROVED' });
+                          }}
+                          leftIcon={<Car className="w-4 h-4" />}
+                          rightIcon={<ArrowRight className="w-4 h-4 ml-1" />}
+                          className="h-11 px-5 font-bold text-sm shadow-md bg-brand-600 hover:bg-brand-700 focus:ring-4 focus:ring-brand-500/20"
+                        >
+                          Review & Assign
                         </Button>
                       </>
                     )}

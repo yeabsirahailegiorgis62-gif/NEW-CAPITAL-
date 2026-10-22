@@ -27,11 +27,22 @@ import {
   Activity,
   UserCheck,
   FileText,
+  QrCode,
+  XCircle,
+  CheckCircle,
+  Search,
+  ArrowRight,
+  MapPin,
+  KeyRound,
+  Eye,
 } from 'lucide-react';
 
 interface AdminAnalyticsDashboardProps {
   onNavigateTab?: (tab: string) => void;
   onOpenBooking?: (booking: Booking) => void;
+  onAssignVehicle?: (booking: Booking) => void;
+  onCancelBooking?: (booking: Booking) => void;
+  onOpenReceipt?: (booking: Booking) => void;
 }
 
 // ── Reusable SVG Donut Chart Component ──
@@ -119,6 +130,9 @@ const SvgDonutChart: React.FC<{
 export const AdminAnalyticsDashboard: React.FC<AdminAnalyticsDashboardProps> = ({
   onNavigateTab,
   onOpenBooking,
+  onAssignVehicle,
+  onCancelBooking,
+  onOpenReceipt,
 }) => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -126,9 +140,13 @@ export const AdminAnalyticsDashboard: React.FC<AdminAnalyticsDashboardProps> = (
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filters
+  // Analytics Filters
   const [dateRange, setDateRange] = useState<'all' | 'today' | '7days' | 'month'>('all');
   const [selectedDeptId, setSelectedDeptId] = useState<string>('all');
+
+  // Dispatch Queue Table Filters
+  const [tableFilterStatus, setTableFilterStatus] = useState<string>('ALL');
+  const [tableSearchQuery, setTableSearchQuery] = useState<string>('');
 
   const loadData = async () => {
     try {
@@ -325,6 +343,48 @@ export const AdminAnalyticsDashboard: React.FC<AdminAnalyticsDashboardProps> = (
         };
       });
   }, [bookings]);
+
+  // Dispatch Queue Table Status Counts
+  const tableStatusCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      ALL: bookings.length,
+      PENDING_APPROVAL: 0,
+      APPROVED: 0,
+      ASSIGNED: 0,
+      IN_PROGRESS: 0,
+      COMPLETED: 0,
+      CANCELLED: 0,
+    };
+    bookings.forEach((b) => {
+      if (counts[b.status] !== undefined) {
+        counts[b.status]++;
+      }
+    });
+    return counts;
+  }, [bookings]);
+
+  // Dispatch Queue Table Filtered List
+  const tableFilteredBookings = useMemo(() => {
+    return bookings.filter((b) => {
+      if (tableFilterStatus !== 'ALL' && b.status !== tableFilterStatus) {
+        return false;
+      }
+      if (tableSearchQuery.trim()) {
+        const q = tableSearchQuery.toLowerCase().trim();
+        const matches =
+          b.bookingReference?.toLowerCase().includes(q) ||
+          b.destination?.toLowerCase().includes(q) ||
+          b.purpose?.toLowerCase().includes(q) ||
+          b.requester?.name?.toLowerCase().includes(q) ||
+          b.requester?.employeeId?.toLowerCase().includes(q) ||
+          b.requester?.department?.name?.toLowerCase().includes(q) ||
+          b.assignments?.[0]?.driverName?.toLowerCase().includes(q) ||
+          b.assignments?.[0]?.vehicle?.registrationNumber?.toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [bookings, tableFilterStatus, tableSearchQuery]);
 
   // CSV Export
   const handleExportCsv = () => {
@@ -741,6 +801,356 @@ export const AdminAnalyticsDashboard: React.FC<AdminAnalyticsDashboardProps> = (
           </Card>
         </div>
       </div>
+
+      {/* ── Enterprise Transport Allocation & Dispatch Queue Table ── */}
+      <Card className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+        <CardHeader className="border-b border-slate-100 dark:border-slate-800 p-5 sm:p-6 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center border border-brand-500/20 shrink-0">
+                <Car className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Enterprise Transport Allocation & Dispatch Command</span>
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                    {tableFilteredBookings.length} {tableFilteredBookings.length === 1 ? 'Trip' : 'Trips'}
+                  </span>
+                </CardTitle>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Direct administrative action: review requests, allocate fleet vehicles & drivers, generate digital receipts, or process cancellations.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadData}
+                leftIcon={<RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />}
+                className="h-9 text-xs border-slate-200 dark:border-slate-700"
+              >
+                Refresh
+              </Button>
+              {onNavigateTab && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onNavigateTab('assign-queue')}
+                  rightIcon={<ArrowRight className="w-3.5 h-3.5 ml-1" />}
+                  className="h-9 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white"
+                >
+                  Full Assignment Queue
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter Bar: Status Tabs + Search */}
+          <div className="mt-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-4 border-t border-slate-200/60 dark:border-slate-800">
+            {/* Status Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'ALL', label: 'All Requests', count: tableStatusCounts.ALL },
+                { id: 'PENDING_APPROVAL', label: 'Pending Review', count: tableStatusCounts.PENDING_APPROVAL },
+                { id: 'APPROVED', label: 'Awaiting Allocation', count: tableStatusCounts.APPROVED },
+                { id: 'ASSIGNED', label: 'Assigned', count: tableStatusCounts.ASSIGNED },
+                { id: 'IN_PROGRESS', label: 'In Transit', count: tableStatusCounts.IN_PROGRESS },
+                { id: 'COMPLETED', label: 'Completed', count: tableStatusCounts.COMPLETED },
+                { id: 'CANCELLED', label: 'Cancelled', count: tableStatusCounts.CANCELLED },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setTableFilterStatus(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    tableFilterStatus === tab.id
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      tableFilterStatus === tab.id
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full lg:w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search trip reference, staff, destination..."
+                value={tableSearchQuery}
+                onChange={(e) => setTableSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              {tableSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setTableSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          {tableFilteredBookings.length === 0 ? (
+            <div className="text-center py-12 px-4">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center mb-3">
+                <Car className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                No transport requests found
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                No trip records matched your active status filter or search keywords.
+              </p>
+              {(tableFilterStatus !== 'ALL' || tableSearchQuery) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setTableFilterStatus('ALL');
+                    setTableSearchQuery('');
+                  }}
+                  className="mt-4 text-xs font-semibold"
+                >
+                  Reset Filter & Search
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-[11px]">
+                  <tr>
+                    <th className="py-3.5 px-4">Request # & Date</th>
+                    <th className="py-3.5 px-4">Requester & Dept</th>
+                    <th className="py-3.5 px-4">Destination & Schedule</th>
+                    <th className="py-3.5 px-4">Allocated Fleet & Driver</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Administrative Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                  {tableFilteredBookings.map((b) => {
+                    const assignment = b.assignments?.[0];
+                    const vehicle = assignment?.vehicle;
+                    const driverName = assignment?.driverName || assignment?.driver?.name;
+                    const canCancel =
+                      b.status !== 'COMPLETED' &&
+                      b.status !== 'CANCELLED' &&
+                      b.status !== 'REJECTED';
+
+                    return (
+                      <tr
+                        key={b.id}
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                      >
+                        {/* Request Reference & Date */}
+                        <td className="py-3.5 px-4 align-top">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-brand-600 dark:text-brand-400 text-xs">
+                              {b.bookingReference}
+                            </span>
+                            {(b.priority === 'HIGH' || b.priority === 'VIP') && (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                b.priority === 'VIP'
+                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300'
+                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                              }`}>
+                                {b.priority}
+                              </span>
+                            )}
+                          </div>
+                          <span className="block text-[11px] text-slate-400 font-mono mt-0.5">
+                            {formatEthiopianDateOnly(b.departureAt)}
+                          </span>
+                          <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            {b.requestType || 'DAILY'} TRIP
+                          </span>
+                        </td>
+
+                        {/* Requester & Department */}
+                        <td className="py-3.5 px-4 align-top">
+                          <span className="font-bold text-slate-900 dark:text-white block">
+                            {b.requester?.name || 'Staff Member'}
+                          </span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                            {b.requester?.department?.name || 'Corporate'}
+                          </span>
+                          {b.requester?.phone && (
+                            <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                              {b.requester.phone}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Destination & Schedule */}
+                        <td className="py-3.5 px-4 align-top max-w-[240px]">
+                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{b.destination}</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 block mt-0.5">
+                            {b.purpose}
+                          </span>
+                          <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-mono">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatEthiopianDateTime(b.departureAt)}
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {b.passengerCount} pax
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Allocated Fleet & Driver */}
+                        <td className="py-3.5 px-4 align-top">
+                          {vehicle ? (
+                            <div className="space-y-0.5">
+                              <div className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                                {vehicle.name}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                  {vehicle.registrationNumber}
+                                </span>
+                                {driverName && (
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                    <UserCheck className="w-3 h-3 text-emerald-600" />
+                                    {driverName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/60 font-medium">
+                              <AlertTriangle className="w-3 h-3" />
+                              Awaiting Allocation
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3.5 px-4 align-top">
+                          <Badge status={b.status} size="sm" />
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-right align-top">
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            {/* 1. Cancel Booking Button */}
+                            {canCancel && onCancelBooking && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onCancelBooking(b)}
+                                title="Cancel this booking request"
+                                leftIcon={<XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />}
+                                className="h-[36px] px-2.5 text-xs border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-semibold"
+                              >
+                                <span>Cancel Booking</span>
+                              </Button>
+                            )}
+
+                            {/* 2. Review & Assign / Assign Vehicle Button */}
+                            {b.status === 'APPROVED' && onAssignVehicle && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => onAssignVehicle(b)}
+                                title="Assign fleet vehicle and driver"
+                                leftIcon={<Car className="w-3.5 h-3.5" />}
+                                rightIcon={<ArrowRight className="w-3.5 h-3.5 ml-0.5" />}
+                                className="h-[36px] px-3.5 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white shadow-xs"
+                              >
+                                <span>Assign Vehicle</span>
+                              </Button>
+                            )}
+
+                            {b.status === 'PENDING_APPROVAL' && onAssignVehicle && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => onAssignVehicle(b)}
+                                title="Review and allocate vehicle"
+                                leftIcon={<Car className="w-3.5 h-3.5" />}
+                                rightIcon={<ArrowRight className="w-3.5 h-3.5 ml-0.5" />}
+                                className="h-[36px] px-3.5 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white shadow-xs"
+                              >
+                                <span>Review & Assign</span>
+                              </Button>
+                            )}
+
+                            {b.status === 'ASSIGNED' && onAssignVehicle && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onAssignVehicle(b)}
+                                title="Change assigned vehicle or driver"
+                                leftIcon={<Car className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />}
+                                className="h-[36px] px-3 text-xs font-semibold border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/40"
+                              >
+                                <span>Reassign</span>
+                              </Button>
+                            )}
+
+                            {/* 3. Digital Receipt & QR Button */}
+                            {onOpenReceipt && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onOpenReceipt(b)}
+                                title="View official dispatch receipt & QR pass"
+                                leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                                className="h-[36px] px-2.5 text-xs border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 font-semibold"
+                              >
+                                <span>Receipt</span>
+                              </Button>
+                            )}
+
+                            {/* 4. Full Details Button */}
+                            {onOpenBooking && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onOpenBooking(b)}
+                                title="View full booking details"
+                                leftIcon={<Eye className="w-3.5 h-3.5 text-slate-500" />}
+                                className="h-[36px] px-2.5 text-xs text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              >
+                                <span>Details</span>
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -367,6 +367,9 @@ export function App() {
             <AdminAnalyticsDashboard
               onNavigateTab={setActiveTab}
               onOpenBooking={(b) => setSelectedBookingForDetails(b)}
+              onAssignVehicle={(b) => setAssigningBooking(b)}
+              onCancelBooking={(b) => setCancellingBooking(b)}
+              onOpenReceipt={handleOpenReceipt}
             />
           ) : (
             <LogisticsDashboard
@@ -513,7 +516,10 @@ export function App() {
         currentUser={currentUser!}
         onApprove={handleApproveBooking}
         onReject={handleRejectBooking}
-        onOpenReceipt={handleOpenReceipt}
+        onOpenReceipt={(b) => {
+          setSelectedBookingForDetails(null);
+          handleOpenReceipt(b);
+        }}
         onPrintForm={(b) => setPrintableBooking(b)}
         onAssign={(b) => {
           setSelectedBookingForDetails(null);
@@ -527,7 +533,10 @@ export function App() {
           setSelectedBookingForDetails(null);
           setTripModalBooking({ booking: b, mode: 'complete' });
         }}
-        onCancelBooking={(b) => setCancellingBooking(b)}
+        onCancelBooking={(b) => {
+          setSelectedBookingForDetails(null);
+          setCancellingBooking(b);
+        }}
       />
 
       {/* Logistics Cancellation Confirmation Modal */}
