@@ -112,6 +112,7 @@ export interface Booking {
   passengerDetails?: string | null;
   documentUrl?: string | null;
   cancellationReason?: string | null;
+  cancelledAt?: string | null;
   verificationToken?: string | null;
   assignments?: VehicleAssignment[];
   currentAssignment?: VehicleAssignment | null;
@@ -138,13 +139,17 @@ export interface SystemSettings {
   pendingRequestExpirationHours: number;
   allowCancelPending: boolean;
   allowEditPending: boolean;
-  allowCancelAfterApproval: boolean;
   preventDoubleVehicleAssignment: boolean;
-  preventDoubleDriverAssignment: boolean;
   onlyShowAvailableVehicles: boolean;
+  autoSuggestSuitableVehicle: boolean;
+  requireVehicleInspectionCheck: boolean;
+  minFuelLevelPercent: number;
+  preventDoubleDriverAssignment: boolean;
   onlyShowActiveDrivers: boolean;
   requireDriverConfirmation: boolean;
-  autoSuggestSuitableVehicle: boolean;
+  requireValidDriverLicense: boolean;
+  maxDailyDriverHours: number;
+  driverConfirmationTimeoutHours: number;
   [key: string]: any;
 }
 

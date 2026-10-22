@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   Send,
   Flag,
+  QrCode,
 } from 'lucide-react';
 
 interface DriverDashboardProps {
@@ -169,7 +170,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({
   }, [driverBookings, todayStr]);
 
   const completedTrips = useMemo(() => {
-    return driverBookings.filter((b) => b.status === 'COMPLETED');
+    return driverBookings.filter((b) => b.status === 'COMPLETED' || b.status === 'CANCELLED');
   }, [driverBookings]);
 
   // Actions
@@ -580,15 +581,28 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({
 
                         {/* Sequential Execution Action Buttons */}
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedVoucherBooking(b)}
-                            leftIcon={<Printer className="w-3.5 h-3.5" />}
-                            className="text-slate-500 hover:text-slate-900 dark:text-slate-400 text-xs"
-                          >
-                            Voucher
-                          </Button>
+                          <div className="flex items-center gap-1.5">
+                            {onOpenReceipt && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onOpenReceipt(b)}
+                                leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                                className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-xs font-semibold shadow-2xs"
+                              >
+                                Receipt & QR
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedVoucherBooking(b)}
+                              leftIcon={<Printer className="w-3.5 h-3.5" />}
+                              className="text-slate-500 hover:text-slate-900 dark:text-slate-400 text-xs"
+                            >
+                              Voucher
+                            </Button>
+                          </div>
 
                           <div className="flex flex-wrap items-center gap-2">
                             {/* Step 1: Confirm assignment if pending */}
@@ -745,15 +759,45 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({
                       <MapPin className="w-3.5 h-3.5 text-slate-400" />
                       {b.destination}
                     </div>
-                    <div className="text-slate-500 font-mono">
-                      Completed: {b.actualReturnAt ? formatEthiopianDateTime(b.actualReturnAt) : formatEthiopianDateTime(b.expectedReturnAt)}
-                    </div>
-                    {b.startOdometer && b.endOdometer && (
-                      <div className="font-mono text-slate-700 dark:text-slate-300">
-                        Distance covered: {b.endOdometer - b.startOdometer} km ({b.startOdometer} km → {b.endOdometer} km)
+                    {b.status === 'CANCELLED' ? (
+                      <div className="p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/80 dark:bg-rose-950/30 text-rose-800 dark:text-rose-200 text-xs space-y-1">
+                        <div className="font-bold flex items-center gap-1.5 text-rose-900 dark:text-rose-200">
+                          <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                          Mission Assignment Cancelled
+                        </div>
+                        <p className="text-[11px] leading-relaxed">
+                          <span className="font-semibold">Reason:</span> {b.cancellationReason || 'Logistics Administrative Cancellation'}
+                        </p>
+                        {b.cancelledAt && (
+                          <div className="text-[10px] text-rose-700/80 dark:text-rose-400 font-mono">
+                            Cancelled: {formatEthiopianDateTime(b.cancelledAt)}
+                          </div>
+                        )}
                       </div>
+                    ) : (
+                      <>
+                        <div className="text-slate-500 font-mono">
+                          Completed: {b.actualReturnAt ? formatEthiopianDateTime(b.actualReturnAt) : formatEthiopianDateTime(b.expectedReturnAt)}
+                        </div>
+                        {b.startOdometer && b.endOdometer && (
+                          <div className="font-mono text-slate-700 dark:text-slate-300">
+                            Distance covered: {b.endOdometer - b.startOdometer} km ({b.startOdometer} km → {b.endOdometer} km)
+                          </div>
+                        )}
+                      </>
                     )}
-                    <div className="pt-2 flex justify-end">
+                    <div className="pt-2 flex items-center justify-end gap-2">
+                      {onOpenReceipt && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onOpenReceipt(b)}
+                          leftIcon={<QrCode className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                          className="border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-semibold"
+                        >
+                          Receipt
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" onClick={() => onOpenBooking(b)}>
                         Inspect Report
                       </Button>

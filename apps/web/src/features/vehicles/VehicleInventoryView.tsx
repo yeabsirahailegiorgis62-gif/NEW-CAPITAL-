@@ -215,24 +215,26 @@ export const VehicleInventoryView: React.FC<VehicleInventoryViewProps> = ({
                 <div className="p-3 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
                   {onReportIssue && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={() => onReportIssue(v)}
                       leftIcon={<Wrench className="w-3.5 h-3.5 text-slate-500" />}
+                      className="h-[38px] px-3 font-semibold text-xs border-slate-300 dark:border-slate-700"
                     >
                       Report Issue
                     </Button>
                   )}
                   <Button
-                    variant="outline"
+                    variant="primary"
                     size="sm"
                     onClick={() => {
                       setEditingVehicle(v);
                       setIsModalOpen(true);
                     }}
                     leftIcon={<Edit className="w-3.5 h-3.5" />}
+                    className="h-[38px] px-3.5 font-bold text-xs"
                   >
-                    Edit
+                    Edit Vehicle
                   </Button>
                 </div>
               )}

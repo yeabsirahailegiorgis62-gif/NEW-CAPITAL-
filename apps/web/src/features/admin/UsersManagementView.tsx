@@ -547,23 +547,25 @@ export const UsersManagementView: React.FC = () => {
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => setViewingUser(u)}
                           title="View Staff Profile"
-                          className="p-1.5 h-8 w-8 text-slate-600 dark:text-slate-300 hover:text-brand-600"
+                          leftIcon={<Eye className="w-3.5 h-3.5 text-slate-500" />}
+                          className="h-[38px] px-2.5 text-xs font-semibold border-slate-300 dark:border-slate-700 hover:border-brand-500"
                         >
-                          <Eye className="w-4 h-4" />
+                          <span className="hidden sm:inline">Profile</span>
                         </Button>
 
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => handleOpenEdit(u)}
                           title="Edit Information"
-                          className="p-1.5 h-8 w-8 text-slate-600 dark:text-slate-300 hover:text-blue-600"
+                          leftIcon={<Edit2 className="w-3.5 h-3.5 text-blue-500" />}
+                          className="h-[38px] px-2.5 text-xs font-semibold border-slate-300 dark:border-slate-700 hover:border-blue-500"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <span className="hidden sm:inline">Edit</span>
                         </Button>
 
                         <Button
@@ -575,16 +577,21 @@ export const UsersManagementView: React.FC = () => {
                             setForcePasswordChange(true);
                           }}
                           title="Reset Password"
-                          className="p-1.5 h-8 w-8 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                          leftIcon={<KeyRound className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+                          className="h-[38px] px-2.5 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-transparent hover:border-amber-300"
                         >
-                          <KeyRound className="w-4 h-4" />
+                          <span className="hidden md:inline">Reset</span>
                         </Button>
 
                         <Button
                           variant={u.isActive ? 'outline' : 'primary'}
                           size="sm"
                           onClick={() => handleToggleStatus(u)}
-                          className="text-[11px] h-7 px-2.5 font-semibold"
+                          className={`h-[38px] px-3 text-xs font-bold ${
+                            u.isActive
+                              ? 'text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/80 hover:bg-red-50 dark:hover:bg-red-950/30'
+                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          }`}
                         >
                           {u.isActive ? 'Deactivate' : 'Activate'}
                         </Button>
@@ -605,29 +612,29 @@ export const UsersManagementView: React.FC = () => {
             <strong className="text-slate-800 dark:text-slate-200">{filteredUsers.length}</strong> staff accounts
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="h-8 px-2 text-xs"
+              className="h-[38px] px-3 text-xs font-semibold border-slate-300 dark:border-slate-700"
             >
-              <ChevronLeft className="w-4 h-4 mr-0.5" />
-              Prev
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Previous
             </Button>
             <span className="px-2 font-bold text-slate-800 dark:text-slate-200">
-              {currentPage} / {totalPages}
+              Page {currentPage} of {totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="h-8 px-2 text-xs"
+              className="h-[38px] px-3 text-xs font-semibold border-slate-300 dark:border-slate-700"
             >
               Next
-              <ChevronRight className="w-4 h-4 ml-0.5" />
+              <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
         </div>

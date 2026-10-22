@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, Vehicle, Booking } from '@/types';
 import { api } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { formatEthiopianDateTime, formatEthiopianDateOnly } from '@/lib/utils';
+import { fileToOptimizedDataUrl } from '@/lib/imageUtils';
 import {
   Users,
   UserCheck,
@@ -27,6 +28,9 @@ import {
   CreditCard,
   MapPin,
   Calendar,
+  Camera,
+  Upload,
+  Trash2,
 } from 'lucide-react';
 
 interface DriversManagementViewProps {
@@ -55,8 +59,31 @@ export const DriversManagementView: React.FC<DriversManagementViewProps> = ({ cu
   const [employeeId, setEmployeeId] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
   const [jobTitle, setJobTitle] = useState('Fleet Chauffeur');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingAvatar(true);
+      const optimized = await fileToOptimizedDataUrl(file, {
+        maxWidth: 400,
+        maxHeight: 400,
+        quality: 0.85,
+      });
+      setAvatarUrl(optimized);
+    } catch (err: any) {
+      toast.error('Image Error', err.message || 'Failed to process driver photo');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -144,6 +171,7 @@ export const DriversManagementView: React.FC<DriversManagementViewProps> = ({ cu
     setEmployeeId(`DRV-${Date.now().toString().slice(-3)}`);
     setLicenseNumber('ET-COMMERCIAL-CLASS4');
     setJobTitle('Fleet Chauffeur');
+    setAvatarUrl('');
     setFormError(null);
     setIsAddModalOpen(true);
   };
@@ -156,6 +184,7 @@ export const DriversManagementView: React.FC<DriversManagementViewProps> = ({ cu
     setEmployeeId(d.employeeId || '');
     setLicenseNumber(d.licenseNumber || '');
     setJobTitle(d.jobTitle || 'Fleet Chauffeur');
+    setAvatarUrl(d.avatarUrl || '');
     setFormError(null);
     setIsAddModalOpen(true);
   };
@@ -178,6 +207,7 @@ export const DriversManagementView: React.FC<DriversManagementViewProps> = ({ cu
           employeeId: employeeId.trim() || undefined,
           licenseNumber: licenseNumber.trim() || undefined,
           jobTitle: jobTitle.trim() || undefined,
+          avatarUrl: avatarUrl.trim() || undefined,
         });
         toast.success('Driver Updated', `Profile details for ${name} have been updated.`);
       } else {
@@ -190,6 +220,7 @@ export const DriversManagementView: React.FC<DriversManagementViewProps> = ({ cu
           employeeId: employeeId.trim() || undefined,
           licenseNumber: licenseNumber.trim() || undefined,
           jobTitle: jobTitle.trim() || 'Fleet Chauffeur',
+          avatarUrl: avatarUrl.trim() || undefined,
         });
         toast.success('Driver Registered', `${name} has been enrolled in the chauffeur directory.`);
       }
@@ -438,28 +469,33 @@ export const DriversManagementView: React.FC<DriversManagementViewProps> = ({ cu
 
                 <div className="p-3 bg-slate-50/70 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => setViewingDriver(driver)}
-                    className="text-xs h-7 text-slate-600 dark:text-slate-300 hover:text-brand-600"
+                    className="text-xs h-[38px] px-3 font-semibold text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
                   >
                     View Details
                   </Button>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => openEditModal(driver)}
-                      className="text-xs h-7 px-2"
+                      leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                      className="text-xs h-[38px] px-3 font-semibold border-slate-300 dark:border-slate-700"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
+                      Edit
                     </Button>
                     <Button
                       variant={driver.isActive ? 'outline' : 'primary'}
                       size="sm"
                       onClick={() => handleToggleActive(driver)}
-                      className="text-xs h-7 px-2 font-semibold"
+                      className={`text-xs h-[38px] px-3 font-bold ${
+                        driver.isActive
+                          ? 'text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/80 hover:bg-red-50 dark:hover:bg-red-950/30'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
                     >
                       {driver.isActive ? 'Deactivate' : 'Activate'}
                     </Button>
@@ -485,6 +521,69 @@ export const DriversManagementView: React.FC<DriversManagementViewProps> = ({ cu
                 {formError}
               </div>
             )}
+
+            {/* Chauffeur Profile Picture / Photo */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                Chauffeur Profile Photo
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+              <div className="flex items-center gap-4">
+                <div className="relative group w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-black text-xl shadow-md border-2 border-white dark:border-slate-800 shrink-0">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="Driver photo"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{(name || 'DR').slice(0, 2).toUpperCase()}</span>
+                  )}
+                  {isUploadingAvatar && (
+                    <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center">
+                      <RotateCw className="w-5 h-5 text-amber-400 animate-spin" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingAvatar || isSubmitting}
+                      className="text-xs h-8 px-2.5 font-bold flex items-center gap-1.5"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>{avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                    </Button>
+                    {avatarUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAvatarUrl('')}
+                        disabled={isUploadingAvatar || isSubmitting}
+                        className="text-xs h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Upload a front-facing headshot (JPG/PNG). Optimized for dispatch cards and vehicle assignment modals.
+                  </p>
+                </div>
+              </div>
+            </div>
 
             <Input
               id="driverName"

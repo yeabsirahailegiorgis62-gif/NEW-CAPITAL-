@@ -9,6 +9,7 @@ import { EmployeeDashboard } from '@/features/dashboard/EmployeeDashboard';
 import { LogisticsDashboard } from '@/features/dashboard/LogisticsDashboard';
 import { BookingRequestForm } from '@/features/bookings/BookingRequestForm';
 import { BookingDetailsModal } from '@/features/bookings/BookingDetailsModal';
+import { CancelBookingModal } from '@/features/bookings/CancelBookingModal';
 import { BookingsTable } from '@/features/bookings/BookingsTable';
 import { VehicleInventoryView } from '@/features/vehicles/VehicleInventoryView';
 import { AvailabilityCalendar } from '@/features/availability/AvailabilityCalendar';
@@ -69,6 +70,7 @@ export function App() {
     return false;
   });
   const [assigningBooking, setAssigningBooking] = useState<Booking | null>(null);
+  const [cancellingBooking, setCancellingBooking] = useState<Booking | null>(null);
   const [tripModalBooking, setTripModalBooking] = useState<{ booking: Booking; mode: 'start' | 'complete' } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -219,14 +221,24 @@ export function App() {
     }
   };
 
-  const handleCancelBooking = async (id: string, reason?: string) => {
+  const handleConfirmCancelBooking = async (
+    bookingId: string,
+    data: { reason: string; notes?: string; bookingDayId?: string }
+  ) => {
     try {
-      await api.cancelBooking(id, reason);
+      await api.cancelBooking(bookingId, data);
+      setCancellingBooking(null);
       setSelectedBookingForDetails(null);
-      toast.warning('Booking cancelled');
+      toast.success(
+        'Booking Cancelled',
+        data.bookingDayId
+          ? 'Selected scheduled trip date has been cancelled and its resources released.'
+          : 'Booking cancelled. Vehicle and driver have been safely released.'
+      );
       await refreshAllData();
     } catch (err: any) {
-      toast.error('Cancel failed', err.message);
+      toast.error('Cancellation failed', err.message || 'Could not cancel booking');
+      throw err;
     }
   };
 
@@ -360,6 +372,7 @@ export function App() {
             <LogisticsDashboard
               onNavigateTab={setActiveTab}
               onOpenBooking={(b) => setSelectedBookingForDetails(b)}
+              onAssignVehicle={(b) => setAssigningBooking(b)}
             />
           )}
         </>
@@ -387,6 +400,7 @@ export function App() {
             bookings={bookings}
             currentUser={currentUser!}
             onSelectBooking={(b) => setSelectedBookingForDetails(b)}
+            onCancelBooking={(b) => setCancellingBooking(b)}
             onOpenReceipt={handleOpenReceipt}
             onRefresh={refreshAllData}
           />
@@ -403,6 +417,7 @@ export function App() {
           onAssignVehicle={(b) => setAssigningBooking(b)}
           onApprove={handleApproveBooking}
           onReject={handleRejectBooking}
+          onCancelBooking={(b) => setCancellingBooking(b)}
           onOpenReceipt={handleOpenReceipt}
           onPrintForm={(b) => setPrintableBooking(b)}
         />
@@ -418,6 +433,7 @@ export function App() {
           onAssignVehicle={(b) => setAssigningBooking(b)}
           onApprove={handleApproveBooking}
           onReject={handleRejectBooking}
+          onCancelBooking={(b) => setCancellingBooking(b)}
           onOpenReceipt={handleOpenReceipt}
           onPrintForm={(b) => setPrintableBooking(b)}
         />
@@ -475,6 +491,7 @@ export function App() {
           onAssignVehicle={(b) => setAssigningBooking(b)}
           onApprove={handleApproveBooking}
           onReject={handleRejectBooking}
+          onCancelBooking={(b) => setCancellingBooking(b)}
           onOpenReceipt={handleOpenReceipt}
           onPrintForm={(b) => setPrintableBooking(b)}
         />
@@ -510,7 +527,15 @@ export function App() {
           setSelectedBookingForDetails(null);
           setTripModalBooking({ booking: b, mode: 'complete' });
         }}
-        onCancelBooking={handleCancelBooking}
+        onCancelBooking={(b) => setCancellingBooking(b)}
+      />
+
+      {/* Logistics Cancellation Confirmation Modal */}
+      <CancelBookingModal
+        isOpen={!!cancellingBooking}
+        onClose={() => setCancellingBooking(null)}
+        booking={cancellingBooking}
+        onConfirmCancel={handleConfirmCancelBooking}
       />
 
       {/* Digital Receipt Modal */}

@@ -107,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto min-h-0">
+      <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto min-h-0">
         {links.map((link, idx) => {
           const Icon = link.icon;
           const isActive = activeTab === link.id;
@@ -117,25 +117,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <React.Fragment key={link.id}>
               {showSectionHeader && (
-                <div className="pt-3.5 pb-1 px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                <div className="pt-4 pb-1.5 px-3 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   {link.section}
                 </div>
               )}
               <button
+                type="button"
                 onClick={() => handleSelect(link.id)}
                 className={cn(
-                  'w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-sm font-medium transition-all text-left relative group',
+                  'w-full flex items-center justify-between px-3.5 py-2.5 min-h-[44px] rounded-xl text-sm font-medium transition-all text-left relative group cursor-pointer',
                   isActive
-                    ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-md shadow-brand-900/40 font-semibold'
+                    ? 'bg-brand-600 text-white shadow-md shadow-brand-900/30 font-bold'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80'
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={cn('w-4 h-4 shrink-0 transition-colors', isActive ? 'text-white' : 'text-slate-400 group-hover:text-brand-600 dark:group-hover:text-brand-400')} />
+                  <Icon
+                    className={cn(
+                      'w-4.5 h-4.5 shrink-0 transition-colors',
+                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-brand-600 dark:group-hover:text-brand-400'
+                    )}
+                  />
                   <span>{link.label}</span>
                 </div>
                 {isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-white/30 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white/40 shadow-xs" />
                 )}
               </button>
             </React.Fragment>

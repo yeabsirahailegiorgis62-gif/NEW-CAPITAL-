@@ -34,7 +34,6 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useTheme } from '@/context/ThemeContext';
-import { DynamicFleetRouteSimulation } from '@/components/telematics/DynamicFleetRouteSimulation';
 import { AutomotiveJourneySpine } from '@/components/automotive/AutomotiveJourneySpine';
 import { HighwaySectionConnector } from '@/components/automotive/HighwaySectionConnector';
 
@@ -282,17 +281,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
               className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
             >
               Fleet Gallery
-            </a>
-            <a
-              href="#telematics-corridor"
-              onClick={(e) => {
-                e.preventDefault();
-                document.getElementById('telematics-corridor')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-1.5"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Telematics
             </a>
           </nav>
 
@@ -720,32 +708,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInClick }) => {
           </div>
         </section>
 
-        {/* ========================================================= */}
-        {/* SECTION 6: DYNAMIC FLEET HIGHWAY TELEMATICS               */}
-        {/* ========================================================= */}
-        <section
-          id="telematics-corridor"
-          className="relative py-14 sm:py-20 overflow-hidden border-b border-slate-200 dark:border-slate-850 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 dark:from-[#03060e] dark:via-[#070d1d] dark:to-[#040813]"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-2xl mx-auto mb-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-3">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>REAL-TIME ADDIS ABABA HIGHWAY GRID</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                Live Vehicles in Continuous Motion
-              </h2>
-              <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                Watch real corporate units navigate Addis Ababa logistics corridors. Headlights illuminate the road, taillights trail velocity, and live telematics track odometer progression.
-              </p>
-            </div>
-
-            <div className="relative mx-auto w-full max-w-6xl">
-              <DynamicFleetRouteSimulation />
-            </div>
-          </div>
-        </section>
 
         {/* ========================================================= */}
         {/* SECTION 7: CALL TO ACTION BANNER (EXACT REFERENCE CTA)    */}

@@ -87,6 +87,19 @@ export class VehiclesController {
     return this.vehiclesService.getDriverRecommendations(departureAt, expectedReturnAt);
   }
 
+  @Get('recommendations/:bookingId')
+  @ApiOperation({ summary: 'Intelligent vehicle recommendation engine for a specific transport request' })
+  getRecommendationsForBooking(@Param('bookingId') bookingId: string) {
+    return this.vehiclesService.getRecommendationsForBooking(bookingId);
+  }
+
+  @Get('driver-recommendations/:bookingId')
+  @Get('drivers/recommendations/:bookingId')
+  @ApiOperation({ summary: 'Intelligent driver recommendation engine for a specific transport request' })
+  getDriverRecommendationsForBooking(@Param('bookingId') bookingId: string) {
+    return this.vehiclesService.getDriverRecommendationsForBooking(bookingId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get vehicle by ID with issues and assignment history' })
   findOne(@Param('id') id: string) {

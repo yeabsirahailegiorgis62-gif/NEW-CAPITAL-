@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { User } from '@/types';
 import { api } from '@/lib/api';
+import { fileToOptimizedDataUrl } from '@/lib/imageUtils';
 import {
   User as UserIcon,
   Shield,
@@ -18,6 +19,9 @@ import {
   EyeOff,
   Briefcase,
   CreditCard,
+  Camera,
+  Upload,
+  Trash2,
 } from 'lucide-react';
 
 interface ProfileSettingsViewProps {
@@ -48,6 +52,31 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
   const [licenseNumber, setLicenseNumber] = useState(currentUser.licenseNumber || '');
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl || AVATAR_PRESETS[0]);
   const [customAvatar, setCustomAvatar] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      setProfileError(null);
+      const optimized = await fileToOptimizedDataUrl(file, {
+        maxWidth: 400,
+        maxHeight: 400,
+        quality: 0.85,
+      });
+      setAvatarUrl(optimized);
+      setCustomAvatar('');
+      setProfileSuccess('Photo uploaded from device! Click "Save Changes" to apply.');
+    } catch (err: any) {
+      setProfileError(err.message || 'Failed to process image');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Password Change State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -223,43 +252,89 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleSaveProfile} className="space-y-5">
-              {/* Avatar Chooser */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-2">
-                  Select Profile Avatar
-                </label>
-                <div className="flex flex-wrap items-center gap-3">
-                  {AVATAR_PRESETS.map((preset, idx) => (
-                    <button
-                      type="button"
-                      key={idx}
-                      onClick={() => {
-                        setAvatarUrl(preset);
-                        setCustomAvatar('');
-                      }}
-                      className={`relative rounded-xl overflow-hidden ring-2 transition-all ${
-                        avatarUrl === preset
-                          ? 'ring-brand-600 ring-offset-2 dark:ring-offset-slate-900 scale-105'
-                          : 'ring-transparent hover:ring-slate-300 dark:hover:ring-slate-700 opacity-80 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={preset} alt={`Preset ${idx + 1}`} className="w-12 h-12 object-cover" />
-                    </button>
-                  ))}
+            <form onSubmit={handleSaveProfile} className="space-y-6">
+              {/* Hidden File Input for Device Photo Upload */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+
+              {/* Avatar Chooser & Device Upload Section */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row items-center gap-5">
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative group cursor-pointer shrink-0"
+                    title="Click to select photo from device"
+                  >
+                    <img
+                      src={avatarUrl}
+                      alt={name}
+                      className="w-20 h-20 rounded-2xl object-cover ring-4 ring-brand-500/20 shadow-md group-hover:scale-105 transition-all"
+                    />
+                    <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-semibold gap-1">
+                      <Camera className="w-4 h-4" />
+                      <span>Browse</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-center sm:text-left flex-1">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-center sm:justify-start gap-2">
+                      <Upload className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                      Profile Picture / Corporate Headshot
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Upload an image file directly from your device (JPG, PNG, WebP) or pick an avatar preset below.
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white shadow-xs transition-colors"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>{isUploading ? 'Processing...' : 'Upload From Device'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAvatarUrl(AVATAR_PRESETS[0])}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Reset</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-3">
-                  <input
-                    type="url"
-                    placeholder="Or enter custom image URL"
-                    value={customAvatar}
-                    onChange={(e) => {
-                      setCustomAvatar(e.target.value);
-                      if (e.target.value) setAvatarUrl(e.target.value);
-                    }}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-                  />
+                <div>
+                  <span className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Or Select Preset Avatar
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {AVATAR_PRESETS.map((preset, idx) => (
+                      <button
+                        type="button"
+                        key={idx}
+                        onClick={() => {
+                          setAvatarUrl(preset);
+                          setCustomAvatar('');
+                        }}
+                        className={`relative rounded-xl overflow-hidden ring-2 transition-all cursor-pointer ${
+                          avatarUrl === preset
+                            ? 'ring-brand-600 ring-offset-2 dark:ring-offset-slate-900 scale-105'
+                            : 'ring-transparent hover:ring-slate-300 dark:hover:ring-slate-700 opacity-80 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={preset} alt={`Preset ${idx + 1}`} className="w-11 h-11 object-cover" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

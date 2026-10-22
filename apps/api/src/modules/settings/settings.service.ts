@@ -21,11 +21,11 @@ export const DEFAULT_SYSTEM_SETTINGS: Record<string, any> = {
   passwordResetExpiresMinutes: 30,
 
   // Request Rules
-  minimumNoticeHours: 24,
+  minimumNoticeHours: 0,
   maxPassengerCapacity: 14,
-  allowSameDayRequests: false,
-  allowWeekendRequests: false,
-  allowHolidayRequests: false,
+  allowSameDayRequests: true,
+  allowWeekendRequests: true,
+  allowHolidayRequests: true,
 
   // Request Lifecycle
   requireRequestApproval: true,
@@ -34,13 +34,20 @@ export const DEFAULT_SYSTEM_SETTINGS: Record<string, any> = {
   allowEditPending: true,
   allowCancelAfterApproval: false,
 
-  // Assignment Rules
+  // Assignment Rules - Vehicles
   preventDoubleVehicleAssignment: true,
-  preventDoubleDriverAssignment: true,
   onlyShowAvailableVehicles: true,
+  autoSuggestSuitableVehicle: true,
+  requireVehicleInspectionCheck: true,
+  minFuelLevelPercent: 25,
+
+  // Assignment Rules - Drivers / Chauffeurs
+  preventDoubleDriverAssignment: true,
   onlyShowActiveDrivers: true,
   requireDriverConfirmation: true,
-  autoSuggestSuitableVehicle: true,
+  requireValidDriverLicense: true,
+  maxDailyDriverHours: 10,
+  driverConfirmationTimeoutHours: 4,
 };
 
 @Injectable()
@@ -168,7 +175,8 @@ export class SettingsService {
     if (['forcePasswordChangeAfterReset', 'passwordResetExpiresMinutes'].includes(key)) return 'PASSWORD_RESET';
     if (['minimumNoticeHours', 'maxPassengerCapacity', 'allowSameDayRequests', 'allowWeekendRequests', 'allowHolidayRequests'].includes(key)) return 'REQUEST_RULES';
     if (['requireRequestApproval', 'pendingRequestExpirationHours', 'allowCancelPending', 'allowEditPending', 'allowCancelAfterApproval'].includes(key)) return 'REQUEST_LIFECYCLE';
-    if (['preventDoubleVehicleAssignment', 'preventDoubleDriverAssignment', 'onlyShowAvailableVehicles', 'onlyShowActiveDrivers', 'requireDriverConfirmation', 'autoSuggestSuitableVehicle'].includes(key)) return 'ASSIGNMENT_RULES';
+    if (['preventDoubleVehicleAssignment', 'onlyShowAvailableVehicles', 'autoSuggestSuitableVehicle', 'requireVehicleInspectionCheck', 'minFuelLevelPercent'].includes(key)) return 'VEHICLE_ASSIGNMENT_RULES';
+    if (['preventDoubleDriverAssignment', 'onlyShowActiveDrivers', 'requireDriverConfirmation', 'requireValidDriverLicense', 'maxDailyDriverHours', 'driverConfirmationTimeoutHours'].includes(key)) return 'DRIVER_ASSIGNMENT_RULES';
     return 'GENERAL';
   }
 }

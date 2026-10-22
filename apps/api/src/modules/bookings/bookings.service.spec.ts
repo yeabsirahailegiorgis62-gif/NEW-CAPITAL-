@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BookingsService } from './bookings.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { BookingStatus, UserRole } from '@prisma/client';
 
 describe('BookingsService', () => {
@@ -33,6 +33,7 @@ describe('BookingsService', () => {
     },
     preferredVehicle: null,
     assignments: [],
+    bookingDays: [],
   };
 
   beforeEach(async () => {
@@ -48,6 +49,13 @@ describe('BookingsService', () => {
               findMany: jest.fn(),
               update: jest.fn(),
               count: jest.fn().mockResolvedValue(0),
+            },
+            bookingDay: {
+              update: jest.fn(),
+              updateMany: jest.fn(),
+            },
+            vehicleAssignment: {
+              updateMany: jest.fn(),
             },
             user: {
               findMany: jest.fn().mockResolvedValue([
@@ -71,7 +79,12 @@ describe('BookingsService', () => {
               findMany: jest.fn().mockResolvedValue([]),
               findUnique: jest.fn(),
             },
-            $transaction: jest.fn(),
+            $transaction: jest.fn().mockImplementation(async (cb) => {
+              if (typeof cb === 'function') {
+                return cb(prisma);
+              }
+              return cb;
+            }),
           },
         },
       ],
@@ -119,8 +132,8 @@ describe('BookingsService', () => {
     });
 
     it('should successfully create booking and notify logistics admins', async () => {
-      const departure = new Date(Date.now() + 86400000).toISOString();
-      const returnTime = new Date(Date.now() + 86400000 + 3600000 * 4).toISOString();
+      const departure = new Date(Date.now() + 86400000 * 2).toISOString();
+      const returnTime = new Date(Date.now() + 86400000 * 2 + 3600000 * 4).toISOString();
 
       const result = await service.create('user-1', {
         destination: 'Bole Project Site, Addis Ababa',
@@ -199,6 +212,209 @@ describe('BookingsService', () => {
 
       await expect(service.approve('booking-1', 'admin-1')).rejects.toThrow(
         BadRequestException,
+      );
+    });
+  });
+
+  describe('cancel', () => {
+    const adminUser = {
+      id: 'admin-1',
+      name: 'Yared Logistics',
+      role: UserRole.LOGISTICS_ADMIN,
+    };
+
+    const assignedBooking = {
+      ...mockBooking,
+      status: BookingStatus.ASSIGNED,
+      assignments: [
+        {
+          id: 'assign-1',
+          vehicleId: 'veh-1',
+          driverId: 'driver-1',
+          driverName: 'Dawit Driver',
+          unassignedAt: null,
+          vehicle: {
+            id: 'veh-1',
+            make: 'Toyota',
+            model: 'Hilux Double Cab',
+            registrationNumber: 'AA-3-45678',
+            name: 'Fleet Pickup 01',
+          },
+        },
+      ],
+      bookingDays: [],
+    };
+
+    it('should cancel assigned booking successfully and release vehicle and driver', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue(assignedBooking);
+      (prisma.booking.update as jest.Mock).mockResolvedValue({
+        ...assignedBooking,
+        status: BookingStatus.CANCELLED,
+        cancellationReason: 'Employee Reported an Accident - Note: Hospitalized following minor site incident',
+        cancelledAt: new Date(),
+      });
+
+      const result = await service.cancel('booking-1', adminUser, {
+        reason: 'Employee Reported an Accident',
+        notes: 'Hospitalized following minor site incident',
+      });
+
+      expect(result.status).toBe(BookingStatus.CANCELLED);
+      // Verify atomic booking cancellation update
+      expect(prisma.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'booking-1' },
+          data: expect.objectContaining({
+            status: BookingStatus.CANCELLED,
+            cancellationReason: 'Employee Reported an Accident - Note: Hospitalized following minor site incident',
+          }),
+        }),
+      );
+      // Verify safe resource release
+      expect(prisma.vehicleAssignment.updateMany).toHaveBeenCalledWith({
+        where: { bookingId: 'booking-1', unassignedAt: null },
+        data: { unassignedAt: expect.any(Date) },
+      });
+      // Verify both employee and driver notifications
+      expect(prisma.notification.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            recipientId: assignedBooking.requesterId,
+            type: 'BOOKING_CANCELLED',
+          }),
+        }),
+      );
+      expect(prisma.notification.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            recipientId: 'driver-1',
+            type: 'ASSIGNMENT_CANCELLED',
+          }),
+        }),
+      );
+      // Verify audit log
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'CANCEL_BOOKING',
+            actorId: 'admin-1',
+          }),
+        }),
+      );
+    });
+
+    it('should throw ForbiddenException if driver attempts to cancel booking', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue(assignedBooking);
+
+      await expect(
+        service.cancel('booking-1', { id: 'driver-1', role: UserRole.DRIVER }, 'Driver unavailable'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if unauthorized employee tries to cancel someone else booking', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue(mockBooking);
+
+      await expect(
+        service.cancel('booking-1', { id: 'other-user', role: UserRole.EMPLOYEE }, 'Not my booking'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if employee tries to cancel an already assigned booking directly', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue(assignedBooking);
+
+      await expect(
+        service.cancel('booking-1', { id: 'user-1', role: UserRole.EMPLOYEE }, 'Cancelled trip'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw BadRequestException if trip has already completed', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue({
+        ...assignedBooking,
+        status: BookingStatus.COMPLETED,
+      });
+
+      await expect(
+        service.cancel('booking-1', adminUser, 'Trip no longer needed'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if trip is currently in progress', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue({
+        ...assignedBooking,
+        status: BookingStatus.IN_PROGRESS,
+      });
+
+      await expect(
+        service.cancel('booking-1', adminUser, 'Trip no longer needed'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if booking is already cancelled', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue({
+        ...assignedBooking,
+        status: BookingStatus.CANCELLED,
+      });
+
+      await expect(
+        service.cancel('booking-1', adminUser, 'Trip already cancelled'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should cancel only a specific date in a weekly booking when bookingDayId is provided', async () => {
+      const weeklyBooking = {
+        ...assignedBooking,
+        requestType: 'WEEKLY',
+        bookingDays: [
+          {
+            id: 'day-1',
+            dayOfWeek: 'MONDAY',
+            tripDate: new Date('2026-10-26'),
+            timeSlot: 'MORNING',
+            status: BookingStatus.APPROVED,
+            driverId: 'driver-1',
+            vehicleId: 'veh-1',
+          },
+          {
+            id: 'day-2',
+            dayOfWeek: 'WEDNESDAY',
+            tripDate: new Date('2026-10-28'),
+            timeSlot: 'MORNING',
+            status: BookingStatus.APPROVED,
+            driverId: 'driver-1',
+            vehicleId: 'veh-1',
+          },
+        ],
+      };
+
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue(weeklyBooking);
+
+      await service.cancel('booking-1', adminUser, {
+        reason: 'Employee Unavailable',
+        notes: 'Monday site meeting cancelled',
+        bookingDayId: 'day-1',
+      });
+
+      // Target day updated to CANCELLED
+      expect(prisma.bookingDay.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'day-1' },
+          data: expect.objectContaining({
+            status: BookingStatus.CANCELLED,
+            vehicleId: null,
+            driverId: null,
+          }),
+        }),
+      );
+      // Main booking should NOT be cancelled since Wednesday remains active
+      expect(prisma.booking.update).not.toHaveBeenCalled();
+      // Audit log recorded for BookingDay
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'CANCEL_BOOKING_DAY',
+            entityId: 'day-1',
+          }),
+        }),
       );
     });
   });

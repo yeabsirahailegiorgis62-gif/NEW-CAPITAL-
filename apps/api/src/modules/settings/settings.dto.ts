@@ -123,7 +123,7 @@ export class UpdateSystemSettingsDto {
   @IsBoolean()
   allowCancelAfterApproval?: boolean;
 
-  // Assignment Rules
+  // Assignment Rules - Vehicles
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()
@@ -132,12 +132,30 @@ export class UpdateSystemSettingsDto {
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()
-  preventDoubleDriverAssignment?: boolean;
+  onlyShowAvailableVehicles?: boolean;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()
-  onlyShowAvailableVehicles?: boolean;
+  autoSuggestSuitableVehicle?: boolean;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  requireVehicleInspectionCheck?: boolean;
+
+  @ApiPropertyOptional({ default: 25 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  minFuelLevelPercent?: number;
+
+  // Assignment Rules - Drivers / Chauffeurs
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  preventDoubleDriverAssignment?: boolean;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
@@ -152,7 +170,21 @@ export class UpdateSystemSettingsDto {
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()
-  autoSuggestSuitableVehicle?: boolean;
+  requireValidDriverLicense?: boolean;
+
+  @ApiPropertyOptional({ default: 10 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(24)
+  maxDailyDriverHours?: number;
+
+  @ApiPropertyOptional({ default: 4 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(72)
+  driverConfirmationTimeoutHours?: number;
 }
 
 export class PurgeOperationsDataDto {

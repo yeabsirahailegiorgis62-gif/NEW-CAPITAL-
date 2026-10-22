@@ -25,6 +25,7 @@ import {
   AlertCircle,
   FileText,
   Users,
+  QrCode,
 } from 'lucide-react';
 
 interface EmployeeDashboardProps {
@@ -542,13 +543,32 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                             <Badge status={b.status} size="sm" />
                           </td>
 
-                          <td className="py-3.5 px-4 text-right space-x-1.5">
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                            {onOpenReceipt &&
+                              (b.status === 'APPROVED' ||
+                                b.status === 'ASSIGNED' ||
+                                b.status === 'IN_PROGRESS' ||
+                                b.status === 'COMPLETED') && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenReceipt(b);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors shadow-2xs mr-1.5"
+                                  title="View official digital receipt & QR pass"
+                                >
+                                  <QrCode className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">Receipt</span>
+                                </button>
+                              )}
+
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => setSelectedVoucherBooking(b)}
                               title="Print A4 Transport Voucher"
-                              className="text-slate-600 hover:text-slate-900 dark:text-slate-300"
+                              className="text-slate-600 hover:text-slate-900 dark:text-slate-300 mr-1"
                             >
                               <Printer className="w-3.5 h-3.5" />
                             </Button>

@@ -32,6 +32,7 @@ import {
 interface LogisticsDashboardProps {
   onNavigateTab: (tab: string) => void;
   onOpenBooking: (booking: Booking) => void;
+  onAssignVehicle?: (booking: Booking) => void;
 }
 
 // ── Reusable SVG Donut Chart Component ──
@@ -120,6 +121,7 @@ const SvgDonutChart: React.FC<{
 export const LogisticsDashboard: React.FC<LogisticsDashboardProps> = ({
   onNavigateTab,
   onOpenBooking,
+  onAssignVehicle,
 }) => {
   const [stats, setStats] = useState<LogisticsDashboardStats | null>(null);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
@@ -506,48 +508,52 @@ export const LogisticsDashboard: React.FC<LogisticsDashboardProps> = ({
                           <Badge status={b.status} size="sm" />
                         </td>
 
-                        <td className="py-3.5 px-4 text-right space-x-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedVoucherBooking(b)}
-                            title="Print A4 Transport Voucher"
-                            className="text-slate-600 hover:text-slate-900 dark:text-slate-300"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </Button>
-
-                          {isPending && (
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => onOpenBooking(b)}
-                              className="bg-amber-600 hover:bg-amber-700 text-white"
-                            >
-                              Review
-                            </Button>
-                          )}
-
-                          {isApproved && (
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => onOpenBooking(b)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                              Assign
-                            </Button>
-                          )}
-
-                          {!isPending && !isApproved && (
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => onOpenBooking(b)}
+                              onClick={() => setSelectedVoucherBooking(b)}
+                              title="Print A4 Transport Voucher"
+                              leftIcon={<Printer className="w-3.5 h-3.5 text-slate-500" />}
+                              className="h-[38px] px-2.5 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
                             >
-                              Open
+                              <span className="hidden md:inline text-xs">Print</span>
                             </Button>
-                          )}
+
+                            {isPending && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => onOpenBooking(b)}
+                                className="h-[38px] px-3.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs"
+                              >
+                                Review Request
+                              </Button>
+                            )}
+
+                            {isApproved && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => (onAssignVehicle ? onAssignVehicle(b) : onOpenBooking(b))}
+                                className="h-[38px] px-3.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-xs"
+                              >
+                                Assign Vehicle
+                              </Button>
+                            )}
+
+                            {!isPending && !isApproved && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onOpenBooking(b)}
+                                className="h-[38px] px-3 text-xs font-semibold border-slate-300 dark:border-slate-700"
+                              >
+                                Details
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

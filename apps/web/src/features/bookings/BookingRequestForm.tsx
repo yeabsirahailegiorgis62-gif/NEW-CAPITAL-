@@ -342,7 +342,10 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
         `Booking ${booking.bookingReference} is now pending Logistics review.`
       );
     } catch (err: any) {
-      setError(err?.message || 'Failed to submit booking request. Please check inputs.');
+      const msg = err?.message || 'Failed to submit booking request. Please check inputs.';
+      setError(msg);
+      toast.error('Booking Submission Failed', msg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsLoading(false);
     }
@@ -1427,6 +1430,23 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
             </Card>
           </div>
         </div>
+
+        {/* Footer Error Notice if any */}
+        {error && (
+          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-semibold flex items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300 hover:underline px-2 py-1"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* ────────────────────────────────────────────────────────── */}
         {/* SECTION 2: Refined, Modern Bottom Action Bar               */}

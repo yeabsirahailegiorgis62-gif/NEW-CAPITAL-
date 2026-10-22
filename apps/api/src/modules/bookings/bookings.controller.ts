@@ -4,6 +4,7 @@ import { BookingsService } from './bookings.service';
 import {
   CreateBookingDto,
   RejectBookingDto,
+  CancelBookingDto,
   AssignVehicleDto,
   StartTripDto,
   CompleteTripDto,
@@ -83,8 +84,8 @@ export class BookingsController {
 
   @Patch(':id/cancel')
   @ApiOperation({ summary: 'Cancel booking request' })
-  cancel(@Param('id') id: string, @CurrentUser() user: any, @Body('reason') reason?: string) {
-    return this.bookingsService.cancel(id, user, reason);
+  cancel(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: CancelBookingDto) {
+    return this.bookingsService.cancel(id, user, dto);
   }
 
   @Post(':id/approve')

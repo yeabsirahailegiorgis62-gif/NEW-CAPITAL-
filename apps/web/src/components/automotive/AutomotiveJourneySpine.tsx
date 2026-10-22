@@ -8,11 +8,10 @@ interface AutomotiveJourneySpineProps {
 
 export const STATIONS = [
   { id: 'command-hub', km: '00.0', title: 'Grand Command Hub', sub: 'Addis Ababa HQ Enclave', icon: '01' },
-  { id: 'telematics-corridor', km: '04.2', title: 'Telematics Corridor', sub: 'Live Digital Twin Grid', icon: '02' },
-  { id: 'fleet-terminal', km: '08.5', title: 'Executive Fleet Terminal', sub: 'Vehicle Inventory & Specs', icon: '03' },
-  { id: 'allocation-engine', km: '12.8', title: 'Allocation Highway', sub: 'Conflict-Free Timeline Engine', icon: '04' },
-  { id: 'operations-depot', km: '16.4', title: 'Operations & Maintenance', sub: 'Odometer & Service Logs', icon: '05' },
-  { id: 'booking-portal', km: '20.0', title: 'Dispatch Express Station', sub: 'Instant Trip Reservation', icon: '06' },
+  { id: 'fleet-terminal', km: '04.5', title: 'Executive Fleet Terminal', sub: 'Vehicle Inventory & Specs', icon: '02' },
+  { id: 'allocation-engine', km: '09.8', title: 'Allocation Highway', sub: 'Conflict-Free Timeline Engine', icon: '03' },
+  { id: 'operations-depot', km: '14.4', title: 'Operations & Maintenance', sub: 'Odometer & Service Logs', icon: '04' },
+  { id: 'booking-portal', km: '18.0', title: 'Dispatch Express Station', sub: 'Instant Trip Reservation', icon: '05' },
 ];
 
 export const AutomotiveJourneySpine: React.FC<AutomotiveJourneySpineProps> = ({

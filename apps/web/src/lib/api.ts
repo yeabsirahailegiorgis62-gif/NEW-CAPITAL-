@@ -198,10 +198,14 @@ class ApiClient {
     return this.request<Booking>(`/bookings/${id}`);
   }
 
-  async cancelBooking(id: string, reason?: string): Promise<Booking> {
+  async cancelBooking(
+    id: string,
+    data?: string | { reason: string; notes?: string; bookingDayId?: string }
+  ): Promise<Booking> {
+    const payload = typeof data === 'string' ? { reason: data } : data || {};
     return this.request<Booking>(`/bookings/${id}/cancel`, {
       method: 'PATCH',
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -417,6 +421,7 @@ class ApiClient {
     phone?: string;
     jobTitle?: string;
     licenseNumber?: string;
+    avatarUrl?: string;
   }): Promise<User> {
     return this.request<User>('/users', {
       method: 'POST',

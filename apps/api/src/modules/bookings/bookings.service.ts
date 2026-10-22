@@ -39,9 +39,9 @@ export class BookingsService {
       }
     });
 
-    const minNoticeHours = settingsMap.get('minimumNoticeHours') ?? 24;
-    const allowSameDay = settingsMap.get('allowSameDayRequests') ?? false;
-    const allowWeekend = settingsMap.get('allowWeekendRequests') ?? false;
+    const minNoticeHours = settingsMap.get('minimumNoticeHours') ?? 0;
+    const allowSameDay = settingsMap.get('allowSameDayRequests') ?? true;
+    const allowWeekend = settingsMap.get('allowWeekendRequests') ?? true;
     const maxCapacity = settingsMap.get('maxPassengerCapacity') ?? 14;
 
     const requester = await this.prisma.user.findUnique({
@@ -69,17 +69,18 @@ export class BookingsService {
     // Notice validation
     const hoursNotice = (departure.getTime() - now.getTime()) / (1000 * 60 * 60);
     const isSameDay = departure.toDateString() === now.toDateString();
+    const isHighPriority = dto.priority === 'HIGH' || dto.priority === 'VIP' || dto.priority === 'URGENT';
 
-    if (!allowSameDay && isSameDay) {
+    if (!allowSameDay && isSameDay && !isHighPriority) {
       throw new BadRequestException('Same-day transport requests are currently not permitted by system policy.');
     }
 
-    if (hoursNotice < minNoticeHours && !isSameDay) {
+    if (minNoticeHours > 0 && hoursNotice < minNoticeHours && !isSameDay && !isHighPriority) {
       throw new BadRequestException(`Requests require a minimum notice of ${minNoticeHours} hours in advance.`);
     }
 
     const depDay = departure.getDay(); // 0 is Sun, 6 is Sat
-    if (!allowWeekend && (depDay === 0 || depDay === 6)) {
+    if (!allowWeekend && (depDay === 0 || depDay === 6) && !isHighPriority) {
       throw new BadRequestException('Weekend transport requests are not permitted by system policy.');
     }
 
@@ -430,51 +431,248 @@ export class BookingsService {
   }
 
   /**
-   * Cancel booking
+   * Cancel booking or specific booking day (Part of Logistics Admin & Requester cancellation workflow)
    */
-  async cancel(id: string, user: any, reason?: string) {
+  async cancel(id: string, user: any, dtoOrReason?: CancelBookingDto | string) {
     const booking = await this.findOne(id, user);
 
+    // 1. Role & authorization validation
+    if (user.role === UserRole.DRIVER) {
+      throw new ForbiddenException('Drivers cannot cancel bookings');
+    }
+
+    if (user.role === UserRole.EMPLOYEE) {
+      if (booking.requesterId !== user.id) {
+        throw new ForbiddenException('You cannot cancel another employee\'s booking');
+      }
+      if (booking.status === BookingStatus.ASSIGNED) {
+        throw new ForbiddenException('Assigned bookings can only be cancelled by Logistics Administration');
+      }
+    }
+
+    // 2. Operational state validation
     if (booking.status === BookingStatus.COMPLETED) {
-      throw new BadRequestException('Cannot cancel a completed booking');
+      throw new BadRequestException('Cannot cancel a completed booking. Trip operational history is preserved.');
     }
     if (booking.status === BookingStatus.IN_PROGRESS) {
-      throw new BadRequestException('Cannot cancel an active trip in progress. Please complete the return instead.');
+      throw new BadRequestException('Cannot cancel an active trip in progress. Please complete the return or record delay/incident instead.');
     }
     if (booking.status === BookingStatus.CANCELLED) {
       throw new BadRequestException('Booking is already cancelled');
     }
 
-    const cancelled = await this.prisma.booking.update({
-      where: { id },
-      data: {
-        status: BookingStatus.CANCELLED,
-        cancelledAt: new Date(),
-        cancellationReason: reason || null,
-      },
-      include: { requester: true, assignments: { where: { unassignedAt: null } } },
-    });
+    // 3. Extract inputs
+    let reasonText = '';
+    let notesText: string | undefined = undefined;
+    let targetBookingDayId: string | undefined = undefined;
 
-    // Unassign active vehicle
-    await this.prisma.vehicleAssignment.updateMany({
-      where: { bookingId: id, unassignedAt: null },
-      data: { unassignedAt: new Date() },
-    });
+    if (typeof dtoOrReason === 'string') {
+      reasonText = dtoOrReason.trim();
+    } else if (dtoOrReason && typeof dtoOrReason === 'object') {
+      reasonText = (dtoOrReason.reason || dtoOrReason.cancellationReason || '').trim();
+      notesText = dtoOrReason.notes?.trim();
+      targetBookingDayId = dtoOrReason.bookingDayId?.trim();
+    }
 
-    // Audit log
-    await this.prisma.auditLog.create({
-      data: {
-        actorId: user.id,
-        actorName: user.name,
-        entityType: 'Booking',
-        entityId: id,
-        action: 'CANCEL_BOOKING',
-        previousValues: { status: booking.status },
-        newValues: { status: BookingStatus.CANCELLED, reason },
-      },
-    });
+    if (!reasonText) {
+      reasonText = 'Logistics Administrative Cancellation';
+    }
 
-    return cancelled;
+    const fullReason = notesText ? `${reasonText} - Note: ${notesText}` : reasonText;
+
+    // 4. Perform atomic cancellation in transaction
+    return this.prisma.$transaction(async (tx) => {
+      // Find latest or active assignment to notify driver
+      const activeAssignment =
+        booking.assignments.find((a: any) => !a.unassignedAt) ||
+        booking.assignments[0];
+      const assignedDriverId = activeAssignment?.driverId;
+      const vehicleName = activeAssignment?.vehicle
+        ? `${activeAssignment.vehicle.make} ${activeAssignment.vehicle.model} (${activeAssignment.vehicle.registrationNumber})`
+        : 'Assigned Vehicle';
+
+      // ── CASE A: Cancel specific BookingDay in weekly program ──
+      if (targetBookingDayId && booking.bookingDays && booking.bookingDays.length > 0) {
+        const targetDay = booking.bookingDays.find((d: any) => d.id === targetBookingDayId);
+        if (!targetDay) {
+          throw new NotFoundException('Selected trip day was not found in this weekly schedule');
+        }
+        if (targetDay.status === BookingStatus.CANCELLED) {
+          throw new BadRequestException('This scheduled trip date is already cancelled');
+        }
+        if (targetDay.status === BookingStatus.COMPLETED) {
+          throw new BadRequestException('Cannot cancel a completed trip date');
+        }
+
+        // Update target day
+        await tx.bookingDay.update({
+          where: { id: targetBookingDayId },
+          data: {
+            status: BookingStatus.CANCELLED,
+            vehicleId: null,
+            driverId: null,
+            notes: notesText ? `Cancelled (${reasonText}) - Note: ${notesText}` : `Cancelled (${reasonText})`,
+          },
+        });
+
+        // Check if all remaining days are cancelled
+        const otherActiveDays = booking.bookingDays.filter(
+          (d: any) => d.id !== targetBookingDayId && d.status !== BookingStatus.CANCELLED
+        );
+        const allDaysNowCancelled = otherActiveDays.length === 0;
+
+        if (allDaysNowCancelled) {
+          await tx.booking.update({
+            where: { id },
+            data: {
+              status: BookingStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancellationReason: `All scheduled trips cancelled: ${fullReason}`,
+            },
+          });
+
+          // Unassign any remaining active vehicle assignments
+          await tx.vehicleAssignment.updateMany({
+            where: { bookingId: id, unassignedAt: null },
+            data: { unassignedAt: new Date() },
+          });
+        }
+
+        const dateStr = new Date(targetDay.tripDate).toLocaleDateString('en-GB');
+
+        // Notify requester for specific day
+        await tx.notification.create({
+          data: {
+            recipientId: booking.requesterId,
+            bookingId: id,
+            type: 'BOOKING_DAY_CANCELLED',
+            title: 'Weekly Trip Date Cancelled',
+            message: `Your scheduled trip for ${targetDay.dayOfWeek} (${dateStr}) in booking #${booking.bookingReference} has been cancelled.\nReason: ${fullReason}`,
+          },
+        });
+
+        // Notify driver for specific day if assigned
+        const dayDriverId = targetDay.driverId || assignedDriverId;
+        if (dayDriverId) {
+          await tx.notification.create({
+            data: {
+              recipientId: dayDriverId,
+              bookingId: id,
+              type: 'ASSIGNMENT_CANCELLED',
+              title: 'Scheduled Mission Date Cancelled',
+              message: `Your mission for ${targetDay.dayOfWeek} (${dateStr}) on trip #${booking.bookingReference} (${booking.destination}) has been cancelled.\nReason: ${fullReason}`,
+            },
+          });
+        }
+
+        // Audit log
+        await tx.auditLog.create({
+          data: {
+            actorId: user.id,
+            actorName: user.name,
+            entityType: 'BookingDay',
+            entityId: targetBookingDayId,
+            action: 'CANCEL_BOOKING_DAY',
+            previousValues: { status: targetDay.status },
+            newValues: {
+              status: BookingStatus.CANCELLED,
+              dayOfWeek: targetDay.dayOfWeek,
+              tripDate: targetDay.tripDate,
+              reason: reasonText,
+              notes: notesText,
+              allDaysNowCancelled,
+            },
+          },
+        });
+
+        return this.findOne(id, user);
+      }
+
+      // ── CASE B: Full Booking Cancellation ──
+      const cancelledBooking = await tx.booking.update({
+        where: { id },
+        data: {
+          status: BookingStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancellationReason: fullReason,
+        },
+        include: {
+          requester: {
+            select: { id: true, name: true, email: true },
+          },
+          assignments: { where: { unassignedAt: null } },
+        },
+      });
+
+      // Safely release active vehicle assignments
+      await tx.vehicleAssignment.updateMany({
+        where: { bookingId: id, unassignedAt: null },
+        data: { unassignedAt: new Date() },
+      });
+
+      // Update all associated booking days that are not already completed
+      if (booking.bookingDays && booking.bookingDays.length > 0) {
+        await tx.bookingDay.updateMany({
+          where: {
+            bookingId: id,
+            status: { not: BookingStatus.COMPLETED },
+          },
+          data: {
+            status: BookingStatus.CANCELLED,
+            vehicleId: null,
+            driverId: null,
+            notes: notesText ? `Cancelled: ${reasonText} - ${notesText}` : `Cancelled: ${reasonText}`,
+          },
+        });
+      }
+
+      // Requester notification
+      await tx.notification.create({
+        data: {
+          recipientId: booking.requesterId,
+          bookingId: id,
+          type: 'BOOKING_CANCELLED',
+          title: 'Transport Request Cancelled',
+          message: `Your transport request #${booking.bookingReference} for ${booking.destination} has been cancelled by logistics administration.\n\nReason: ${fullReason}`,
+        },
+      });
+
+      // Driver notification if assigned
+      if (assignedDriverId) {
+        const scheduleStr = new Date(booking.departureAt).toLocaleDateString('en-GB');
+        await tx.notification.create({
+          data: {
+            recipientId: assignedDriverId,
+            bookingId: id,
+            type: 'ASSIGNMENT_CANCELLED',
+            title: 'Trip Assignment Cancelled',
+            message: `Mission #${booking.bookingReference} (${booking.destination}) scheduled for ${scheduleStr} has been cancelled by logistics (${fullReason}). You and ${vehicleName} have been safely released for new dispatch.`,
+          },
+        });
+      }
+
+      // Audit Log
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          actorName: user.name,
+          entityType: 'Booking',
+          entityId: id,
+          action: 'CANCEL_BOOKING',
+          previousValues: { status: booking.status },
+          newValues: {
+            status: BookingStatus.CANCELLED,
+            reason: reasonText,
+            notes: notesText,
+            cancelledAt: new Date(),
+            cancelledById: user.id,
+            cancelledByName: user.name,
+          },
+        },
+      });
+
+      return cancelledBooking;
+    });
   }
 
   /**
@@ -572,41 +770,94 @@ export class BookingsService {
   }
 
   /**
-   * Concurrency-safe atomic vehicle & driver assignment with double-booking prevention (Part 3)
+   * Concurrency-safe atomic vehicle & driver assignment with double-booking prevention & multi-day verification
    */
   async assignVehicle(bookingId: string, actor: any, dto: AssignVehicleDto) {
+    // 0. Authorization verification
+    if (actor.role !== UserRole.LOGISTICS_ADMIN && actor.role !== UserRole.SYSTEM_ADMIN) {
+      throw new ForbiddenException('Only logistics officers and system administrators are authorized to assign fleet resources.');
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      // 1. Fetch booking with requester and weekly itinerary days
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
-        include: { requester: true },
+        include: {
+          requester: true,
+          bookingDays: true,
+          assignments: {
+            where: { unassignedAt: null },
+            include: { vehicle: true, driver: true },
+          },
+        },
       });
 
-      if (!booking) throw new NotFoundException('Booking not found');
+      if (!booking) throw new NotFoundException('Transport request not found.');
 
+      // 2. Validate request status
+      if (booking.status === BookingStatus.CANCELLED) {
+        throw new BadRequestException('Cannot assign vehicle: this transport request has already been cancelled.');
+      }
+      if (booking.status === BookingStatus.REJECTED) {
+        throw new BadRequestException('Cannot assign vehicle: this transport request was rejected.');
+      }
+      if (booking.status === BookingStatus.COMPLETED) {
+        throw new BadRequestException('Cannot assign vehicle: this trip has already been completed.');
+      }
       if (booking.status !== BookingStatus.APPROVED && booking.status !== BookingStatus.ASSIGNED) {
-        throw new BadRequestException(`Cannot assign vehicle to booking in ${booking.status} status. Request must be APPROVED first.`);
+        throw new BadRequestException(`Cannot assign vehicle: request is currently in ${booking.status} status. Request must be APPROVED by logistics first.`);
       }
 
+      // Validate travel dates
+      const depTime = new Date(booking.departureAt).getTime();
+      const retTime = new Date(booking.expectedReturnAt).getTime();
+      if (isNaN(depTime) || isNaN(retTime) || retTime <= depTime) {
+        throw new BadRequestException('Invalid trip schedule: expected return time must be strictly after departure time.');
+      }
+
+      // 3. Validate vehicle
       const vehicle = await tx.vehicle.findUnique({
         where: { id: dto.vehicleId },
       });
 
-      if (!vehicle) throw new NotFoundException('Vehicle not found');
+      if (!vehicle) throw new NotFoundException('Selected vehicle not found in fleet directory.');
 
-      if (vehicle.operationalStatus !== VehicleOperationalStatus.ACTIVE || vehicle.hasSafetyAlert) {
+      if (vehicle.operationalStatus !== VehicleOperationalStatus.ACTIVE) {
+        const readableStatus = vehicle.operationalStatus.toLowerCase().replace('_', ' ');
         throw new BadRequestException(
-          `Vehicle ${vehicle.name} (${vehicle.registrationNumber}) is currently ${vehicle.operationalStatus.toLowerCase().replace('_', ' ')}${vehicle.hasSafetyAlert ? ' with active safety alert' : ''} and cannot be assigned.`,
+          `Vehicle ${vehicle.name} (${vehicle.registrationNumber}) is unavailable: currently marked as ${readableStatus} and cannot be assigned to trips.`,
+        );
+      }
+
+      if (vehicle.hasSafetyAlert) {
+        throw new BadRequestException(
+          `Vehicle ${vehicle.name} (${vehicle.registrationNumber}) is unavailable: vehicle has an active safety alert or critical unresolved maintenance concern.`,
         );
       }
 
       if (vehicle.passengerCapacity < booking.passengerCount) {
         throw new BadRequestException(
-          `Vehicle capacity (${vehicle.passengerCapacity} seats) is insufficient for ${booking.passengerCount} passengers.`,
+          `Vehicle capacity is insufficient: ${vehicle.name} has ${vehicle.passengerCapacity} passenger seats, but ${booking.passengerCount} passengers were requested.`,
         );
       }
 
-      // Check vehicle overlapping assignments
-      const overlappingVehicle = await tx.vehicleAssignment.findFirst({
+      // Load system assignment policies
+      const settingsRecords = await tx.systemSetting.findMany();
+      const settingsMap = new Map<string, any>();
+      settingsRecords.forEach((s) => {
+        try {
+          settingsMap.set(s.key, JSON.parse(s.value));
+        } catch {
+          settingsMap.set(s.key, s.value);
+        }
+      });
+      const preventDoubleVehicle = settingsMap.get('preventDoubleVehicleAssignment') ?? true;
+      const preventDoubleDriver = settingsMap.get('preventDoubleDriverAssignment') ?? true;
+      const requireValidLicense = settingsMap.get('requireValidDriverLicense') ?? true;
+
+      // 4. Validate Vehicle Overlap across whole interval
+      if (preventDoubleVehicle) {
+        const overlappingVehicleAssignment = await tx.vehicleAssignment.findFirst({
         where: {
           vehicleId: dto.vehicleId,
           unassignedAt: null,
@@ -617,28 +868,105 @@ export class BookingsService {
             expectedReturnAt: { gt: booking.departureAt },
           },
         },
-        include: { booking: true },
+        include: {
+          booking: {
+            select: { id: true, bookingReference: true, destination: true, departureAt: true, expectedReturnAt: true },
+          },
+        },
       });
 
-      if (overlappingVehicle) {
+      if (overlappingVehicleAssignment) {
         throw new ConflictException(
-          `Vehicle ${vehicle.name} (${vehicle.registrationNumber}) is already assigned to booking #${overlappingVehicle.booking.bookingReference} for an overlapping period.`,
+          `Vehicle unavailable: ${vehicle.name} (${vehicle.registrationNumber}) is already assigned to trip #${overlappingVehicleAssignment.booking.bookingReference} (${overlappingVehicleAssignment.booking.destination}) during this schedule.`,
+        );
+      }
+      }
+
+      // 5. Validate Vehicle Overlap on specific BookingDays
+      const overlappingBookingDayVehicle = await tx.bookingDay.findFirst({
+        where: {
+          vehicleId: dto.vehicleId,
+          bookingId: { not: bookingId },
+          status: { in: [BookingStatus.APPROVED, BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
+          booking: {
+            status: { in: [BookingStatus.APPROVED, BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
+          },
+          tripDate: {
+            gte: new Date(new Date(booking.departureAt).setHours(0, 0, 0, 0)),
+            lte: new Date(new Date(booking.expectedReturnAt).setHours(23, 59, 59, 999)),
+          },
+        },
+        include: {
+          booking: {
+            select: { id: true, bookingReference: true, destination: true },
+          },
+        },
+      });
+
+      if (overlappingBookingDayVehicle) {
+        const conflictDateStr = new Date(overlappingBookingDayVehicle.tripDate).toLocaleDateString('en-GB');
+        throw new ConflictException(
+          `Vehicle unavailable: ${vehicle.name} (${vehicle.registrationNumber}) is already allocated to booking #${overlappingBookingDayVehicle.booking.bookingReference} on ${conflictDateStr} (${overlappingBookingDayVehicle.timeSlot}).`,
         );
       }
 
-      // Check driver overlap if driverId is supplied
-      let driverName = dto.driverName || null;
-      let driverPhone = dto.driverPhone || null;
+      // 6. Multi-day Weekly Verification: Verify every individual requested day
+      if (booking.bookingDays && booking.bookingDays.length > 0) {
+        for (const reqDay of booking.bookingDays) {
+          const dayStart = new Date(reqDay.tripDate);
+          dayStart.setHours(0, 0, 0, 0);
+          const dayEnd = new Date(reqDay.tripDate);
+          dayEnd.setHours(23, 59, 59, 999);
+
+          // Check if vehicle has any assignment that intersects this day
+          const dayVehicleConflict = await tx.vehicleAssignment.findFirst({
+            where: {
+              vehicleId: dto.vehicleId,
+              unassignedAt: null,
+              booking: {
+                id: { not: bookingId },
+                status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
+                departureAt: { lte: dayEnd },
+                expectedReturnAt: { gte: dayStart },
+              },
+            },
+            include: { booking: true },
+          });
+
+          if (dayVehicleConflict) {
+            const conflictDate = new Date(reqDay.tripDate).toLocaleDateString('en-GB');
+            throw new ConflictException(
+              `One or more requested weekly dates conflict with an existing assignment: ${vehicle.name} is already assigned on ${reqDay.dayOfWeek} (${conflictDate}) to trip #${dayVehicleConflict.booking.bookingReference}.`,
+            );
+          }
+        }
+      }
+
+      // 7. Validate Driver Availability (if assigned)
+      let driverName = dto.driverName ? dto.driverName.trim() : null;
+      let driverPhone = dto.driverPhone ? dto.driverPhone.trim() : null;
 
       if (dto.driverId) {
         const driver = await tx.user.findUnique({ where: { id: dto.driverId } });
-        if (!driver || !driver.isActive) {
-          throw new BadRequestException('Selected driver is inactive or does not exist');
+        if (!driver) {
+          throw new NotFoundException('Selected chauffeur not found in user directory.');
         }
-        driverName = driver.name;
-        driverPhone = driver.phone || dto.driverPhone || null;
+        if (!driver.isActive) {
+          throw new BadRequestException(`Selected chauffeur ${driver.name} is currently inactive or ineligible.`);
+        }
 
-        const driverOverlap = await tx.vehicleAssignment.findFirst({
+        if (requireValidLicense && (!driver.licenseNumber || !driver.licenseNumber.trim())) {
+          throw new BadRequestException(
+            `Driver assignment policy violation: ${driver.name} does not have a verified commercial driver license on file. System policy requires a valid license for all assigned chauffeurs.`,
+          );
+        }
+
+        driverName = driver.name;
+        driverPhone = driverPhone || driver.phone || null;
+
+        // Check driver overlapping vehicle assignments
+        if (preventDoubleDriver) {
+          const driverOverlap = await tx.vehicleAssignment.findFirst({
           where: {
             driverId: dto.driverId,
             unassignedAt: null,
@@ -650,23 +978,104 @@ export class BookingsService {
               expectedReturnAt: { gt: booking.departureAt },
             },
           },
-          include: { booking: true },
+          include: {
+            booking: {
+              select: { id: true, bookingReference: true, destination: true },
+            },
+          },
         });
 
         if (driverOverlap) {
           throw new ConflictException(
-            `Driver ${driver.name} is already assigned to overlapping mission #${driverOverlap.booking.bookingReference} (${driverOverlap.booking.destination}).`,
+            `Driver unavailable: ${driver.name} is already assigned to another trip during this schedule (#${driverOverlap.booking.bookingReference} to ${driverOverlap.booking.destination}).`,
           );
+        }
+
+        // Check driver overlapping booking days
+        const driverDayOverlap = await tx.bookingDay.findFirst({
+          where: {
+            driverId: dto.driverId,
+            bookingId: { not: bookingId },
+            status: { in: [BookingStatus.APPROVED, BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
+            booking: {
+              status: { in: [BookingStatus.APPROVED, BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
+            },
+            tripDate: {
+              gte: new Date(new Date(booking.departureAt).setHours(0, 0, 0, 0)),
+              lte: new Date(new Date(booking.expectedReturnAt).setHours(23, 59, 59, 999)),
+            },
+          },
+          include: {
+            booking: { select: { id: true, bookingReference: true, destination: true } },
+          },
+        });
+
+        if (driverDayOverlap) {
+          const conflictDate = new Date(driverDayOverlap.tripDate).toLocaleDateString('en-GB');
+          throw new ConflictException(
+            `Driver unavailable: ${driver.name} is already allocated to booking #${driverDayOverlap.booking.bookingReference} on ${conflictDate}.`,
+          );
+        }
+
+        // Check driver against every weekly day if weekly booking
+        if (booking.bookingDays && booking.bookingDays.length > 0) {
+          for (const reqDay of booking.bookingDays) {
+            const dayStart = new Date(reqDay.tripDate);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(reqDay.tripDate);
+            dayEnd.setHours(23, 59, 59, 999);
+
+            const dayDriverConflict = await tx.vehicleAssignment.findFirst({
+              where: {
+                driverId: dto.driverId,
+                unassignedAt: null,
+                status: { in: ['PENDING_CONFIRMATION', 'CONFIRMED'] },
+                booking: {
+                  id: { not: bookingId },
+                  status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
+                  departureAt: { lte: dayEnd },
+                  expectedReturnAt: { gte: dayStart },
+                },
+              },
+              include: { booking: true },
+            });
+
+            if (dayDriverConflict) {
+              const conflictDate = new Date(reqDay.tripDate).toLocaleDateString('en-GB');
+              throw new ConflictException(
+                `Driver unavailable: ${driver.name} has a conflicting assignment on ${reqDay.dayOfWeek} (${conflictDate}) for trip #${dayDriverConflict.booking.bookingReference}.`,
+              );
+            }
+          }
+        }
         }
       }
 
-      // Unassign existing assignment if reassigning
-      await tx.vehicleAssignment.updateMany({
-        where: { bookingId, unassignedAt: null },
-        data: { unassignedAt: new Date() },
-      });
+      // 8. Safe Reassignment Handling: archive prior active assignment
+      const previousAssignment = booking.assignments?.[0];
+      const isReassignment = !!previousAssignment;
 
-      // Ensure booking has verification token
+      if (isReassignment) {
+        await tx.vehicleAssignment.updateMany({
+          where: { bookingId, unassignedAt: null },
+          data: { unassignedAt: new Date() },
+        });
+
+        // Notify previous driver of unassignment if driver changed
+        if (previousAssignment.driverId && previousAssignment.driverId !== dto.driverId) {
+          await tx.notification.create({
+            data: {
+              recipientId: previousAssignment.driverId,
+              bookingId,
+              type: 'ASSIGNMENT_REASSIGNED',
+              title: 'Mission Assignment Reallocated',
+              message: `Your assignment to trip #${booking.bookingReference} (${booking.destination}) was reallocated by logistics dispatch.`,
+            },
+          });
+        }
+      }
+
+      // 9. Ensure booking has persistent verification token
       if (!booking.verificationToken) {
         await tx.booking.update({
           where: { id: bookingId },
@@ -674,7 +1083,7 @@ export class BookingsService {
         });
       }
 
-      // Create new assignment
+      // 10. Create new active assignment
       const assignment = await tx.vehicleAssignment.create({
         data: {
           bookingId,
@@ -683,55 +1092,77 @@ export class BookingsService {
           driverId: dto.driverId || null,
           driverName,
           driverPhone,
-          assignmentNotes: dto.assignmentNotes || null,
+          assignmentNotes: dto.assignmentNotes?.trim() || null,
           status: dto.driverId ? 'PENDING_CONFIRMATION' : 'CONFIRMED',
         },
         include: { vehicle: true, driver: true },
       });
 
+      // 11. Update booking status
       await tx.booking.update({
         where: { id: bookingId },
         data: { status: BookingStatus.ASSIGNED },
       });
 
-      // Notify requester
+      // 12. Synchronize all associated bookingDays
+      if (booking.bookingDays && booking.bookingDays.length > 0) {
+        await tx.bookingDay.updateMany({
+          where: { bookingId },
+          data: {
+            vehicleId: dto.vehicleId,
+            driverId: dto.driverId || null,
+            status: BookingStatus.APPROVED,
+          },
+        });
+      }
+
+      // 13. Notify requester
       const bookingDateStr = new Date(booking.departureAt).toLocaleDateString('en-GB');
       await tx.notification.create({
         data: {
           recipientId: booking.requesterId,
           bookingId,
           type: 'VEHICLE_ASSIGNED',
-          title: 'Vehicle Booking Approved & Assigned',
-          message: `Your vehicle booking has been approved.\n\nAssigned Vehicle: ${vehicle.make} ${vehicle.model} (${vehicle.name})\nRegistration: ${vehicle.registrationNumber}\nBooking Date: ${bookingDateStr}\nReference: ${booking.bookingReference}${driverName ? `\nAssigned Driver: ${driverName}` : ''}`,
+          title: isReassignment ? 'Vehicle Booking Reassigned' : 'Vehicle Booking Approved & Assigned',
+          message: `Your transport request has been ${isReassignment ? 'reassigned' : 'approved'}.\n\nAssigned Vehicle: ${vehicle.make} ${vehicle.model} (${vehicle.name})\nPlate: ${vehicle.registrationNumber}\nTravel Schedule: ${bookingDateStr}\nReference: ${booking.bookingReference}${driverName ? `\nAssigned Driver: ${driverName}` : '\nDriver Mode: Self-Driven'}`,
         },
       });
 
-      // Notify driver if assigned
+      // 14. Notify driver if corporate driver is assigned
       if (dto.driverId) {
         await tx.notification.create({
           data: {
             recipientId: dto.driverId,
             bookingId,
             type: 'DRIVER_CONFIRMATION_REQUIRED',
-            title: 'New Mission Assignment Pending Confirmation',
-            message: `You have been assigned to trip ${booking.bookingReference} to ${booking.destination} on ${bookingDateStr}. Please confirm or decline in your Driver Portal.`,
+            title: isReassignment ? 'Updated Mission Assignment' : 'New Mission Assignment Pending Confirmation',
+            message: `You have been assigned to trip #${booking.bookingReference} to ${booking.destination} on ${bookingDateStr}. Please confirm or decline in your Driver Portal.`,
           },
         });
       }
 
+      // 15. Record comprehensive audit log
       await tx.auditLog.create({
         data: {
           actorId: actor.id,
           actorName: actor.name,
           entityType: 'Booking',
           entityId: bookingId,
-          action: 'ASSIGN_VEHICLE',
-          previousValues: { status: booking.status },
+          action: isReassignment ? 'REASSIGN_VEHICLE' : 'ASSIGN_VEHICLE',
+          previousValues: isReassignment
+            ? {
+                vehicle: previousAssignment.vehicle?.name,
+                plate: previousAssignment.vehicle?.registrationNumber,
+                driver: previousAssignment.driverName,
+              }
+            : { status: booking.status },
           newValues: {
             status: BookingStatus.ASSIGNED,
             vehicleId: vehicle.id,
             vehicle: `${vehicle.name} (${vehicle.registrationNumber})`,
             driver: driverName || 'Self-driven / Unassigned',
+            isReassignment,
+            assignmentNotes: dto.assignmentNotes || null,
           },
         },
       });

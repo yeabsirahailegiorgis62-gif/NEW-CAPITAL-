@@ -156,6 +156,9 @@ export class VehiclesService {
       where.category = category;
     }
 
+    const startOfRange = new Date(departureAt.getFullYear(), departureAt.getMonth(), departureAt.getDate(), 0, 0, 0);
+    const endOfRange = new Date(expectedReturnAt.getFullYear(), expectedReturnAt.getMonth(), expectedReturnAt.getDate(), 23, 59, 59);
+
     const vehicles = await this.prisma.vehicle.findMany({
       where,
       include: {
@@ -166,6 +169,27 @@ export class VehiclesService {
               status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
               departureAt: { lt: expectedReturnAt },
               expectedReturnAt: { gt: departureAt },
+            },
+          },
+          include: {
+            booking: {
+              select: {
+                id: true,
+                bookingReference: true,
+                departureAt: true,
+                expectedReturnAt: true,
+                destination: true,
+                status: true,
+              },
+            },
+          },
+        },
+        bookingDays: {
+          where: {
+            status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS, BookingStatus.APPROVED] },
+            tripDate: {
+              gte: startOfRange,
+              lte: endOfRange,
             },
           },
           include: {
@@ -192,8 +216,10 @@ export class VehiclesService {
 
     return vehicles.map((v) => {
       const isOperational = v.operationalStatus === VehicleOperationalStatus.ACTIVE && !v.hasSafetyAlert;
-      const overlappingAssignment = v.assignments.length > 0 ? v.assignments[0] : null;
-      const isAvailable = isOperational && !overlappingAssignment;
+      const assignmentConflict = v.assignments.length > 0 ? v.assignments[0] : null;
+      const dayConflict = v.bookingDays.length > 0 ? v.bookingDays[0] : null;
+      const overlappingConflict = assignmentConflict?.booking || dayConflict?.booking || null;
+      const isAvailable = isOperational && !overlappingConflict;
 
       let reason = '';
       if (!isOperational) {
@@ -208,8 +234,8 @@ export class VehiclesService {
         } else {
           reason = `Vehicle status is ${v.operationalStatus.toLowerCase().replace('_', ' ')}`;
         }
-      } else if (overlappingAssignment) {
-        reason = `Currently assigned to mission #${overlappingAssignment.booking.bookingReference} (${overlappingAssignment.booking.destination})`;
+      } else if (overlappingConflict) {
+        reason = `Currently assigned to mission #${overlappingConflict.bookingReference} (${overlappingConflict.destination})`;
       }
 
       return {
@@ -229,7 +255,7 @@ export class VehiclesService {
         isAvailable,
         availabilityStatus: isAvailable ? 'AVAILABLE' : 'UNAVAILABLE',
         reason,
-        activeBookingConflict: overlappingAssignment?.booking || null,
+        activeBookingConflict: overlappingConflict,
       };
     });
   }
@@ -243,8 +269,12 @@ export class VehiclesService {
     passengerCount: number;
     category?: VehicleCategory;
     preferredVehicleId?: string;
+    excludeBookingId?: string;
   }) {
-    const { departureAt, expectedReturnAt, passengerCount, category, preferredVehicleId } = params;
+    const { departureAt, expectedReturnAt, passengerCount, category, preferredVehicleId, excludeBookingId } = params;
+
+    const startOfRange = new Date(departureAt.getFullYear(), departureAt.getMonth(), departureAt.getDate(), 0, 0, 0);
+    const endOfRange = new Date(expectedReturnAt.getFullYear(), expectedReturnAt.getMonth(), expectedReturnAt.getDate(), 23, 59, 59);
 
     const allVehicles = await this.prisma.vehicle.findMany({
       include: {
@@ -252,9 +282,31 @@ export class VehiclesService {
           where: {
             unassignedAt: null,
             booking: {
+              ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
               status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
               departureAt: { lt: expectedReturnAt },
               expectedReturnAt: { gt: departureAt },
+            },
+          },
+          include: {
+            booking: {
+              select: {
+                id: true,
+                bookingReference: true,
+                departureAt: true,
+                expectedReturnAt: true,
+                destination: true,
+              },
+            },
+          },
+        },
+        bookingDays: {
+          where: {
+            ...(excludeBookingId ? { bookingId: { not: excludeBookingId } } : {}),
+            status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS, BookingStatus.APPROVED] },
+            tripDate: {
+              gte: startOfRange,
+              lte: endOfRange,
             },
           },
           include: {
@@ -314,11 +366,14 @@ export class VehiclesService {
       }
 
       // 4. Scheduling overlap check
-      const conflict = v.assignments.length > 0 ? v.assignments[0] : null;
+      const assignmentConflict = v.assignments.length > 0 ? v.assignments[0] : null;
+      const dayConflict = v.bookingDays.length > 0 ? v.bookingDays[0] : null;
+      const conflict = assignmentConflict?.booking || dayConflict?.booking || null;
+
       if (conflict) {
         isEligible = false;
         score = 0;
-        reasons.push(`Scheduling conflict with booking ${conflict.booking.bookingReference} (${conflict.booking.destination})`);
+        reasons.push(`Scheduling conflict with booking ${conflict.bookingReference} (${conflict.destination})`);
       } else {
         reasons.push('No scheduling conflict for requested timeframe');
       }
@@ -356,8 +411,18 @@ export class VehiclesService {
         },
         score: Math.max(0, Math.min(100, score)),
         isEligible,
+        isAvailable: isEligible && !conflict,
+        isCapacitySuitable: v.passengerCapacity >= (passengerCount || 1),
         reasons,
-        conflict: conflict ? conflict.booking : null,
+        conflict: conflict || null,
+        conflictDetails: conflict
+          ? {
+              bookingReference: conflict.bookingReference,
+              destination: conflict.destination,
+              departureAt: conflict.departureAt,
+              expectedReturnAt: conflict.expectedReturnAt,
+            }
+          : null,
       };
     });
 
@@ -372,9 +437,31 @@ export class VehiclesService {
   }
 
   /**
+   * Fetch vehicle recommendations directly for a specific booking
+   */
+  async getRecommendationsForBooking(bookingId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) {
+      throw new NotFoundException(`Booking with ID ${bookingId} not found.`);
+    }
+    return this.getRecommendations({
+      departureAt: booking.departureAt,
+      expectedReturnAt: booking.expectedReturnAt,
+      passengerCount: booking.passengerCount,
+      preferredVehicleId: booking.preferredVehicleId || undefined,
+      excludeBookingId: booking.id,
+    });
+  }
+
+  /**
    * Driver Recommendation Engine (Part 3)
    */
-  async getDriverRecommendations(departureAt: Date, expectedReturnAt: Date) {
+  async getDriverRecommendations(departureAt: Date, expectedReturnAt: Date, excludeBookingId?: string) {
+    const startOfRange = new Date(departureAt.getFullYear(), departureAt.getMonth(), departureAt.getDate(), 0, 0, 0);
+    const endOfRange = new Date(expectedReturnAt.getFullYear(), expectedReturnAt.getMonth(), expectedReturnAt.getDate(), 23, 59, 59);
+
     const drivers = await this.prisma.user.findMany({
       where: {
         role: UserRole.DRIVER,
@@ -386,9 +473,31 @@ export class VehiclesService {
             unassignedAt: null,
             status: { in: ['PENDING_CONFIRMATION', 'CONFIRMED'] },
             booking: {
+              ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
               status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
               departureAt: { lt: expectedReturnAt },
               expectedReturnAt: { gt: departureAt },
+            },
+          },
+          include: {
+            booking: {
+              select: {
+                id: true,
+                bookingReference: true,
+                departureAt: true,
+                expectedReturnAt: true,
+                destination: true,
+              },
+            },
+          },
+        },
+        driverBookingDays: {
+          where: {
+            ...(excludeBookingId ? { bookingId: { not: excludeBookingId } } : {}),
+            status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS, BookingStatus.APPROVED] },
+            tripDate: {
+              gte: startOfRange,
+              lte: endOfRange,
             },
           },
           include: {
@@ -407,26 +516,46 @@ export class VehiclesService {
       orderBy: { name: 'asc' },
     });
 
+    // Read system settings for driver assignment policies
+    const settingsRecords = await this.prisma.systemSetting.findMany();
+    const settingsMap = new Map<string, any>();
+    settingsRecords.forEach((s) => {
+      try {
+        settingsMap.set(s.key, JSON.parse(s.value));
+      } catch {
+        settingsMap.set(s.key, s.value);
+      }
+    });
+    const requireValidLicense = settingsMap.get('requireValidDriverLicense') ?? true;
+
     const recommendations = drivers.map((d) => {
       let isAvailable = true;
       let score = 100;
       const reasons: string[] = [];
 
-      const conflict = d.driverAssignments.length > 0 ? d.driverAssignments[0] : null;
+      const assignmentConflict = d.driverAssignments.length > 0 ? d.driverAssignments[0] : null;
+      const dayConflict = d.driverBookingDays.length > 0 ? d.driverBookingDays[0] : null;
+      const conflict = assignmentConflict?.booking || dayConflict?.booking || null;
 
       if (conflict) {
         isAvailable = false;
         score = 0;
-        reasons.push(`Assigned to concurrent mission ${conflict.booking.bookingReference} (${conflict.booking.destination})`);
+        reasons.push(`Assigned to concurrent mission #${conflict.bookingReference} (${conflict.destination})`);
       } else {
         reasons.push('Available for trip interval with zero overlapping assignments');
       }
 
-      if (d.licenseNumber) {
+      if (d.licenseNumber && d.licenseNumber.trim()) {
         reasons.push(`Valid Commercial Driver License: ${d.licenseNumber}`);
       } else {
-        score -= 20;
-        reasons.push('Driver license number pending administrative verification');
+        if (requireValidLicense) {
+          isAvailable = false;
+          score = Math.min(score, 10);
+          reasons.push('Ineligible: Commercial driver license verification required by company policy');
+        } else {
+          score -= 20;
+          reasons.push('Driver license number pending administrative verification');
+        }
       }
 
       return {
@@ -443,7 +572,7 @@ export class VehiclesService {
         isAvailable,
         score,
         reasons,
-        activeConflict: conflict ? conflict.booking : null,
+        activeConflict: conflict || null,
       };
     });
 
@@ -454,5 +583,22 @@ export class VehiclesService {
     });
 
     return recommendations;
+  }
+
+  /**
+   * Fetch driver recommendations directly for a specific booking
+   */
+  async getDriverRecommendationsForBooking(bookingId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) {
+      throw new NotFoundException(`Booking with ID ${bookingId} not found.`);
+    }
+    return this.getDriverRecommendations(
+      booking.departureAt,
+      booking.expectedReturnAt,
+      booking.id,
+    );
   }
 }

@@ -140,10 +140,25 @@ export class RejectBookingDto {
 }
 
 export class CancelBookingDto {
+  @ApiPropertyOptional({ example: 'Employee Unavailable', description: 'Standard cancellation reason category' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
   @ApiPropertyOptional({ example: 'Project meeting was postponed by client' })
   @IsOptional()
   @IsString()
   cancellationReason?: string;
+
+  @ApiPropertyOptional({ example: 'Staff member had an emergency site incident' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ example: 'uuid-of-booking-day', description: 'Optional specific BookingDay ID for weekly booking' })
+  @IsOptional()
+  @IsString()
+  bookingDayId?: string;
 }
 
 export class AssignVehicleDto {
