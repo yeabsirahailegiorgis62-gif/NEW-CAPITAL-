@@ -1,95 +1,54 @@
 # Capital Fleet — Vehicle Booking & Logistics Management System
 
-> **Enterprise Vehicle Booking and Fleet Coordination System for Capital Real Estate**  
-> Operational Headquarters: Addis Ababa, Ethiopia (`Africa/Addis_Ababa`, UTC+3)
+> **Enterprise Vehicle Booking, Dispatch Coordination & Fleet Telematics Platform for Capital Real Estate**  
+> Operational Headquarters: Addis Ababa, Ethiopia (`Africa/Addis_Ababa`, UTC+3)  
+> Architectural Paradigm: **Feature-First Modular Architecture**
 
 ---
 
-## 🏢 Executive Overview
+## 🏛️ Feature-First Modular Architecture
 
-**Capital Fleet** is an internal enterprise web application tailored for **Capital Real Estate** to streamline vehicle reservation workflows, eliminate administrative bottlenecks, prevent fleet scheduling conflicts, and track vehicle telemetry and maintenance in real time.
+Capital Fleet is organized around its **13 core business capabilities** rather than isolated technical silos. Evaluators and engineers can immediately locate the frontend implementation, backend API, business logic, database models, and automated tests for any feature:
 
-Built with a modular TypeScript architecture, strict role-based access control (RBAC), and transactional database concurrency guarantees, Capital Fleet connects company employees with the Logistics Department to ensure optimal corporate transport coordination.
-
----
-
-## ⚡ Key Highlights & Core Capabilities
-
-1. **Guided Employee Booking Workflow**:
-   - 3-step structured booking request (Trip Overview, Scheduling & Capacity, Vehicle Preferences).
-   - Validation against past dates and working duration.
-   - Automated request tracking with status badges (`PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`).
-
-2. **Logistics Review & Approval Engine**:
-   - Centralized review queue for pending transport requests.
-   - Instant approval or mandatory rejection justification.
-   - Direct link to real-time fleet availability for conflict-free vehicle assignment.
-
-3. **Fleet Availability Calendar**:
-   - Visual timeline matrix displaying vehicle availability across days and hours.
-   - Half-open interval conflict prevention formula: `[departureAt, expectedReturnAt)`:
-     $$\text{Conflict} \iff \text{Start}_A < \text{End}_B \land \text{End}_A > \text{Start}_B$$
-   - Color-coded status bands with passenger capacity and driver requirement indicators.
-
-4. **Atomic Vehicle Assignment & Concurrency Safety**:
-   - Concurrency-safe database transactions preventing double-booking race conditions.
-   - Strict operational verification ensuring assigned vehicles are `ACTIVE` and meet passenger headcount.
-   - Driver assignment tracking (`COMPANY_DRIVER` or authorized `SELF_DRIVE`).
-
-5. **Trip Execution & Telemetry Logging**:
-   - **Departure Dispatch**: Records actual departure timestamp and starting odometer.
-   - **Return Check-in**: Records return timestamp, ending odometer, total distance traveled, and fuel/condition notes.
-   - **Odometer Progression Enforcement**: Ensures ending mileage is greater than or equal to starting mileage.
-
-6. **Automated Defect & Maintenance Management**:
-   - Return defects automatically generate `OPEN` vehicle issue tickets.
-   - Vehicles under `MAINTENANCE` status cannot be assigned to new trips.
-   - Proactive warnings on pending bookings if an assigned vehicle is scheduled for maintenance.
-
-7. **Role-Based Access Control (RBAC) & Governance**:
-   - 3 clearly delineated roles:
-     - **Employee** (`EMPLOYEE`): Create/view bookings, cancel pending/approved trips, in-app notifications.
-     - **Logistics Admin** (`LOGISTICS_ADMIN`): Review queue, calendar, vehicle assignment, trip dispatch/return, maintenance.
-     - **System Admin** (`SYSTEM_ADMIN`): User management, vehicle master catalog, immutable audit trail.
-   - Audit trail automatically records actor ID, target entity, timestamp, and metadata diffs for all critical actions.
+| # | Business Domain Module | What it does | Key Entities | Portal Link |
+| :-: | :--- | :--- | :--- | :--- |
+| **01** | **Authentication & Security** | JWT stateless auth, Passport strategy, RBAC authorization, password resets. | `User`, `PasswordResetToken` | [`modules/01-authentication-security/`](./modules/01-authentication-security/) |
+| **02** | **Employee & Departments** | Staff directory, department organization, self-service profile settings. | `User`, `Department` | [`modules/02-employee-department-management/`](./modules/02-employee-department-management/) |
+| **03** | **Booking Lifecycle** | Transport bookings (daily & weekly), notice validation, timeline tracking. | `Booking`, `BookingDay` | [`modules/03-booking-management/`](./modules/03-booking-management/) |
+| **04** | **Vehicle Fleet Inventory** | Asset management, plate numbers, categories, seating capacity, readiness. | `Vehicle` | [`modules/04-vehicle-management/`](./modules/04-vehicle-management/) |
+| **05** | **Driver Portal & Roster** | Certified chauffeurs, license tracking, trip acceptance/decline, mobile portal. | `User` (DRIVER), `VehicleAssignment` | [`modules/05-driver-management/`](./modules/05-driver-management/) |
+| **06** | **Dispatch & Assignment** | Review queue, intelligent vehicle & chauffeur allocation algorithms. | `VehicleAssignment`, `Booking` | [`modules/06-assignment-dispatch/`](./modules/06-assignment-dispatch/) |
+| **07** | **Trip Execution** | Departure odometer, live route telematics, delay reporting, completion delta. | `Booking` (Odometers) | [`modules/07-trip-execution/`](./modules/07-trip-execution/) |
+| **08** | **Digital Receipts & QR** | Cryptographic transport vouchers, printable gate passes, public QR audit. | `Booking` (`verificationToken`) | [`modules/08-digital-receipts-verification/`](./modules/08-digital-receipts-verification/) |
+| **09** | **Maintenance & Issues** | Workshop servicing scheduler, service costs, defect reporting with photos. | `VehicleMaintenance`, `VehicleIssue` | [`modules/09-maintenance-issues/`](./modules/09-maintenance-issues/) |
+| **10** | **Fuel Management** | Driver refueling logs, fuel station receipts, cost per liter, fuel economy. | `FuelRecord` | [`modules/10-fuel-management/`](./modules/10-fuel-management/) |
+| **11** | **Notification System** | Event-driven in-app alerts for booking approvals, rejections, and assignments. | `Notification` | [`modules/11-notification-system/`](./modules/11-notification-system/) |
+| **12** | **Audit & Analytics** | Immutable change logs, CSV report downloads, executive analytics charts. | `AuditLog` | [`modules/12-audit-reporting-analytics/`](./modules/12-audit-reporting-analytics/) |
+| **13** | **System Settings** | Dynamic business policies (notice hours, auto-approvals, data purge). | `SystemSetting` | [`modules/13-system-settings-policies/`](./modules/13-system-settings-policies/) |
 
 ---
 
-## 🏗️ Architecture & Technology Stack
+## 📚 Technical Documentation Suite
 
-```
-capital-fleet/
-├── apps/
-│   ├── api/                    # NestJS modular backend API
-│   │   ├── src/
-│   │   │   ├── modules/        # Domain modules (Auth, Bookings, Vehicles, Issues, etc.)
-│   │   │   ├── common/         # Guards, Decorators, Filters, Interceptors
-│   │   │   └── main.ts         # Server bootstrap & OpenAPI/Swagger documentation
-│   │   └── test/               # Unit and integration test suites
-│   └── web/                    # React 18 + Vite frontend
-│       ├── src/
-│       │   ├── components/ui/  # Reusable enterprise design system primitives
-│       │   ├── features/       # Feature views (dashboard, bookings, calendar, admin)
-│       │   ├── lib/            # Typed API client, session management, formatters
-│       │   └── App.tsx         # Routing and global application shell
-└── prisma/
-    ├── schema.prisma           # Relational schema (8 models, enums, indices)
-    └── seed.ts                 # Database seeder with realistic test fixtures
-```
+The project includes an 8-part documentation suite designed for software evaluators and academic assessors:
 
-### Backend & Database
-- **Runtime**: Node.js 20+ with TypeScript
-- **Framework**: [NestJS 10](https://nestjs.com/) (Modular, Dependency Injection, Validation Pipes)
-- **ORM**: [Prisma 5](https://www.prisma.io/)
-- **Database**: PostgreSQL 16
-- **Security**: Argon2/bcrypt password hashing, JWT stateless authentication, RBAC `RolesGuard`
-- **Documentation**: Swagger / OpenAPI 3.0 at `/api/docs`
+1. 🏛️ [`PROJECT_ARCHITECTURE.md`](./docs/PROJECT_ARCHITECTURE.md): High-level system design, monorepo layout, and architectural decisions.
+2. 🗺️ [`MODULE_DIRECTORY_GUIDE.md`](./docs/MODULE_DIRECTORY_GUIDE.md): Exact file locations mapping every module to frontend, backend, database, and tests.
+3. ⚛️ [`FRONTEND_DOCUMENTATION.md`](./docs/FRONTEND_DOCUMENTATION.md): React 18, Vite 5, Tailwind CSS, component hierarchy, and state lifecycle.
+4. ⚙️ [`BACKEND_DOCUMENTATION.md`](./docs/BACKEND_DOCUMENTATION.md): NestJS architecture, controllers, services, DTOs, guards, and filters.
+5. 🗄️ [`DATABASE_DOCUMENTATION.md`](./docs/DATABASE_DOCUMENTATION.md): PostgreSQL 16 schema, Prisma ORM, ER diagrams, foreign keys, and indexes.
+6. 📖 [`TECHNICAL_GLOSSARY.md`](./docs/TECHNICAL_GLOSSARY.md): Definitions and practical codebase examples of 30+ engineering terms.
+7. 🔄 [`PROJECT_EXECUTION_FLOW.md`](./docs/PROJECT_EXECUTION_FLOW.md): Step-by-step sequence diagrams and narrative walkthroughs of request lifecycles.
+8. 🎓 [`EVALUATOR_PRESENTATION_GUIDE.md`](./docs/EVALUATOR_PRESENTATION_GUIDE.md): University evaluation preparation guide, demo script, and oral defense Q&A.
 
-### Frontend & UI System
-- **Framework**: React 18 with TypeScript and Vite
-- **Styling**: Tailwind CSS with custom corporate design tokens (Navy `#0A192F`, Amber `#D97706`, Slate `#475569`)
-- **Icons**: Lucide Icons
-- **Accessibility**: ARIA labels, semantic markup, high-contrast badges, keyboard navigable modals
+---
+
+## ⚡ Technology Stack
+
+- **Frontend:** React 18, Vite 5, TypeScript, Tailwind CSS, Lucide Icons, Canvas QR Code.
+- **Backend:** NestJS 10, Node.js v20+, Passport JWT, class-validator, Swagger OpenAPI (`/api/docs`).
+- **Database:** PostgreSQL 16 (Alpine Docker container), Prisma ORM 5.11.0.
+- **Testing:** Jest with ts-jest (7 test suites, 72 unit tests passing).
 
 ---
 
@@ -97,11 +56,9 @@ capital-fleet/
 
 ### 1. Prerequisites
 - **Node.js**: `v20.x` or higher
-- **npm**: `v10.x` or higher
-- **Docker & Docker Compose**: For local PostgreSQL container
+- **Docker**: For local PostgreSQL container
 
 ### 2. Environment Setup
-Copy the environment example file:
 ```bash
 cp .env.example .env
 ```
@@ -116,36 +73,23 @@ CORS_ORIGIN="http://localhost:5173"
 TZ="Africa/Addis_Ababa"
 ```
 
-### 3. Start Database
+### 3. Start Database & Development Environment
+The automated startup script starts Docker, runs Prisma migrations, seeds mock data, compiles the backend, and launches Vite:
 ```bash
-docker compose up -d
+bash start.sh
 ```
-*(PostgreSQL container runs on port `5435` with database `capital_fleet_db`)*
-
-### 4. Run Migrations & Seed Data
+Or start manually:
 ```bash
-npx prisma db push
-npx prisma db seed
-```
-
-### 5. Start Development Servers
-In two separate terminals:
-
-**Backend API (Port 4100):**
-```bash
-npm run start:dev --workspace=apps/api
+docker compose up -d postgres
+npm run prisma:generate --workspace=apps/api
+npm run prisma:push --workspace=apps/api
+npm run prisma:seed --workspace=apps/api
+npm run dev
 ```
 
-**Frontend Web (Port 5173):**
-```bash
-npm run dev --workspace=apps/web
-```
-
-Access the application in your browser at:  
-👉 **`http://localhost:5173`**
-
-Interactive Swagger API Documentation:  
-👉 **`http://localhost:4100/api/docs`**
+- **Frontend Web Application:** [`http://localhost:5173`](http://localhost:5173)
+- **Backend REST API:** [`http://localhost:4100/api`](http://localhost:4100/api)
+- **Interactive Swagger Documentation:** [`http://localhost:4100/api/docs`](http://localhost:4100/api/docs)
 
 ---
 
@@ -153,41 +97,24 @@ Interactive Swagger API Documentation:
 
 All accounts share the secure default password: **`CapitalFleet2026!`**
 
-| Role | Name | Email / Login | Department | Employee ID |
-| :--- | :--- | :--- | :--- | :--- |
-| **System Admin** | Dawit Tadesse | `admin@capitalre.com` | Executive / IT | `SYS-001` |
-| **Logistics Admin** | Almaz Bekele | `logistics@capitalre.com` | Logistics & Fleet | `LOG-201` |
-| **Employee** | Abebe Girma | `employee@capitalre.com` | Sales & Marketing | `EMP-101` |
+| Role | Name | Email | Permissions |
+| :--- | :--- | :--- | :--- |
+| **System Admin** | Dawit Tadesse | `admin@capitalre.com` | Full administrative control, user & department CRUD, audit logs. |
+| **Logistics Admin** | Almaz Bekele | `logistics@capitalre.com` | Booking review queue, vehicle assignment, fleet maintenance. |
+| **Driver (Chauffeur)** | Kassahun Desta | `driver@capitalre.com` | Driver dashboard, dispatch confirm/decline, trip execution, fuel logs. |
+| **Employee** | Abebe Girma | `employee@capitalre.com` | Submit transport requests, view availability, cancel pending bookings. |
 
 ---
 
-## 🧪 Testing & Verification
+## 🧪 Testing & Verification Commands
 
-### Unit Tests
-Run backend Jest unit tests:
 ```bash
-npm test --workspace=apps/api
+# Static TypeScript typecheck across apps/api and apps/web (0 errors)
+npm run typecheck
+
+# Execute backend Jest unit test suites (7 suites, 72 tests)
+npm run test:api
+
+# Full production build verification
+npm run build
 ```
-
-### Production Build Verification
-Verify type safety and production asset compilation:
-```bash
-npm run build --workspace=apps/web
-npm run build --workspace=apps/api
-```
-
-### End-to-End Workflow Verification
-The test suite validates:
-1. Employee login & JWT token issuance.
-2. Trip request creation with validation.
-3. Logistics Admin approval.
-4. Fleet availability matrix check.
-5. Concurrency-safe atomic vehicle assignment.
-6. Rejection of overlapping conflicting assignments.
-7. Trip dispatch (odometer logging) & completion.
-8. Automatic vehicle defect ticket generation and audit trail verification.
-
----
-
-## 📄 License
-Proprietary & Confidential — Internal Software for **Capital Real Estate**, Addis Ababa, Ethiopia.
