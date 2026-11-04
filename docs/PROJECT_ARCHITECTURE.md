@@ -122,3 +122,4 @@ Capital Fleet/
    Mutations across the system (booking creation, approvals, rejections, vehicle assignments, and trip completions) automatically write structured event rows to `AuditLog`.
 4. **Resilient Error Filtering:**
    `AllExceptionsFilter` catches uncaught database or server errors and maps them to clean JSON responses (`{ statusCode, message, timestamp, path }`), hiding sensitive PostgreSQL internals from clients.
+

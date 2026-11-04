@@ -105,3 +105,4 @@
 ### Stateless Authentication
 - **Definition:** An authentication architecture where the server does not store user session states in memory or a session table; the client sends credentials (JWT) with every request, and the server validates the signature mathematically.
 - **In Capital Fleet:** `JwtStrategy` validates the cryptographic signature of incoming tokens against `JWT_SECRET` without needing a session store lookup.
+

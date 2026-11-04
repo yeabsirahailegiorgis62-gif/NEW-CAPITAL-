@@ -126,3 +126,4 @@ The schema applies indexes tailored to high-frequency query filters:
 4. `audit_logs`:
    - `@@index([entityType, entityId])`: Fast entity change history retrieval.
    - `@@index([actorId])`: Fast user audit lookups.
+

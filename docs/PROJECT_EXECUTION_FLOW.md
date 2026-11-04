@@ -166,3 +166,4 @@ sequenceDiagram
    - Assigned driver name and phone.
    - Requester department and destination.
    - Status badge: `VERIFIED VALID PASS` (green) or `EXPIRED / INVALID` (red).
+

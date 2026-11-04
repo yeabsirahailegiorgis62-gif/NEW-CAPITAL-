@@ -7,3 +7,4 @@ export * from './AuditLogsView';
 export * from './DepartmentsManagementView';
 export * from './SystemSettingsView';
 export * from './UsersManagementView';
+

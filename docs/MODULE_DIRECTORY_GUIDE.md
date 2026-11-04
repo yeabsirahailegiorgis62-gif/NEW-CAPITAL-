@@ -187,3 +187,4 @@ This guide provides the exact file locations for every business module implement
 - **Database Models:** `SystemSetting` in [`prisma/schema.prisma`](file:///home/yeabsira-hailegiorgis/Documents/Capital%20Fleet/prisma/schema.prisma)
 - **Automated Tests:** [`apps/api/src/modules/settings/settings.service.spec.ts`](file:///home/yeabsira-hailegiorgis/Documents/Capital%20Fleet/apps/api/src/modules/settings/settings.service.spec.ts)
 - **Feature Portal:** [`modules/13-system-settings-policies/`](file:///home/yeabsira-hailegiorgis/Documents/Capital%20Fleet/modules/13-system-settings-policies/)
+

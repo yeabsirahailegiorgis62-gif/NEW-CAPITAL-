@@ -111,3 +111,4 @@ The backend features 7 automated test suites executed via Jest (`npm run test:ap
 5. `users.service.spec.ts`: Tests user onboarding, password stripping, and unique employee ID checks.
 6. `vehicles.service.spec.ts`: Tests availability intervals and overlap detection algorithms.
 7. `maintenance.service.spec.ts`: Tests workshop scheduling and audit log records.
+

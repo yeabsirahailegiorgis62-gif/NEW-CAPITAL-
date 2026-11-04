@@ -34,3 +34,4 @@ Rather than organizing the codebase solely into technical layers (frontend, back
    - Click `frontend` to view the React components, modals, and tables.
    - Click `backend` to view the NestJS controllers, services, DTOs, and unit tests.
 4. **Inspect the Data Model:** View the entities in `prisma/schema.prisma` mapped in the guide.
+

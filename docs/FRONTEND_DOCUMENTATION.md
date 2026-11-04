@@ -125,3 +125,4 @@ Located in `apps/web/src/components/ui/`:
 - **`SmartDropdown.tsx`:** Searchable autocomplete dropdown for vehicle and employee selection.
 - **`Toast.tsx`:** Notification toast manager providing `useToast()` hook.
 - **`ErrorBoundary.tsx`:** React error boundary preventing UI crashes from unexpected component render failures.
+

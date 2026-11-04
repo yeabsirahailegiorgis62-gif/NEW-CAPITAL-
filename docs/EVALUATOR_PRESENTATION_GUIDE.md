@@ -92,3 +92,4 @@ During an oral evaluation or project demo, follow this 5-minute presentation pat
    - Click "View Digital Receipt" to display verified electronic voucher with QR code.
    - Click "Verify QR" or open public link `http://localhost:5173/?verify=<token>`.
    - Show how the unauthenticated public verification screen verifies gate pass authenticity in real-time.
+
