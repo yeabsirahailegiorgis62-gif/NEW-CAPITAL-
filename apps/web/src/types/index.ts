@@ -1,3 +1,4 @@
+// TypeScript types mirroring Prisma models and API JSON responses (not a second database).
 export type UserRole = 'EMPLOYEE' | 'DRIVER' | 'LOGISTICS_ADMIN' | 'SYSTEM_ADMIN';
 
 export interface User {
@@ -117,6 +118,7 @@ export interface Booking {
   assignments?: VehicleAssignment[];
   currentAssignment?: VehicleAssignment | null;
   bookingDays?: BookingDay[];
+  auditLogs?: any[];
 }
 
 export interface SystemSettings {
@@ -162,6 +164,7 @@ export interface VehicleAssignment {
   assignedBy?: {
     id: string;
     name: string;
+    employeeId?: string | null;
   };
   driverId?: string | null;
   driver?: User | null;
@@ -417,3 +420,41 @@ export interface DriverRecommendation {
     expectedReturnAt: string;
   } | null;
 }
+
+export type PasswordResetRequestStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'COMPLETED'
+  | 'EXPIRED'
+  | 'FAILED';
+
+export type EmailDeliveryStatus = 'PENDING' | 'SENT' | 'FAILED';
+
+export interface PasswordResetRequest {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  employeeId?: string | null;
+  reason?: string | null;
+  status: PasswordResetRequestStatus;
+  emailDeliveryStatus: EmailDeliveryStatus;
+  emailSentAt?: string | null;
+  emailError?: string | null;
+  deliveryChannel?: string | null;
+  expiresAt?: string | null;
+  approvedAt?: string | null;
+  approvedById?: string | null;
+  approvedBy?: { id: string; name: string; email: string } | null;
+  rejectedAt?: string | null;
+  rejectedById?: string | null;
+  rejectedBy?: { id: string; name: string; email: string } | null;
+  rejectReason?: string | null;
+  completedAt?: string | null;
+  failedAttempts?: number;
+  createdAt: string;
+  updatedAt: string;
+  user?: User | null;
+}
+

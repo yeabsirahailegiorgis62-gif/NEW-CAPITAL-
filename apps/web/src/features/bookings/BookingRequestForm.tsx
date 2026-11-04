@@ -1,7 +1,8 @@
+// COMPONENT: Employee/admin transport request form. Submits via api.createBooking (POST /api/bookings).
 import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { api } from '@/lib/api';
-import { Vehicle, Booking } from '@/types';
+import { Vehicle, Booking, User } from '@/types';
 import { formatEthiopianDateTime } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -37,7 +38,9 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
+// PROPS: Parent supplies the signed-in user and success/cancel handlers (no routing library).
 interface BookingRequestFormProps {
+  currentUser?: User;
   onSuccess: (booking: Booking) => void;
   onCancel: () => void;
   onOpenReceipt?: (booking: Booking) => void;
@@ -73,15 +76,17 @@ function getDayDateStr(startDateStr: string, offset: number): string {
 }
 
 export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
+  currentUser,
   onSuccess,
   onCancel,
   onOpenReceipt,
   onPrintForm,
 }) => {
   const toast = useToast();
+  // STATE + FORM VALIDATION: Field values live in React state; submit checks required fields before POST.
   const [requestType, setRequestType] = useState<'daily' | 'weekly'>('daily');
   const [pickupLocation, setPickupLocation] = useState('Capital Real Estate HQ, Bole Tower');
-  const [contactPhone, setContactPhone] = useState('+251 91 123 4567');
+  const [contactPhone, setContactPhone] = useState(currentUser?.phone || '+251 91 123 4567');
   const [destination, setDestination] = useState('');
   const [purpose, setPurpose] = useState('');
   const [departureDate, setDepartureDate] = useState('');
@@ -90,8 +95,6 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
   const [returnTime, setReturnTime] = useState('17:00');
   const [dailyTimeSlot, setDailyTimeSlot] = useState<'MORNING' | 'AFTERNOON' | 'CUSTOM'>('MORNING');
   const [passengerCount, setPassengerCount] = useState(1);
-  const [preferredVehicleId, setPreferredVehicleId] = useState('');
-  const [requiresDriver, setRequiresDriver] = useState(false);
   const [additionalNotes, setAdditionalNotes] = useState('');
 
   // Weekly Scheduling State
@@ -108,7 +111,6 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
     SUNDAY: { selected: false, timeSlot: 'MORNING' },
   });
 
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [priority, setPriority] = useState<'NORMAL' | 'HIGH' | 'VIP'>('NORMAL');
   const [passengerDetails, setPassengerDetails] = useState('');
   const [documentUrl, setDocumentUrl] = useState('');
@@ -132,17 +134,17 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
   const requiredNotice = requestType === 'weekly' ? 72 : 24;
   const isNoticeCompliant = noticeHours >= requiredNotice;
 
-  // Initialize dates to tomorrow by default
+  // Initialize dates to tomorrow by default and phone from currentUser
   useEffect(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dateStr = tomorrow.toISOString().split('T')[0];
     setDepartureDate(dateStr);
     setReturnDate(dateStr);
-
-    // Fetch operational vehicles for optional preference
-    api.getVehicles({ status: 'ACTIVE' }).then(setVehicles).catch(console.error);
-  }, []);
+    if (currentUser?.phone) {
+      setContactPhone(currentUser.phone);
+    }
+  }, [currentUser]);
 
   const DRAFT_KEY = 'capital_transport_request_draft';
 
@@ -156,8 +158,6 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
         if (d.purpose) setPurpose(d.purpose);
         if (d.requestType) setRequestType(d.requestType);
         if (d.passengerCount) setPassengerCount(d.passengerCount);
-        if (d.preferredVehicleId) setPreferredVehicleId(d.preferredVehicleId);
-        if (typeof d.requiresDriver === 'boolean') setRequiresDriver(d.requiresDriver);
         if (d.additionalNotes) setAdditionalNotes(d.additionalNotes);
         if (d.departureTime) setDepartureTime(d.departureTime);
         if (d.returnTime) setReturnTime(d.returnTime);
@@ -178,8 +178,6 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
             purpose,
             requestType,
             passengerCount,
-            preferredVehicleId,
-            requiresDriver,
             additionalNotes,
             departureTime,
             returnTime,
@@ -194,8 +192,6 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
     purpose,
     requestType,
     passengerCount,
-    preferredVehicleId,
-    requiresDriver,
     additionalNotes,
     departureTime,
     returnTime,
@@ -238,9 +234,9 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
     return `${days} Days · ${diffHours.toFixed(0)} Hours`;
   };
 
-  const selectedVehicle = vehicles.find((v) => v.id === preferredVehicleId);
   const isFormValid = destination.trim().length > 0 && purpose.trim().length > 0;
 
+  // EVENT HANDLER: Prevents default form POST, validates locally, then calls api.createBooking.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -323,8 +319,7 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
         pickupLocation: pickupLocation.trim() || undefined,
         contactPhone: contactPhone.trim() || undefined,
         weeklyDays: weeklyDaysPayload,
-        preferredVehicleId: preferredVehicleId || undefined,
-        requiresDriver,
+        requiresDriver: true,
         additionalNotes: additionalNotes.trim() || undefined,
         priority,
         passengerDetails: passengerDetails.trim() || undefined,
@@ -376,8 +371,6 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
 
   // Show executive reservation ticket after submission
   if (submittedBooking) {
-    const preferredVeh = vehicles.find((v) => v.id === submittedBooking.preferredVehicleId);
-
     return (
       <div className="max-w-4xl mx-auto py-4 space-y-6 animate-scaleIn">
         {/* Top Status Notification Bar */}
@@ -489,33 +482,31 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
 
                 <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                    Driver Assignment
+                    Driver Allocation
                   </span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm mt-0.5 block">
-                    {submittedBooking.requiresDriver ? 'Company Driver Requested' : 'Authorized Self-Drive'}
+                    Assigned by Logistics Center
                   </span>
                 </div>
               </div>
 
-              {/* Requested Vehicle Preview if selected */}
-              {preferredVeh && (
-                <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/30 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <Car className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                    <div>
-                      <span className="font-bold text-slate-900 dark:text-white block">
-                        Preferred Vehicle: {preferredVeh.make} {preferredVeh.model} ({preferredVeh.name})
-                      </span>
-                      <span className="text-slate-500 dark:text-slate-400 text-[11px]">
-                        Category: {preferredVeh.category} • Capacity: {preferredVeh.passengerCapacity} Seats
-                      </span>
-                    </div>
+              {/* Centralized Logistics Allocation Status */}
+              <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/30 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-900 dark:text-white block">
+                      Vehicle & Chauffeur Assignment Pending
+                    </span>
+                    <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                      The Logistics Admin will review trip requirements and assign an appropriate vehicle and driver.
+                    </span>
                   </div>
-                  <span className="text-[11px] font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded">
-                    {preferredVeh.registrationNumber}
-                  </span>
                 </div>
-              )}
+                <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">
+                  Logistics Allocation
+                </span>
+              </div>
             </div>
 
             {/* Right 1 Col: Scannable Security Pass Stub */}
@@ -628,8 +619,6 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                   setDestination('');
                   setPurpose('');
                   setAdditionalNotes('');
-                  setPreferredVehicleId('');
-                  setRequiresDriver(false);
                   setPassengerCount(1);
                 }}
                 className="w-full sm:w-auto"
@@ -678,15 +667,15 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
         {/* Visual Step Progress Strip */}
         <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <span className="px-2.5 py-1 rounded-xl bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-bold border border-brand-200 dark:border-brand-800">
-            A. Itinerary
+            A. Itinerary & Schedule
+          </span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
+          <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold">
+            B. Requester & Passengers
           </span>
           <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
           <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            B. Vehicle
-          </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
-          <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            C. Policy & Notes
+            C. Notes & Policy
           </span>
         </div>
       </div>
@@ -1101,31 +1090,65 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-800">
-                      <Car className="w-4 h-4" />
+                      <Users className="w-4 h-4" />
                     </div>
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block">
                         Section B · Step 2
                       </span>
                       <CardTitle className="text-sm font-extrabold text-slate-900 dark:text-white">
-                        Vehicle Selection & Capacity
+                        Requester Profile & Capacity
                       </CardTitle>
                     </div>
                   </div>
 
-                  <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                    {passengerCount} Seat{passengerCount > 1 ? 's' : ''}
+                  <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full">
+                    {passengerCount} Seat{passengerCount > 1 ? 's' : ''} Needed
                   </span>
                 </div>
               </CardHeader>
 
               <CardContent className="p-5 flex-1 flex flex-col justify-between space-y-4">
                 <div className="space-y-4">
+                  {/* Authenticated Employee Profile Box */}
+                  <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                        Authorized Requester
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Authenticated
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-brand-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-xs">
+                        {(currentUser?.name || 'EM').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {currentUser?.name || 'Staff Requester'}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          <span className="font-mono text-slate-600 dark:text-slate-300">
+                            ID: {currentUser?.employeeId || (currentUser ? `EMP-${currentUser.id.slice(0, 6).toUpperCase()}` : 'EMP-2026')}
+                          </span>
+                          <span>•</span>
+                          <span>{currentUser?.department?.name || 'Capital Real Estate'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Passenger Counter */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
-                      Number of Passengers <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        Total Passenger Count <span className="text-red-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400">Including requester</span>
+                    </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -1163,141 +1186,26 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
                     </div>
                   </div>
 
-                  {/* Vehicle Choice Cards */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                        Model Preference (Optional)
-                      </label>
-                      <span className="text-[10px] text-slate-400">
-                        {vehicles.length} Active in fleet
-                      </span>
+                  {/* Centralized Fleet Allocation Policy Card */}
+                  <div className="rounded-2xl border border-blue-200/80 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/30 p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-blue-950 dark:text-blue-200">
+                      <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span>Centralized Fleet & Driver Allocation</span>
                     </div>
-
-                    <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
-                      {/* Option: Auto-Allocate (Optimal) */}
-                      <div
-                        onClick={() => setPreferredVehicleId('')}
-                        className={`cursor-pointer rounded-2xl border p-3 transition-all flex items-center justify-between ${
-                          !preferredVehicleId
-                            ? 'border-brand-500 ring-2 ring-brand-500/20 bg-brand-50/60 dark:bg-brand-950/40 shadow-xs'
-                            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                            <Sparkles className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-slate-900 dark:text-white">
-                                Auto-Allocate (Optimal)
-                              </span>
-                              <span className="text-[9px] font-extrabold uppercase bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 rounded">
-                                Recommended
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
-                              Logistics assigns the best available vehicle for route & passenger size.
-                            </p>
-                          </div>
-                        </div>
-
-                        {!preferredVehicleId && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-brand-600 ring-4 ring-brand-600/20 shrink-0 ml-2" />
-                        )}
-                      </div>
-
-                      {/* Specific Fleet Vehicle Items */}
-                      {vehicles.map((v) => {
-                        const isSelected = preferredVehicleId === v.id;
-                        const carImg =
-                          v.imageUrl ||
-                          (v.category === 'SUV'
-                            ? '/vehicles/prado.png'
-                            : v.category === 'PICKUP'
-                            ? ((v.name + ' ' + (v.model || '')).toLowerCase().includes('ranger')
-                              ? '/vehicles/ranger.png'
-                              : (v.name + ' ' + (v.model || '')).toLowerCase().includes('d-max') || (v.name + ' ' + (v.model || '')).toLowerCase().includes('dmax')
-                              ? '/vehicles/dmax.png'
-                              : '/vehicles/hilux.png')
-                            : v.category === 'MINIBUS'
-                            ? '/vehicles/hiace.png'
-                            : '/vehicles/corolla.png');
-
-                        return (
-                          <div
-                            key={v.id}
-                            onClick={() => setPreferredVehicleId(v.id)}
-                            className={`cursor-pointer rounded-2xl border p-2.5 transition-all flex items-center justify-between group ${
-                              isSelected
-                                ? 'border-brand-500 ring-2 ring-brand-500/20 bg-brand-50/40 dark:bg-brand-950/40 shadow-xs'
-                                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-700'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-14 h-10 rounded-xl bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden border border-slate-200 dark:border-slate-700">
-                                <img
-                                  src={carImg}
-                                  alt={v.name}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                  {v.name}
-                                </div>
-                                <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                  <span className="font-mono">{v.registrationNumber}</span>
-                                  <span>•</span>
-                                  <span>{v.passengerCapacity} Seats</span>
-                                  <span>•</span>
-                                  <span className="text-emerald-600 font-semibold">
-                                    {v.fuelLevel ? `${v.fuelLevel}% Fuel` : 'Ready'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {isSelected && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-brand-600 ring-4 ring-brand-600/20 shrink-0 ml-2" />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Company Driver Toggle Card */}
-                  <div
-                    onClick={() => setRequiresDriver(!requiresDriver)}
-                    className={`cursor-pointer rounded-2xl border p-3.5 transition-all flex items-start gap-3 ${
-                      requiresDriver
-                        ? 'border-indigo-400 dark:border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40'
-                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={requiresDriver}
-                      onChange={(e) => setRequiresDriver(e.target.checked)}
-                      className="w-4 h-4 mt-0.5 rounded text-brand-600 border-slate-300 dark:border-slate-700 focus:ring-brand-500 cursor-pointer"
-                      disabled={isLoading}
-                    />
-                    <div>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                        Assign Designated Company Driver
-                      </span>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                        Recommended for long-distance project trips outside Addis Ababa or heavy payload transit.
-                      </p>
-                    </div>
+                    <p className="text-[11px] text-blue-900/80 dark:text-blue-300/80 leading-relaxed">
+                      Company vehicles and professional drivers are allocated directly by the Logistics Operations Center upon approval.
+                    </p>
+                    <ul className="text-[11px] text-blue-800 dark:text-blue-300/90 space-y-1 list-disc list-inside">
+                      <li>Selection is based on route terrain, security, and passenger count.</li>
+                      <li>Employees do not select individual vehicles or drivers.</li>
+                      <li>Notification & digital clearance are issued upon assignment.</li>
+                    </ul>
                   </div>
                 </div>
 
                 <div className="pt-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 border-t border-slate-100 dark:border-slate-800">
                   <Shield className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>All fleet vehicles undergo daily safety & maintenance inspections.</span>
+                  <span>Fleet resources are inspected daily for safety & roadworthiness.</span>
                 </div>
               </CardContent>
             </Card>
@@ -1472,10 +1380,10 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
               </span>
             </div>
 
-            {/* Selected Vehicle Chip */}
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-              <Car className="w-3.5 h-3.5 text-slate-400" />
-              <span>{selectedVehicle ? selectedVehicle.name : 'Auto-Allocate (Optimal)'}</span>
+            {/* Logistics Resource Allocation Badge */}
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Logistics Allocates Vehicle & Driver</span>
             </span>
 
             {/* Passenger Count Chip */}
@@ -1483,13 +1391,6 @@ export const BookingRequestForm: React.FC<BookingRequestFormProps> = ({
               <Users className="w-3.5 h-3.5 text-slate-400" />
               <span>{passengerCount} Passenger{passengerCount > 1 ? 's' : ''}</span>
             </span>
-
-            {/* Driver Chip */}
-            {requiresDriver && (
-              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                <span>Driver Requested</span>
-              </span>
-            )}
           </div>
 
           {/* Action Buttons on Right */}

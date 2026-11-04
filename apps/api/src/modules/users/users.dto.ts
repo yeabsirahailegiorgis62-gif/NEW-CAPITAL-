@@ -1,3 +1,4 @@
+// DTO: Validated bodies for creating users and updating profiles.
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 import { UserRole } from '@prisma/client';

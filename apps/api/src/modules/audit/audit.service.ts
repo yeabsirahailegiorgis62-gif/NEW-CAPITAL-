@@ -1,3 +1,4 @@
+// SERVICE: Query-only access to AuditLog (immutable history written by other services).
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 

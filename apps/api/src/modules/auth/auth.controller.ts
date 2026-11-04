@@ -1,7 +1,17 @@
-import { Controller, Post, Get, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+// CONTROLLER: Handles incoming HTTP requests for login, password reset, and profile.
+import { Controller, Post, Get, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, AdminResetPasswordDto } from './auth.dto';
+import {
+  LoginDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  ChangePasswordDto,
+  AdminResetPasswordDto,
+  ApproveResetRequestDto,
+  ResendPassphraseDto,
+  RejectResetRequestDto,
+} from './auth.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -12,8 +22,10 @@ import { UserRole } from '@prisma/client';
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
+  // DEPENDENCY INJECTION: NestJS provides AuthService automatically.
   constructor(private readonly authService: AuthService) {}
 
+  // POST: Authenticates with email or employee ID and returns a JWT + user profile.
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -24,24 +36,27 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  // POST: Creates a PasswordResetRequest for SYSTEM_ADMIN review (no token is emailed yet).
   @Post('forgot-password')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request a password reset token via registered email or employee ID' })
-  @ApiResponse({ status: 200, description: 'Reset request received (enumeration-safe)' })
+  @ApiOperation({ summary: 'Request password reset passphrase from administrator' })
+  @ApiResponse({ status: 200, description: 'Reset request received and dispatched to administrator' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
 
+  // POST: Completes password reset using the admin-issued passphrase.
   @Post('reset-password')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset account password using single-use reset token' })
+  @ApiOperation({ summary: 'Regenerate account password using administrator-issued passphrase' })
   @ApiResponse({ status: 200, description: 'Password reset successfully' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
   }
 
+  // POST: Authenticated user changes their own password.
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -50,6 +65,77 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
   async changePassword(@CurrentUser() user: any, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(user.id || user.sub, dto);
+  }
+
+  // GET: SYSTEM_ADMIN lists password-reset requests.
+  @Get('admin/reset-requests')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SYSTEM_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all password reset requests (Admin only)' })
+  @ApiResponse({ status: 200, description: 'List of password reset requests' })
+  async getResetRequests(@Query('status') status?: string) {
+    return this.authService.getResetRequests(status);
+  }
+
+  @Post('admin/reset-requests/:id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SYSTEM_ADMIN)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Approve password reset request and send passphrase to user inbox' })
+  @ApiResponse({ status: 200, description: 'Passphrase generated and delivered to user inbox' })
+  async approveResetRequest(
+    @Param('id') id: string,
+    @CurrentUser() admin: any,
+    @Body() dto: ApproveResetRequestDto,
+  ) {
+    return this.authService.approveResetRequest(
+      admin.id || admin.sub,
+      admin.name || 'System Administrator',
+      id,
+      dto,
+    );
+  }
+
+  @Post('admin/reset-requests/:id/resend')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SYSTEM_ADMIN)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend password reset passphrase to user email' })
+  @ApiResponse({ status: 200, description: 'Passphrase regenerated and resent to user email' })
+  async resendResetPassphrase(
+    @Param('id') id: string,
+    @CurrentUser() admin: any,
+    @Body() dto: ResendPassphraseDto,
+  ) {
+    return this.authService.resendResetPassphrase(
+      admin.id || admin.sub,
+      admin.name || 'System Administrator',
+      id,
+      dto,
+    );
+  }
+
+  @Post('admin/reset-requests/:id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SYSTEM_ADMIN)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reject password reset request' })
+  @ApiResponse({ status: 200, description: 'Reset request rejected' })
+  async rejectResetRequest(
+    @Param('id') id: string,
+    @CurrentUser() admin: any,
+    @Body() dto: RejectResetRequestDto,
+  ) {
+    return this.authService.rejectResetRequest(
+      admin.id || admin.sub,
+      admin.name || 'System Administrator',
+      id,
+      dto,
+    );
   }
 
   @Post('admin/reset-password/:userId')
@@ -72,6 +158,7 @@ export class AuthController {
     );
   }
 
+  // GET: Returns the JWT-authenticated user (from JwtStrategy.validate).
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

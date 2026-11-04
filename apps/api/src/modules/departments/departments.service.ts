@@ -1,3 +1,4 @@
+// SERVICE: Department CRUD. Delete is blocked while users still belong to the department.
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 

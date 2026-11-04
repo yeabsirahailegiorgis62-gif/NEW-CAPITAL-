@@ -1,3 +1,4 @@
+// DTO: Validated request bodies for booking create, reject, assign, and trip execution.
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 

@@ -1,3 +1,4 @@
+// COMPONENT: Logistics queue for pending/approved bookings. Approve/reject/assign call App handlers → API.
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { Booking, User, Vehicle } from '@/types';
@@ -36,6 +37,7 @@ import {
   UserCheck,
   Activity,
   Layers,
+  Zap,
 } from 'lucide-react';
 
 interface ReviewRequestsQueueProps {
@@ -44,7 +46,7 @@ interface ReviewRequestsQueueProps {
   initialTab?: 'pending' | 'approved' | 'assigned' | 'all';
   onRefreshQueue?: () => Promise<void>;
   onSelectBooking: (booking: Booking) => void;
-  onAssignVehicle: (booking: Booking) => void;
+  onAssignVehicle?: (booking: Booking) => void;
   onApprove: (id: string) => Promise<void> | void;
   onReject: (id: string, reason: string) => Promise<void> | void;
   onCancelBooking?: (booking: Booking) => void;
@@ -84,6 +86,9 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
   // Rejection modal
   const [rejectingBooking, setRejectingBooking] = useState<Booking | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [autoAssigningId, setAutoAssigningId] = useState<string | null>(null);
+
+  const canAssign = currentUser.role === 'LOGISTICS_ADMIN' || currentUser.role === 'SYSTEM_ADMIN';
 
   useEffect(() => {
     if (initialTab) {
@@ -314,20 +319,47 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
     }
   };
 
+  const handleAutoAssign = async (b: Booking) => {
+    try {
+      setAutoAssigningId(b.id);
+      await api.autoAssignBooking(b.id);
+      if (onRefreshQueue) {
+        await onRefreshQueue();
+      } else {
+        await fetchWorkspaceData();
+      }
+    } catch (err: any) {
+      console.warn('Auto-assign notice:', err);
+      if (onAssignVehicle) {
+        onAssignVehicle(b);
+      }
+    } finally {
+      setAutoAssigningId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* 1. Assignment Workspace Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-brand-50 dark:bg-brand-950/60 p-2 flex items-center justify-center border border-brand-200 dark:border-brand-800 shadow-2xs shrink-0">
-            <KeyRound className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+            {canAssign ? (
+              <KeyRound className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+            ) : (
+              <ClipboardList className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+            )}
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Fleet Vehicle & Driver Assignment Workspace
+              {canAssign
+                ? 'Fleet Vehicle & Driver Assignment Workspace'
+                : 'Transport Requests & Review Workspace'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Review staff transport requests, verify live resource availability, and assign vehicles and chauffeurs safely without conflicts.
+              {canAssign
+                ? 'Review staff transport requests, verify live resource availability, and assign vehicles and chauffeurs safely without conflicts.'
+                : 'Review staff transport requisitions, approve or reject bookings, view digital QR receipts, and manage fleet transport.'}
             </p>
           </div>
         </div>
@@ -370,7 +402,7 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
           </span>
         </button>
 
-        {/* 2. Approved Unassigned */}
+        {/* 2. Approved Requests */}
         <button
           type="button"
           onClick={() => setActiveFilterTab('approved')}
@@ -384,13 +416,17 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
               Approved
             </span>
-            <KeyRound className="w-4 h-4 text-blue-500 shrink-0" />
+            {canAssign ? (
+              <KeyRound className="w-4 h-4 text-blue-500 shrink-0" />
+            ) : (
+              <Layers className="w-4 h-4 text-blue-500 shrink-0" />
+            )}
           </div>
           <div className="text-2xl font-extrabold text-slate-900 dark:text-white">
             {approvedUnassigned.length}
           </div>
           <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
-            Awaiting Vehicle
+            {canAssign ? 'Awaiting Vehicle' : 'Approved Requests'}
           </span>
         </button>
 
@@ -992,152 +1028,151 @@ export const ReviewRequestsQueue: React.FC<ReviewRequestsQueueProps> = ({
 
                   {/* Right: Primary Operational Actions */}
                   <div className="flex flex-wrap items-center gap-2.5">
-                    {/* Pending Actions */}
+                    {/* 1. Pending: Approve, Decline, Review Request, & Cancel */}
                     {b.status === 'PENDING_APPROVAL' && (
                       <>
+                        <Button
+                          variant="primary"
+                          size="md"
+                          onClick={() => handleApprove(b.id)}
+                          disabled={isProcessingId === b.id}
+                          leftIcon={<CheckCircle className="w-4 h-4 text-white" />}
+                          className="h-11 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm"
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="md"
+                          onClick={() => {
+                            setRejectingBooking(b);
+                            setRejectReason('');
+                          }}
+                          leftIcon={<XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
+                          className="h-11 px-4 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 bg-rose-50/60 dark:bg-rose-950/20 hover:bg-rose-100 font-semibold shadow-2xs"
+                        >
+                          Decline
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="md"
+                          onClick={() => onSelectBooking(b)}
+                          leftIcon={<Eye className="w-4 h-4" />}
+                          className="h-11 px-4 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 font-semibold shadow-2xs"
+                        >
+                          Review Request
+                        </Button>
                         {onCancelBooking && (
                           <Button
                             variant="outline"
                             size="md"
                             onClick={() => onCancelBooking(b)}
-                            leftIcon={<XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
-                            className="h-11 px-4 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-semibold shadow-2xs"
+                            leftIcon={<XCircle className="w-4 h-4 text-slate-400" />}
+                            className="h-11 px-3 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium shadow-2xs"
                           >
-                            Cancel Booking
+                            Cancel
                           </Button>
                         )}
-                        {onOpenReceipt && (
-                          <Button
-                            variant="outline"
-                            size="md"
-                            onClick={() => onOpenReceipt(b)}
-                            leftIcon={<QrCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-                            className="h-11 px-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100 font-semibold shadow-2xs"
-                          >
-                            Digital Receipt & QR
-                          </Button>
-                        )}
-                        <Button
-                          variant="danger"
-                          size="md"
-                          onClick={() => setRejectingBooking(b)}
-                          leftIcon={<XCircle className="w-4 h-4" />}
-                          className="h-11 px-4 font-semibold shadow-xs"
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          variant="success"
-                          size="md"
-                          disabled={isProcessingId === b.id}
-                          onClick={() => handleApprove(b.id)}
-                          leftIcon={<CheckCircle className="w-4 h-4" />}
-                          className="h-11 px-5 font-bold shadow-xs"
-                        >
-                          {isProcessingId === b.id ? 'Approving...' : 'Approve Request'}
-                        </Button>
-                        <Button
-                          variant="primary"
-                          size="md"
-                          disabled={isProcessingId === b.id}
-                          onClick={async () => {
-                            await handleApprove(b.id);
-                            onAssignVehicle({ ...b, status: 'APPROVED' });
-                          }}
-                          leftIcon={<Car className="w-4 h-4" />}
-                          rightIcon={<ArrowRight className="w-4 h-4 ml-1" />}
-                          className="h-11 px-5 font-bold text-sm shadow-md bg-brand-600 hover:bg-brand-700 focus:ring-4 focus:ring-brand-500/20"
-                        >
-                          Review & Assign
-                        </Button>
                       </>
                     )}
 
-                    {/* Approved / Awaiting Allocation: Prominent "Review & Assign" & "Cancel Booking" */}
+                    {/* 2. Approved: Assign Vehicle, Auto-Assign, View Details & Cancel */}
                     {b.status === 'APPROVED' && (
                       <>
-                        {onCancelBooking && (
+                        {canAssign && onAssignVehicle && (
                           <Button
-                            variant="outline"
+                            variant="primary"
                             size="md"
-                            onClick={() => onCancelBooking(b)}
-                            leftIcon={<XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
-                            className="h-11 px-4 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-semibold shadow-2xs"
+                            onClick={() => onAssignVehicle(b)}
+                            leftIcon={<Car className="w-4 h-4" />}
+                            rightIcon={<ArrowRight className="w-4 h-4 ml-1" />}
+                            className="h-11 px-6 font-bold text-sm shadow-md bg-brand-600 hover:bg-brand-700 focus:ring-4 focus:ring-brand-500/20"
                           >
-                            Cancel Booking
+                            Assign Vehicle & Driver
                           </Button>
                         )}
-                        {onOpenReceipt && (
+                        {canAssign && (
                           <Button
-                            variant="outline"
+                            variant="primary"
                             size="md"
-                            onClick={() => onOpenReceipt(b)}
-                            leftIcon={<QrCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-                            className="h-11 px-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100 font-semibold shadow-2xs"
+                            onClick={() => handleAutoAssign(b)}
+                            disabled={autoAssigningId === b.id}
+                            leftIcon={autoAssigningId === b.id ? <RotateCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                            className="h-11 px-4 font-bold text-sm shadow-sm bg-amber-500 hover:bg-amber-600 text-white"
                           >
-                            Digital Receipt & QR
-                          </Button>
-                        )}
-                        <Button
-                          variant="primary"
-                          size="md"
-                          onClick={() => onAssignVehicle(b)}
-                          leftIcon={<Car className="w-4 h-4" />}
-                          rightIcon={<ArrowRight className="w-4 h-4 ml-1" />}
-                          className="h-11 px-6 font-bold text-sm shadow-md bg-brand-600 hover:bg-brand-700 focus:ring-4 focus:ring-brand-500/20"
-                        >
-                          Review & Assign
-                        </Button>
-                      </>
-                    )}
-
-                    {/* Assigned Actions: Reassign Vehicle & Driver & "Cancel Booking" */}
-                    {b.status === 'ASSIGNED' && (
-                      <>
-                        {onCancelBooking && (
-                          <Button
-                            variant="outline"
-                            size="md"
-                            onClick={() => onCancelBooking(b)}
-                            leftIcon={<XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
-                            className="h-11 px-4 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-semibold shadow-2xs"
-                          >
-                            Cancel Booking
-                          </Button>
-                        )}
-                        {onOpenReceipt && (
-                          <Button
-                            variant="outline"
-                            size="md"
-                            onClick={() => onOpenReceipt(b)}
-                            leftIcon={<QrCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-                            className="h-11 px-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100 font-semibold shadow-2xs"
-                          >
-                            Digital Receipt & QR
+                            {autoAssigningId === b.id ? 'Auto...' : '⚡ Auto-Assign'}
                           </Button>
                         )}
                         <Button
                           variant="outline"
                           size="md"
-                          onClick={() => onAssignVehicle(b)}
-                          leftIcon={<Car className="w-4 h-4 text-brand-600 dark:text-brand-400" />}
-                          className="h-11 px-5 border-brand-300 dark:border-brand-700 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/40 font-bold shadow-2xs"
+                          onClick={() => onSelectBooking(b)}
+                          leftIcon={<Eye className="w-4 h-4" />}
+                          className="h-11 px-5 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 font-semibold shadow-2xs"
                         >
-                          Change Assignment (Reassign)
+                          View Details
                         </Button>
+                        {onCancelBooking && (
+                          <Button
+                            variant="outline"
+                            size="md"
+                            onClick={() => onCancelBooking(b)}
+                            leftIcon={<XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
+                            className="h-11 px-4 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-semibold shadow-2xs"
+                          >
+                            Cancel Booking
+                          </Button>
+                        )}
                       </>
                     )}
 
-                    {/* In Progress or Completed */}
-                    {(b.status === 'IN_PROGRESS' || b.status === 'COMPLETED') && onOpenReceipt && (
+                    {/* 3. Assigned: View Assignment & Cancel Booking */}
+                    {b.status === 'ASSIGNED' && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="md"
+                          onClick={() => onSelectBooking(b)}
+                          leftIcon={<Eye className="w-4 h-4 text-brand-600 dark:text-brand-400" />}
+                          className="h-11 px-5 border-brand-300 dark:border-brand-700 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/40 font-bold shadow-2xs"
+                        >
+                          View Assignment
+                        </Button>
+                        {canAssign && onAssignVehicle && (
+                          <Button
+                            variant="outline"
+                            size="md"
+                            onClick={() => onAssignVehicle(b)}
+                            leftIcon={<Car className="w-4 h-4 text-slate-600 dark:text-slate-400" />}
+                            className="h-11 px-4 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 font-semibold shadow-2xs"
+                          >
+                            Reassign
+                          </Button>
+                        )}
+                        {onCancelBooking && (
+                          <Button
+                            variant="outline"
+                            size="md"
+                            onClick={() => onCancelBooking(b)}
+                            leftIcon={<XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
+                            className="h-11 px-4 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-semibold shadow-2xs"
+                          >
+                            Cancel Booking
+                          </Button>
+                        )}
+                      </>
+                    )}
+
+                    {/* 4. Completed or Cancelled: View Details */}
+                    {b.status !== 'PENDING_APPROVAL' && b.status !== 'APPROVED' && b.status !== 'ASSIGNED' && (
                       <Button
                         variant="outline"
                         size="md"
-                        onClick={() => onOpenReceipt(b)}
-                        leftIcon={<QrCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-                        className="h-11 px-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100 font-semibold shadow-2xs"
+                        onClick={() => onSelectBooking(b)}
+                        leftIcon={<Eye className="w-4 h-4 text-slate-500" />}
+                        className="h-11 px-5 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 font-semibold shadow-2xs"
                       >
-                        Digital Receipt & QR
+                        View Details
                       </Button>
                     )}
                   </div>

@@ -1,3 +1,4 @@
+// CONTROLLER: Read-only audit trail of booking, user, and assignment actions.
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuditService } from './audit.service';

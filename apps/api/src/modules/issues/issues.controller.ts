@@ -1,3 +1,4 @@
+// CONTROLLER: Vehicle defect reports (OPEN / IN_REVIEW / RESOLVED).
 import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { IssuesService } from './issues.service';

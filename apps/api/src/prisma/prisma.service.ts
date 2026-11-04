@@ -1,3 +1,4 @@
+// ORM: Prisma Client wrapper used by all services to query PostgreSQL.
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 

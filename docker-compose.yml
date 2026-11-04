@@ -1,3 +1,4 @@
+# DOCKER: Runs PostgreSQL in a container. App processes (NestJS, Vite) still run on the host.
 version: '3.8'
 
 services:

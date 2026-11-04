@@ -1,3 +1,4 @@
+// COMPONENT: Top bar with theme toggle, notifications, profile, and logout.
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@/types';
 import { useTheme } from '@/context/ThemeContext';

@@ -1,3 +1,4 @@
+// COMPONENT: Driver home. Lists missions where this user is the assigned chauffeur.
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Booking, Vehicle, VehicleIssue } from '@/types';
 import { api } from '@/lib/api';
@@ -103,13 +104,22 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({
         api.getIssues().catch(() => [] as VehicleIssue[]),
       ]);
 
-      // Filter bookings relevant to this driver (assigned directly or self-driven or all driver roster)
+      // Filter bookings strictly relevant to this driver (assigned directly or assigned on weekly days)
       const myBookings = bookings.filter((b) => {
-        const a = b.assignments?.[0];
-        if (!a) return false;
-        if (a.driverId && a.driverId === currentUser.id) return true;
-        if (a.driverName && a.driverName.toLowerCase() === currentUser.name.toLowerCase()) return true;
-        return true; // Roster visibility
+        const directMatch = b.assignments?.some(
+          (a) =>
+            (a.driverId && a.driverId === currentUser.id) ||
+            (a.driver?.id && a.driver.id === currentUser.id) ||
+            (a.driverName && a.driverName.toLowerCase() === currentUser.name.toLowerCase())
+        );
+        if (directMatch) return true;
+
+        const dayMatch = b.bookingDays?.some(
+          (d) => d.driverId === currentUser.id
+        );
+        if (dayMatch) return true;
+
+        return false;
       });
 
       setDriverBookings(myBookings);

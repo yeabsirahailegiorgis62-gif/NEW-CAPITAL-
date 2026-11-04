@@ -1,3 +1,4 @@
+// SERVICE: Defect reporting; may set a vehicle to MAINTENANCE when safety is flagged.
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateIssueDto, UpdateIssueDto } from './issues.dto';

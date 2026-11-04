@@ -1,3 +1,4 @@
+// CONTROLLER: Scheduled/completed workshop jobs for logistics and system admins.
 import {
   Controller,
   Get,

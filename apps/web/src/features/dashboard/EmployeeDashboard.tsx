@@ -1,3 +1,4 @@
+// COMPONENT: Employee home. Loads api.getBookings() scoped to the requester on the server.
 import React, { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Booking, User, Vehicle } from '@/types';

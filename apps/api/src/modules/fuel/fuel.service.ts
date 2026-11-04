@@ -1,3 +1,4 @@
+// SERVICE: Fuel purchase logging and cost-per-km aggregation.
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFuelRecordDto, QueryFuelStatsDto } from './fuel.dto';

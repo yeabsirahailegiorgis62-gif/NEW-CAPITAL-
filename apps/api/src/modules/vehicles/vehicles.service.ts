@@ -1,10 +1,116 @@
+// SERVICE: Fleet inventory plus overlap detection used during vehicle/driver assignment.
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateVehicleDto, UpdateVehicleDto } from './vehicles.dto';
 import { VehicleCategory, VehicleOperationalStatus, BookingStatus, UserRole } from '@prisma/client';
 
+export function getSlotInterval(tripDate: Date | string, timeSlot?: string | null): { start: Date; end: Date } {
+  const d = new Date(tripDate);
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const day = d.getDate();
+  const slot = (timeSlot || '').toUpperCase();
+
+  if (slot === 'MORNING') {
+    return {
+      start: new Date(y, m, day, 8, 0, 0),
+      end: new Date(y, m, day, 12, 30, 0),
+    };
+  } else if (slot === 'AFTERNOON') {
+    return {
+      start: new Date(y, m, day, 13, 0, 0),
+      end: new Date(y, m, day, 18, 0, 0),
+    };
+  } else {
+    return {
+      start: new Date(y, m, day, 0, 0, 0),
+      end: new Date(y, m, day, 23, 59, 59, 999),
+    };
+  }
+}
+
+export function intervalsOverlap(start1: Date, end1: Date, start2: Date, end2: Date): boolean {
+  return start1.getTime() < end2.getTime() && end1.getTime() > start2.getTime();
+}
+
+export function doesAssignmentConflict(
+  asgn: any,
+  depDate: Date,
+  retDate: Date,
+  targetBookingDays?: Array<{ tripDate: Date | string; timeSlot?: string }>
+): boolean {
+  const otherBooking = asgn.booking;
+  if (!otherBooking) return false;
+  const otherHasDays = otherBooking.bookingDays && otherBooking.bookingDays.length > 0;
+  const targetHasDays = targetBookingDays && targetBookingDays.length > 0;
+
+  if (targetHasDays && otherHasDays) {
+    for (const reqDay of targetBookingDays) {
+      const reqInterval = getSlotInterval(reqDay.tripDate, reqDay.timeSlot);
+      for (const otherDay of otherBooking.bookingDays) {
+        if (otherDay.status === 'CANCELLED') continue;
+        const otherInterval = getSlotInterval(otherDay.tripDate, otherDay.timeSlot);
+        if (intervalsOverlap(reqInterval.start, reqInterval.end, otherInterval.start, otherInterval.end)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  if (targetHasDays && !otherHasDays) {
+    const otherDep = new Date(otherBooking.departureAt);
+    const otherRet = new Date(otherBooking.expectedReturnAt);
+    for (const reqDay of targetBookingDays) {
+      const reqInterval = getSlotInterval(reqDay.tripDate, reqDay.timeSlot);
+      if (intervalsOverlap(reqInterval.start, reqInterval.end, otherDep, otherRet)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  if (!targetHasDays && otherHasDays) {
+    for (const otherDay of otherBooking.bookingDays) {
+      if (otherDay.status === 'CANCELLED') continue;
+      const otherInterval = getSlotInterval(otherDay.tripDate, otherDay.timeSlot);
+      if (intervalsOverlap(depDate, retDate, otherInterval.start, otherInterval.end)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  const otherDep = new Date(otherBooking.departureAt);
+  const otherRet = new Date(otherBooking.expectedReturnAt);
+  return intervalsOverlap(depDate, retDate, otherDep, otherRet);
+}
+
+export function doesBookingDayConflict(
+  bd: any,
+  depDate: Date,
+  retDate: Date,
+  targetBookingDays?: Array<{ tripDate: Date | string; timeSlot?: string }>
+): boolean {
+  if (bd.status === 'CANCELLED') return false;
+  const bdInterval = getSlotInterval(bd.tripDate, bd.timeSlot);
+
+  if (targetBookingDays && targetBookingDays.length > 0) {
+    for (const reqDay of targetBookingDays) {
+      const reqInterval = getSlotInterval(reqDay.tripDate, reqDay.timeSlot);
+      if (intervalsOverlap(reqInterval.start, reqInterval.end, bdInterval.start, bdInterval.end)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return intervalsOverlap(depDate, retDate, bdInterval.start, bdInterval.end);
+}
+
 @Injectable()
 export class VehiclesService {
+  // DEPENDENCY INJECTION: PrismaService for vehicle, assignment, and driver queries.
   constructor(private prisma: PrismaService) {}
 
   async findAll(query?: {
@@ -147,7 +253,10 @@ export class VehiclesService {
   /**
    * Determine fleet availability for interval [departureAt, expectedReturnAt)
    */
-  async getAvailability(departureAt: Date, expectedReturnAt: Date, minCapacity?: number, category?: VehicleCategory) {
+  async getAvailability(departureAt: Date | string, expectedReturnAt: Date | string, minCapacity?: number, category?: VehicleCategory) {
+    const depDate = new Date(departureAt);
+    const retDate = new Date(expectedReturnAt);
+
     const where: any = {};
     if (minCapacity) {
       where.passengerCapacity = { gte: minCapacity };
@@ -156,8 +265,8 @@ export class VehiclesService {
       where.category = category;
     }
 
-    const startOfRange = new Date(departureAt.getFullYear(), departureAt.getMonth(), departureAt.getDate(), 0, 0, 0);
-    const endOfRange = new Date(expectedReturnAt.getFullYear(), expectedReturnAt.getMonth(), expectedReturnAt.getDate(), 23, 59, 59);
+    const startOfRange = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate(), 0, 0, 0);
+    const endOfRange = new Date(retDate.getFullYear(), retDate.getMonth(), retDate.getDate(), 23, 59, 59, 999);
 
     const vehicles = await this.prisma.vehicle.findMany({
       where,
@@ -167,8 +276,8 @@ export class VehiclesService {
             unassignedAt: null,
             booking: {
               status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
-              departureAt: { lt: expectedReturnAt },
-              expectedReturnAt: { gt: departureAt },
+              departureAt: { lt: retDate },
+              expectedReturnAt: { gt: depDate },
             },
           },
           include: {
@@ -180,6 +289,7 @@ export class VehiclesService {
                 expectedReturnAt: true,
                 destination: true,
                 status: true,
+                bookingDays: true,
               },
             },
           },
@@ -205,6 +315,11 @@ export class VehiclesService {
             },
           },
         },
+        maintenances: {
+          where: {
+            status: { in: ['SCHEDULED', 'IN_PROGRESS', 'REPORTED'] },
+          },
+        },
         issues: {
           where: {
             status: { in: ['OPEN', 'IN_REVIEW'] },
@@ -216,10 +331,32 @@ export class VehiclesService {
 
     return vehicles.map((v) => {
       const isOperational = v.operationalStatus === VehicleOperationalStatus.ACTIVE && !v.hasSafetyAlert;
-      const assignmentConflict = v.assignments.length > 0 ? v.assignments[0] : null;
-      const dayConflict = v.bookingDays.length > 0 ? v.bookingDays[0] : null;
+      const assignmentConflict = v.assignments.find((a) => doesAssignmentConflict(a, depDate, retDate)) || null;
+
+      // Slot-precise check for bookingDays
+      const dayConflict = v.bookingDays.find((bd) => doesBookingDayConflict(bd, depDate, retDate)) || null;
+
       const overlappingConflict = assignmentConflict?.booking || dayConflict?.booking || null;
-      const isAvailable = isOperational && !overlappingConflict;
+
+      // Check maintenance
+      let maintenanceConflictReason = '';
+      if (v.operationalStatus === VehicleOperationalStatus.MAINTENANCE) {
+        maintenanceConflictReason = 'Vehicle is currently in workshop maintenance';
+      } else {
+        const mConflict = v.maintenances.find((m) => {
+          if (m.status === 'IN_PROGRESS') return true;
+          const mStart = new Date(m.serviceDate.getFullYear(), m.serviceDate.getMonth(), m.serviceDate.getDate(), 0, 0, 0);
+          const mEnd = m.completedDate
+            ? new Date(m.completedDate)
+            : new Date(m.serviceDate.getFullYear(), m.serviceDate.getMonth(), m.serviceDate.getDate(), 23, 59, 59, 999);
+          return intervalsOverlap(depDate, retDate, mStart, mEnd);
+        });
+        if (mConflict) {
+          maintenanceConflictReason = `Vehicle is scheduled for workshop maintenance on ${new Date(mConflict.serviceDate).toLocaleDateString('en-GB')} (${mConflict.category})`;
+        }
+      }
+
+      const isAvailable = isOperational && !maintenanceConflictReason && !overlappingConflict;
 
       let reason = '';
       if (!isOperational) {
@@ -234,6 +371,8 @@ export class VehiclesService {
         } else {
           reason = `Vehicle status is ${v.operationalStatus.toLowerCase().replace('_', ' ')}`;
         }
+      } else if (maintenanceConflictReason) {
+        reason = maintenanceConflictReason;
       } else if (overlappingConflict) {
         reason = `Currently assigned to mission #${overlappingConflict.bookingReference} (${overlappingConflict.destination})`;
       }
@@ -264,17 +403,20 @@ export class VehiclesService {
    * Intelligent Vehicle Recommendation Engine (Part 3)
    */
   async getRecommendations(params: {
-    departureAt: Date;
-    expectedReturnAt: Date;
+    departureAt: Date | string;
+    expectedReturnAt: Date | string;
     passengerCount: number;
     category?: VehicleCategory;
     preferredVehicleId?: string;
     excludeBookingId?: string;
+    bookingDays?: Array<{ tripDate: Date | string; timeSlot?: string; dayOfWeek?: string }>;
   }) {
-    const { departureAt, expectedReturnAt, passengerCount, category, preferredVehicleId, excludeBookingId } = params;
+    const { departureAt, expectedReturnAt, passengerCount, category, preferredVehicleId, excludeBookingId, bookingDays } = params;
 
-    const startOfRange = new Date(departureAt.getFullYear(), departureAt.getMonth(), departureAt.getDate(), 0, 0, 0);
-    const endOfRange = new Date(expectedReturnAt.getFullYear(), expectedReturnAt.getMonth(), expectedReturnAt.getDate(), 23, 59, 59);
+    const depDate = new Date(departureAt);
+    const retDate = new Date(expectedReturnAt);
+    const startOfRange = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate(), 0, 0, 0);
+    const endOfRange = new Date(retDate.getFullYear(), retDate.getMonth(), retDate.getDate(), 23, 59, 59, 999);
 
     const allVehicles = await this.prisma.vehicle.findMany({
       include: {
@@ -284,8 +426,8 @@ export class VehiclesService {
             booking: {
               ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
               status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
-              departureAt: { lt: expectedReturnAt },
-              expectedReturnAt: { gt: departureAt },
+              departureAt: { lt: retDate },
+              expectedReturnAt: { gt: depDate },
             },
           },
           include: {
@@ -296,6 +438,7 @@ export class VehiclesService {
                 departureAt: true,
                 expectedReturnAt: true,
                 destination: true,
+                bookingDays: true,
               },
             },
           },
@@ -319,6 +462,11 @@ export class VehiclesService {
                 destination: true,
               },
             },
+          },
+        },
+        maintenances: {
+          where: {
+            status: { in: ['SCHEDULED', 'IN_PROGRESS', 'REPORTED'] },
           },
         },
         issues: {
@@ -365,36 +513,77 @@ export class VehiclesService {
         reasons.push('Has active safety alert or critical unresolved issue');
       }
 
-      // 4. Scheduling overlap check
-      const assignmentConflict = v.assignments.length > 0 ? v.assignments[0] : null;
-      const dayConflict = v.bookingDays.length > 0 ? v.bookingDays[0] : null;
+      // 4. Maintenance check
+      let maintenanceConflict = false;
+      let maintenanceReason = '';
+      if (v.operationalStatus === VehicleOperationalStatus.MAINTENANCE) {
+        maintenanceConflict = true;
+        maintenanceReason = 'Vehicle is currently in workshop maintenance';
+      } else {
+        const mConflict = v.maintenances.find((m) => {
+          if (m.status === 'IN_PROGRESS') return true;
+          const mStart = new Date(m.serviceDate.getFullYear(), m.serviceDate.getMonth(), m.serviceDate.getDate(), 0, 0, 0);
+          const mEnd = m.completedDate
+            ? new Date(m.completedDate)
+            : new Date(m.serviceDate.getFullYear(), m.serviceDate.getMonth(), m.serviceDate.getDate(), 23, 59, 59, 999);
+          if (bookingDays && bookingDays.length > 0) {
+            return bookingDays.some((reqDay) => {
+              const reqInterval = getSlotInterval(reqDay.tripDate, reqDay.timeSlot);
+              return intervalsOverlap(mStart, mEnd, reqInterval.start, reqInterval.end);
+            });
+          }
+          return intervalsOverlap(depDate, retDate, mStart, mEnd);
+        });
+        if (mConflict) {
+          maintenanceConflict = true;
+          maintenanceReason = `Vehicle is scheduled for workshop maintenance on ${new Date(mConflict.serviceDate).toLocaleDateString('en-GB')} (${mConflict.category})`;
+        }
+      }
+
+      if (maintenanceConflict) {
+        isEligible = false;
+        score = 0;
+        reasons.push(maintenanceReason);
+      }
+
+      // 5. Scheduling overlap check with time slot precision
+      const assignmentConflict = v.assignments.find((a) =>
+        doesAssignmentConflict(a, depDate, retDate, bookingDays)
+      ) || null;
+
+      const dayConflict = v.bookingDays.find((bd) =>
+        doesBookingDayConflict(bd, depDate, retDate, bookingDays)
+      ) || null;
+
       const conflict = assignmentConflict?.booking || dayConflict?.booking || null;
 
       if (conflict) {
         isEligible = false;
         score = 0;
         reasons.push(`Scheduling conflict with booking ${conflict.bookingReference} (${conflict.destination})`);
-      } else {
+      } else if (!maintenanceConflict) {
         reasons.push('No scheduling conflict for requested timeframe');
       }
 
-      // 5. Preferred vehicle bonus
+      // 6. Preferred vehicle bonus
       if (preferredVehicleId && v.id === preferredVehicleId) {
         score += 15;
         reasons.push('Requested as preferred vehicle by employee');
       }
 
-      // 6. Category preference bonus
+      // 7. Category preference bonus
       if (category && v.category === category) {
         score += 10;
         reasons.push(`Matches requested category (${category})`);
       }
 
-      // 7. Open issues count penalty
+      // 8. Open issues count penalty
       if (v.issues.length > 0) {
         score -= v.issues.length * 5;
         reasons.push(`${v.issues.length} minor non-critical open maintenance note(s)`);
       }
+
+      const isActuallyAvailable = isEligible && !conflict && !maintenanceConflict;
 
       return {
         vehicle: {
@@ -411,7 +600,7 @@ export class VehiclesService {
         },
         score: Math.max(0, Math.min(100, score)),
         isEligible,
-        isAvailable: isEligible && !conflict,
+        isAvailable: isActuallyAvailable,
         isCapacitySuitable: v.passengerCapacity >= (passengerCount || 1),
         reasons,
         conflict: conflict || null,
@@ -426,8 +615,10 @@ export class VehiclesService {
       };
     });
 
-    // Sort: eligible first, then by score descending
+    // Sort: eligible and available first, then by score descending
     recommendations.sort((a, b) => {
+      if (a.isAvailable && !b.isAvailable) return -1;
+      if (!a.isAvailable && b.isAvailable) return 1;
       if (a.isEligible && !b.isEligible) return -1;
       if (!a.isEligible && b.isEligible) return 1;
       return b.score - a.score;
@@ -442,6 +633,9 @@ export class VehiclesService {
   async getRecommendationsForBooking(bookingId: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
+      include: {
+        bookingDays: true,
+      },
     });
     if (!booking) {
       throw new NotFoundException(`Booking with ID ${bookingId} not found.`);
@@ -452,15 +646,23 @@ export class VehiclesService {
       passengerCount: booking.passengerCount,
       preferredVehicleId: booking.preferredVehicleId || undefined,
       excludeBookingId: booking.id,
+      bookingDays: booking.bookingDays,
     });
   }
 
   /**
    * Driver Recommendation Engine (Part 3)
    */
-  async getDriverRecommendations(departureAt: Date, expectedReturnAt: Date, excludeBookingId?: string) {
-    const startOfRange = new Date(departureAt.getFullYear(), departureAt.getMonth(), departureAt.getDate(), 0, 0, 0);
-    const endOfRange = new Date(expectedReturnAt.getFullYear(), expectedReturnAt.getMonth(), expectedReturnAt.getDate(), 23, 59, 59);
+  async getDriverRecommendations(
+    departureAt: Date | string,
+    expectedReturnAt: Date | string,
+    excludeBookingId?: string,
+    bookingDays?: Array<{ tripDate: Date | string; timeSlot?: string; dayOfWeek?: string }>
+  ) {
+    const depDate = new Date(departureAt);
+    const retDate = new Date(expectedReturnAt);
+    const startOfRange = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate(), 0, 0, 0);
+    const endOfRange = new Date(retDate.getFullYear(), retDate.getMonth(), retDate.getDate(), 23, 59, 59, 999);
 
     const drivers = await this.prisma.user.findMany({
       where: {
@@ -475,8 +677,8 @@ export class VehiclesService {
             booking: {
               ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
               status: { in: [BookingStatus.ASSIGNED, BookingStatus.IN_PROGRESS] },
-              departureAt: { lt: expectedReturnAt },
-              expectedReturnAt: { gt: departureAt },
+              departureAt: { lt: retDate },
+              expectedReturnAt: { gt: depDate },
             },
           },
           include: {
@@ -487,6 +689,7 @@ export class VehiclesService {
                 departureAt: true,
                 expectedReturnAt: true,
                 destination: true,
+                bookingDays: true,
               },
             },
           },
@@ -533,8 +736,14 @@ export class VehiclesService {
       let score = 100;
       const reasons: string[] = [];
 
-      const assignmentConflict = d.driverAssignments.length > 0 ? d.driverAssignments[0] : null;
-      const dayConflict = d.driverBookingDays.length > 0 ? d.driverBookingDays[0] : null;
+      const assignmentConflict = d.driverAssignments.find((a) =>
+        doesAssignmentConflict(a, depDate, retDate, bookingDays)
+      ) || null;
+
+      const dayConflict = d.driverBookingDays.find((bd) =>
+        doesBookingDayConflict(bd, depDate, retDate, bookingDays)
+      ) || null;
+
       const conflict = assignmentConflict?.booking || dayConflict?.booking || null;
 
       if (conflict) {
@@ -591,6 +800,9 @@ export class VehiclesService {
   async getDriverRecommendationsForBooking(bookingId: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
+      include: {
+        bookingDays: true,
+      },
     });
     if (!booking) {
       throw new NotFoundException(`Booking with ID ${bookingId} not found.`);
@@ -599,6 +811,7 @@ export class VehiclesService {
       booking.departureAt,
       booking.expectedReturnAt,
       booking.id,
+      booking.bookingDays,
     );
   }
 }

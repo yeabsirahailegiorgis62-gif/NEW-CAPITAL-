@@ -1,3 +1,4 @@
+// MODULE: Fuel records and expenditure statistics.
 import { Module } from '@nestjs/common';
 import { FuelController } from './fuel.controller';
 import { FuelService } from './fuel.service';

@@ -1,3 +1,5 @@
+// SERVER: NestJS application entry point. Creates the HTTP server, applies global
+// middleware, and listens on PORT (default 4100).
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -12,13 +14,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableShutdownHooks();
+  // REST API: All controllers are mounted under /api (e.g. /api/bookings).
   app.setGlobalPrefix('api');
 
   // Payload body parser limits for photo uploads
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ limit: '10mb', extended: true }));
 
-  // Security Headers Middleware
+  // MIDDLEWARE: Runs on every request to attach browser security headers.
   app.use((req: any, res: any, next: any) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -27,8 +30,10 @@ async function bootstrap() {
     next();
   });
 
+  // EXCEPTION HANDLING: Converts thrown NestJS/HTTP errors into a consistent JSON body.
   app.useGlobalFilters(new AllExceptionsFilter());
 
+  // VALIDATION: class-validator DTOs are checked before controller methods run.
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -37,6 +42,7 @@ async function bootstrap() {
     }),
   );
 
+  // CORS: Allows the Vite frontend (port 5173) to call this API from the browser.
   app.enableCors({
     origin: [
       'http://localhost:5173',

@@ -1,3 +1,4 @@
+// CONTROLLER: System policies stored in SystemSetting. Purge is SYSTEM_ADMIN only.
 import { Controller, Get, Patch, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { SettingsService } from './settings.service';

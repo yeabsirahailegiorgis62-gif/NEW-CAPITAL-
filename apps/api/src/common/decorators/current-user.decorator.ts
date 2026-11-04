@@ -1,3 +1,4 @@
+// DECORATOR: Injects request.user, which JwtStrategy attached after JWT validation.
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export const CurrentUser = createParamDecorator(

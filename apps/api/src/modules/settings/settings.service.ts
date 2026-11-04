@@ -1,3 +1,4 @@
+// SERVICE: Reads/writes SystemSetting keys that BookingsService and AuthService enforce.
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateSystemSettingsDto, PurgeOperationsDataDto } from './settings.dto';

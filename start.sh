@@ -15,11 +15,16 @@ sleep 1
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Compile API to guarantee latest changes are active
+echo ""
+echo "📦 Compiling Backend API..."
+cd "$SCRIPT_DIR/apps/api"
+npm run build
+
 # Start API in background
 echo ""
 echo "🔧 Starting Backend API (port 4100)..."
-cd "$SCRIPT_DIR/apps/api"
-node dist/main.js &
+node --max-old-space-size=512 dist/main.js &
 API_PID=$!
 echo "  → API PID: $API_PID"
 

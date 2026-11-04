@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 
@@ -54,7 +55,7 @@ export const Modal: React.FC<ModalProps> = ({
       '6xl': 'max-w-6xl',
     }[maxWidth] || 'max-w-lg';
 
-  return (
+  const modalElement = (
     <div
       className="fixed inset-0 z-50 overflow-y-auto p-2 sm:p-4 md:p-6 flex min-h-[100dvh] items-center justify-center overscroll-contain"
       role="dialog"
@@ -110,4 +111,8 @@ export const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalElement, document.body)
+    : modalElement;
 };

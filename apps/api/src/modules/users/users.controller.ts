@@ -1,3 +1,4 @@
+// CONTROLLER: Staff account CRUD plus authenticated self-profile updates.
 import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -13,6 +14,7 @@ import { UserRole } from '@prisma/client';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('users')
 export class UsersController {
+  // DEPENDENCY INJECTION: UsersService hashes passwords and never returns passwordHash.
   constructor(private readonly usersService: UsersService) {}
 
   @Get('profile/me')

@@ -1,3 +1,5 @@
+// ROUTING: This SPA does not use react-router. App.tsx switches landing/login/workspace
+// and the workspace `activeTab` (also stored in ?tab=) to choose which feature view to render.
 import React, { useState, useEffect } from 'react';
 import { User, Booking, Vehicle, InAppNotification, BookingStatus } from '@/types';
 import { api } from '@/lib/api';
@@ -36,6 +38,7 @@ import { ProfileSettingsView } from '@/features/profile/ProfileSettingsView';
 export function App() {
   const toast = useToast();
 
+  // STATE: Session, current screen, bookings cache, and which modal is open.
   const [isAppLoading, setIsAppLoading] = useState(false);
   const [currentView, setCurrentView] = useState<'landing' | 'login' | 'workspace'>(() => {
     if (typeof window !== 'undefined') {
@@ -47,13 +50,33 @@ export function App() {
     return 'landing';
   });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab) return tab;
+    }
+    return 'dashboard';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentView === 'workspace') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('tab') !== activeTab) {
+        url.searchParams.set('tab', activeTab);
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [activeTab, currentView]);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
   // Modal states
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
   const [selectedBookingForReceipt, setSelectedBookingForReceipt] = useState<Booking | null>(null);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [isReceiptLoading, setIsReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
   const [printableBooking, setPrintableBooking] = useState<Booking | null>(null);
   const [verificationReference, setVerificationReference] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -74,7 +97,7 @@ export function App() {
   const [tripModalBooking, setTripModalBooking] = useState<{ booking: Booking; mode: 'start' | 'complete' } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  // Check URL query parameters for QR code verification (?verify=CR-2026-XXXX or ?ref=...)
+  // Check URL query parameters for QR code verification (?verify=...) or direct receipt (?receipt=...)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -83,10 +106,14 @@ export function App() {
         setVerificationReference(verifyRef);
         setIsDirectScan(true);
       }
+      const receiptParam = params.get('receipt');
+      if (receiptParam) {
+        handleOpenReceipt({ id: receiptParam });
+      }
     }
   }, []);
 
-  // Check authenticated session on load
+  // HOOK: On load, restore JWT from sessionStorage and fetch GET /api/auth/me.
   useEffect(() => {
     const checkSession = async () => {
       const token = api.getToken();
@@ -117,6 +144,7 @@ export function App() {
     }
   };
 
+  // EVENT HANDLER: LoginPage calls this; ApiClient.login stores the JWT then loads workspace data.
   const handleLogin = async (identifier: string, pass: string): Promise<boolean> => {
     try {
       const res = await api.login(identifier, pass);
@@ -243,15 +271,31 @@ export function App() {
   };
 
   const handleOpenReceipt = async (target: Booking | { id: string; bookingReference?: string }) => {
+    setIsReceiptOpen(true);
+    setReceiptError(null);
+
+    // If an entire booking object is already in memory, display it immediately
     if ('bookingReference' in target && 'status' in target && target.bookingReference && target.status) {
       setSelectedBookingForReceipt(target as Booking);
-    } else if (target.id) {
+      setIsReceiptLoading(false);
+    } else {
+      setIsReceiptLoading(true);
+    }
+
+    const lookupKey = target.id || ('bookingReference' in target ? target.bookingReference : undefined);
+    if (lookupKey) {
       try {
-        const full = await api.getBooking(target.id);
+        const full = await api.getBooking(lookupKey);
         setSelectedBookingForReceipt(full);
-      } catch (err) {
+        setIsReceiptLoading(false);
+      } catch (err: any) {
         console.error('Failed to load booking for receipt', err);
-        toast.error('Receipt error', 'Could not retrieve full booking record.');
+        setIsReceiptLoading(false);
+        if (!('bookingReference' in target && (target as any).status)) {
+          const msg = err.message || 'Could not retrieve verified booking record from fleet database.';
+          setReceiptError(msg);
+          toast.error('Receipt error', msg);
+        }
       }
     }
   };
@@ -314,12 +358,16 @@ export function App() {
     );
   }
 
+  // AUTHORIZATION: Role flags decide which dashboard and sidebar tabs are shown.
   const isEmployee = currentUser?.role === 'EMPLOYEE';
   const isDriver = currentUser?.role === 'DRIVER';
+  const isLogisticsAdmin = currentUser?.role === 'LOGISTICS_ADMIN';
   const isSystemAdmin = currentUser?.role === 'SYSTEM_ADMIN';
+  const canAssignVehicles = isLogisticsAdmin || isSystemAdmin;
 
   return (
-    <AppShell
+    <>
+      <AppShell
       currentUser={currentUser!}
       activeTab={activeTab}
       onTabChange={setActiveTab}
@@ -333,7 +381,8 @@ export function App() {
       onOpenBooking={async (target) => {
         if ('bookingReference' in target) {
           setSelectedBookingForDetails(target as Booking);
-        } else if (target.id) {
+        }
+        if (target.id) {
           try {
             const b = await api.getBooking(target.id);
             setSelectedBookingForDetails(b);
@@ -373,9 +422,15 @@ export function App() {
             />
           ) : (
             <LogisticsDashboard
+              currentUser={currentUser!}
               onNavigateTab={setActiveTab}
               onOpenBooking={(b) => setSelectedBookingForDetails(b)}
               onAssignVehicle={(b) => setAssigningBooking(b)}
+              onCancelBooking={(b) => setCancellingBooking(b)}
+              onOpenReceipt={handleOpenReceipt}
+              onApproveBooking={handleApproveBooking}
+              onRejectBooking={handleRejectBooking}
+              onRefresh={refreshAllData}
             />
           )}
         </>
@@ -383,6 +438,7 @@ export function App() {
 
       {activeTab === 'new-booking' && (
         <BookingRequestForm
+          currentUser={currentUser!}
           onSuccess={(b) => {
             refreshAllData();
             setSelectedBookingForDetails(b);
@@ -417,7 +473,7 @@ export function App() {
           initialTab="pending"
           onRefreshQueue={refreshAllData}
           onSelectBooking={(b) => setSelectedBookingForDetails(b)}
-          onAssignVehicle={(b) => setAssigningBooking(b)}
+          onAssignVehicle={canAssignVehicles ? (b) => setAssigningBooking(b) : undefined}
           onApprove={handleApproveBooking}
           onReject={handleRejectBooking}
           onCancelBooking={(b) => setCancellingBooking(b)}
@@ -433,7 +489,7 @@ export function App() {
           initialTab="approved"
           onRefreshQueue={refreshAllData}
           onSelectBooking={(b) => setSelectedBookingForDetails(b)}
-          onAssignVehicle={(b) => setAssigningBooking(b)}
+          onAssignVehicle={canAssignVehicles ? (b) => setAssigningBooking(b) : undefined}
           onApprove={handleApproveBooking}
           onReject={handleRejectBooking}
           onCancelBooking={(b) => setCancellingBooking(b)}
@@ -491,7 +547,7 @@ export function App() {
           initialTab="pending"
           onRefreshQueue={refreshAllData}
           onSelectBooking={(b) => setSelectedBookingForDetails(b)}
-          onAssignVehicle={(b) => setAssigningBooking(b)}
+          onAssignVehicle={canAssignVehicles ? (b) => setAssigningBooking(b) : undefined}
           onApprove={handleApproveBooking}
           onReject={handleRejectBooking}
           onCancelBooking={(b) => setCancellingBooking(b)}
@@ -507,8 +563,10 @@ export function App() {
           onLogout={handleLogout}
         />
       )}
+    </AppShell>
 
-      {/* Booking Details Modal */}
+    {/* Booking Details Modal */}
+    {selectedBookingForDetails && (
       <BookingDetailsModal
         isOpen={!!selectedBookingForDetails}
         onClose={() => setSelectedBookingForDetails(null)}
@@ -521,10 +579,10 @@ export function App() {
           handleOpenReceipt(b);
         }}
         onPrintForm={(b) => setPrintableBooking(b)}
-        onAssign={(b) => {
+        onAssign={canAssignVehicles ? (b) => {
           setSelectedBookingForDetails(null);
           setAssigningBooking(b);
-        }}
+        } : undefined}
         onStartTrip={(b) => {
           setSelectedBookingForDetails(null);
           setTripModalBooking({ booking: b, mode: 'start' });
@@ -538,31 +596,46 @@ export function App() {
           setCancellingBooking(b);
         }}
       />
+    )}
 
-      {/* Logistics Cancellation Confirmation Modal */}
+    {/* Logistics Cancellation Confirmation Modal */}
+    {cancellingBooking && (
       <CancelBookingModal
         isOpen={!!cancellingBooking}
         onClose={() => setCancellingBooking(null)}
         booking={cancellingBooking}
         onConfirmCancel={handleConfirmCancelBooking}
       />
+    )}
 
-      {/* Digital Receipt Modal */}
-      <DigitalReceiptModal
-        isOpen={!!selectedBookingForReceipt}
-        onClose={() => setSelectedBookingForReceipt(null)}
-        booking={selectedBookingForReceipt}
-        onVerifyBooking={(ref) => setVerificationReference(ref)}
-      />
+    {/* Digital Receipt Modal */}
+    <DigitalReceiptModal
+      isOpen={isReceiptOpen || !!selectedBookingForReceipt}
+      onClose={() => {
+        setIsReceiptOpen(false);
+        setSelectedBookingForReceipt(null);
+        setReceiptError(null);
+        if (typeof window !== 'undefined' && window.location.search.includes('receipt=')) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('receipt');
+          window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : ''));
+        }
+      }}
+      booking={selectedBookingForReceipt}
+      isLoading={isReceiptLoading}
+      error={receiptError}
+      onVerifyBooking={(ref) => setVerificationReference(ref)}
+    />
 
-      {/* QR Code Booking Verification Modal */}
-      <BookingVerificationModal
-        isOpen={verificationReference !== null}
-        onClose={() => setVerificationReference(null)}
-        initialReference={verificationReference}
-      />
+    {/* QR Code Booking Verification Modal */}
+    <BookingVerificationModal
+      isOpen={verificationReference !== null}
+      onClose={() => setVerificationReference(null)}
+      initialReference={verificationReference}
+    />
 
-      {/* Assign Vehicle Modal */}
+    {/* Assign Vehicle Modal */}
+    {assigningBooking && (
       <AssignVehicleModal
         isOpen={!!assigningBooking}
         onClose={() => setAssigningBooking(null)}
@@ -572,46 +645,49 @@ export function App() {
           toast.success('Vehicle assigned!', 'The employee will be notified of their assigned vehicle.');
         }}
       />
+    )}
 
-      {/* Trip Execution Telemetry Modal */}
-      {tripModalBooking && (
-        <TripExecutionModal
-          isOpen={!!tripModalBooking}
-          onClose={() => setTripModalBooking(null)}
-          booking={tripModalBooking.booking}
-          mode={tripModalBooking.mode}
-          onSuccess={() => {
-            refreshAllData();
-            toast.success(
-              tripModalBooking.mode === 'start' ? 'Trip started' : 'Trip completed',
-              tripModalBooking.mode === 'start' ? 'Odometer logged and trip is now in progress.' : 'Trip record closed successfully.'
-            );
-          }}
-        />
-      )}
+    {/* Trip Execution Telemetry Modal */}
+    {tripModalBooking && (
+      <TripExecutionModal
+        isOpen={!!tripModalBooking}
+        onClose={() => setTripModalBooking(null)}
+        booking={tripModalBooking.booking}
+        mode={tripModalBooking.mode}
+        onSuccess={() => {
+          refreshAllData();
+          toast.success(
+            tripModalBooking.mode === 'start' ? 'Trip started' : 'Trip completed',
+            tripModalBooking.mode === 'start' ? 'Odometer logged and trip is now in progress.' : 'Trip record closed successfully.'
+          );
+        }}
+      />
+    )}
 
-      {/* User Profile & Avatar Settings Modal */}
-      {currentUser && (
-        <ProfileModal
-          isOpen={isProfileOpen}
-          onClose={() => setIsProfileOpen(false)}
-          currentUser={currentUser}
-          onProfileUpdated={(updated) => setCurrentUser(updated)}
-          onSave={async (data) => {
-            const updated = await api.updateOwnProfile(data);
-            toast.success('Profile updated', 'Your changes have been saved.');
-            return updated;
-          }}
-        />
-      )}
+    {/* User Profile & Avatar Settings Modal */}
+    {currentUser && (
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        currentUser={currentUser}
+        onProfileUpdated={(updated) => setCurrentUser(updated)}
+        onSave={async (data) => {
+          const updated = await api.updateOwnProfile(data);
+          toast.success('Profile updated', 'Your changes have been saved.');
+          return updated;
+        }}
+      />
+    )}
 
-      {/* Printable Official Transport Request Form Modal */}
+    {/* Printable Official Transport Request Form Modal */}
+    {printableBooking && (
       <PrintableTransportFormModal
         isOpen={!!printableBooking}
         onClose={() => setPrintableBooking(null)}
         booking={printableBooking}
       />
-    </AppShell>
+    )}
+  </>
   );
 }
 

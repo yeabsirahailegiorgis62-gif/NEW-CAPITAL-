@@ -1,3 +1,4 @@
+// CONTROLLER: Liveness/readiness check used by start.sh and operators (GET /api/health).
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PrismaService } from '../../prisma/prisma.service';

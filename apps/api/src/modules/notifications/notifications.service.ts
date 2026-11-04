@@ -1,3 +1,4 @@
+// SERVICE: In-app inbox queries; notifications are always scoped to recipientId.
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 

@@ -1,3 +1,4 @@
+// COMPONENT: Shared button. `variant` and `size` are props; Tailwind classes provide responsive styling.
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';

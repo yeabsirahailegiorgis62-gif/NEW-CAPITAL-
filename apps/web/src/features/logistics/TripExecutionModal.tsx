@@ -1,3 +1,4 @@
+// COMPONENT: Start/complete trip form. Calls api.startTrip or api.completeTrip with odometer values.
 import React, { useState } from 'react';
 import { api } from '@/lib/api';
 import { Booking } from '@/types';

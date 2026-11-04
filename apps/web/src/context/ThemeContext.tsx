@@ -1,3 +1,4 @@
+// HOOK / CONTEXT: Global light|dark theme stored in localStorage key capital_fleet_theme.
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';

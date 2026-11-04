@@ -8,35 +8,63 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  ShieldAlert,
-  Copy,
-  Check,
+  ShieldCheck,
+  Clock,
   Eye,
   EyeOff,
+  Send,
+  FileText,
+  Key,
 } from 'lucide-react';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialIdentifier?: string;
+  initialPassphrase?: string;
+  initialTab?: 'request' | 'reset';
 }
 
 export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  initialIdentifier,
+  initialPassphrase,
+  initialTab = 'request',
 }) => {
-  const [step, setStep] = useState<'request' | 'reset' | 'completed'>('request');
-  const [identifier, setIdentifier] = useState('');
-  const [token, setToken] = useState('');
+  const [activeTab, setActiveTab] = useState<'request' | 'reset'>(initialTab);
+  const [step, setStep] = useState<'form' | 'requested' | 'completed'>('form');
+
+  // Request form state
+  const [identifier, setIdentifier] = useState(initialIdentifier || '');
+  const [reason, setReason] = useState('');
+
+  // Reset form state
+  const [resetIdentifier, setResetIdentifier] = useState(initialIdentifier || '');
+  const [passphrase, setPassphrase] = useState(initialPassphrase || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [devToken, setDevToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialTab) setActiveTab(initialTab);
+      if (initialIdentifier) {
+        setIdentifier(initialIdentifier);
+        setResetIdentifier(initialIdentifier);
+      }
+      if (initialPassphrase) {
+        setPassphrase(initialPassphrase);
+      }
+      setError(null);
+    }
+  }, [isOpen, initialIdentifier, initialPassphrase, initialTab]);
 
   // Policy validation
   const hasMinLength = newPassword.length >= 8;
@@ -54,15 +82,14 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
     setIsLoading(true);
     setError(null);
+    setInfoMessage(null);
     try {
-      const res = await api.forgotPassword(identifier.trim());
-      if (res.resetToken) {
-        setDevToken(res.resetToken);
-        setToken(res.resetToken);
-      }
-      setStep('reset');
+      const res = await api.forgotPassword(identifier.trim(), reason.trim() || undefined);
+      setInfoMessage(res.message);
+      setResetIdentifier(identifier.trim());
+      setStep('requested');
     } catch (err: any) {
-      setError(err.message || 'Unable to process reset request.');
+      setError(err.message || 'Unable to submit password reset request.');
     } finally {
       setIsLoading(false);
     }
@@ -70,8 +97,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token.trim()) {
-      setError('Please provide the reset token.');
+    if (!passphrase.trim()) {
+      setError('Please provide the passphrase issued by your administrator.');
       return;
     }
     if (!isPasswordValid) {
@@ -82,20 +109,16 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      await api.resetPassword(token.trim(), newPassword);
+      await api.resetPassword(
+        passphrase.trim(),
+        newPassword,
+        resetIdentifier.trim() || undefined,
+      );
       setStep('completed');
     } catch (err: any) {
-      setError(err.message || 'Failed to reset password. Token may be invalid or expired.');
+      setError(err.message || 'Failed to regenerate password. Passphrase may be invalid or expired.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleCopyToken = () => {
-    if (devToken) {
-      navigator.clipboard.writeText(devToken);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -104,11 +127,23 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     onClose();
   };
 
+  const handleSwitchToReset = () => {
+    setActiveTab('reset');
+    setStep('form');
+    setError(null);
+  };
+
+  const handleResetModalState = () => {
+    setStep('form');
+    setError(null);
+    setInfoMessage(null);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex min-h-[100dvh] items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto overscroll-contain bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md m-auto max-h-[calc(100dvh-2rem)] flex flex-col bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 overflow-y-auto overscroll-contain">
+      <div className="relative w-full max-w-lg m-auto max-h-[calc(100dvh-2rem)] flex flex-col bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 overflow-y-auto overscroll-contain">
         {/* Top Glow Accent */}
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-brand-600 via-amber-500 to-brand-700" />
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-600 via-amber-500 to-red-700" />
 
         {/* Close Button */}
         <button
@@ -120,22 +155,60 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
         {/* Header */}
         <div className="flex items-center gap-3.5 mb-5">
-          <div className="p-3 rounded-2xl bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800/60">
+          <div className="p-3 rounded-2xl bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60">
             <KeyRound className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white">
               {step === 'completed'
-                ? 'Password Reset Complete'
-                : step === 'reset'
-                ? 'Establish New Password'
-                : 'Account Recovery'}
+                ? 'Password Regenerated'
+                : step === 'requested'
+                ? 'Reset Request Submitted'
+                : activeTab === 'request'
+                ? 'Request Password Reset'
+                : 'Regenerate Password'}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Capital Real Estate Enterprise Security Portal
             </p>
           </div>
         </div>
+
+        {/* Tab Selector (only when in form state) */}
+        {step === 'form' && (
+          <div className="flex p-1 mb-5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('request');
+                setError(null);
+              }}
+              className={`flex-1 py-2 px-3 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'request'
+                  ? 'bg-white dark:bg-slate-900 text-red-600 dark:text-red-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>1. Request from Admin</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('reset');
+                setError(null);
+              }}
+              className={`flex-1 py-2 px-3 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'reset'
+                  ? 'bg-white dark:bg-slate-900 text-red-600 dark:text-red-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span>2. Enter Passphrase</span>
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2.5">
@@ -144,16 +217,22 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
           </div>
         )}
 
-        {/* STEP 1: Request Token */}
-        {step === 'request' && (
+        {/* TAB 1: Request Passphrase from Administrator */}
+        {step === 'form' && activeTab === 'request' && (
           <form onSubmit={handleRequestToken} className="space-y-4">
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Submit your registered company email address or employee ID. A single-use, time-limited reset verification token will be generated.
-            </p>
+            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5 leading-relaxed">
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Administrator Verification Workflow</p>
+                <p className="mt-0.5 text-amber-800 dark:text-amber-300">
+                  Password resets must be authorized by a System Administrator. When you submit this request, the admin will verify your identity and send a secure single-use passphrase directly to your inbox.
+                </p>
+              </div>
+            </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                Company Email or Employee ID
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Corporate Email or Employee ID <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
@@ -163,7 +242,23 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                   placeholder="e.g. employee@capitalre.com or EMP-101"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Reason or Note for Administrator (Optional)
+              </label>
+              <div className="relative">
+                <FileText className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="e.g. Locked out, forgot corporate credentials"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40"
                 />
               </div>
             </div>
@@ -172,57 +267,110 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition-all shadow-md shadow-brand-900/30 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-all shadow-md shadow-red-900/30 disabled:opacity-50"
               >
-                <span>{isLoading ? 'Verifying Account...' : 'Continue to Reset Verification'}</span>
+                <span>{isLoading ? 'Submitting Request...' : 'Send Request to Administrator'}</span>
                 <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={handleSwitchToReset}
+                className="text-xs text-red-600 dark:text-red-400 hover:underline font-medium"
+              >
+                Already received your passphrase? Enter it here →
               </button>
             </div>
           </form>
         )}
 
-        {/* STEP 2: Input Token and New Password */}
-        {step === 'reset' && (
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            {devToken && (
-              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-300 text-xs">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold flex items-center gap-1.5">
-                    <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                    Issued Reset Token:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyToken}
-                    className="flex items-center gap-1 font-mono text-[11px] hover:underline"
-                  >
-                    {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <div className="font-mono text-[11px] break-all bg-white/70 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-200/60 dark:border-amber-800/40">
-                  {devToken}
-                </div>
+        {/* STEP: Request Received Confirmation */}
+        {step === 'requested' && (
+          <div className="space-y-4 py-2">
+            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-3">
+              <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-emerald-900 dark:text-emerald-200">
+                <p className="font-bold text-sm">Request Submitted to System Administrator</p>
+                <p className="mt-1 leading-relaxed text-emerald-800 dark:text-emerald-300">
+                  {infoMessage ||
+                    'Your password reset request has been received. The administrator has been notified and will issue a secure passphrase to your inbox.'}
+                </p>
               </div>
-            )}
+            </div>
 
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+              <p className="font-semibold text-slate-800 dark:text-slate-200">What happens next?</p>
+              <ol className="list-decimal list-inside space-y-1 text-slate-500 dark:text-slate-400">
+                <li>The administrator reviews your pending reset request in User Management.</li>
+                <li>The administrator generates and sends an official passphrase to your inbox.</li>
+                <li>You return here, enter the passphrase, and regenerate your password.</li>
+              </ol>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+              <button
+                type="button"
+                onClick={handleSwitchToReset}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-xs shadow-md shadow-red-900/30"
+              >
+                <span>Enter Passphrase Now</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Close & Wait for Passphrase
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: Enter Passphrase and Regenerate Password */}
+        {step === 'form' && activeTab === 'reset' && (
+          <form onSubmit={handleResetPassword} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                Reset Verification Token
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Corporate Email or Employee ID (Optional)
               </label>
-              <input
-                type="text"
-                required
-                placeholder="Paste your reset token"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-              />
+              <div className="relative">
+                <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="e.g. employee@capitalre.com or EMP-101"
+                  value={resetIdentifier}
+                  onChange={(e) => setResetIdentifier(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                New Password
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Administrator-Issued Passphrase <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Key className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. CPTL-8492-XK71"
+                  value={passphrase}
+                  onChange={(e) => setPassphrase(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-mono text-sm tracking-wider uppercase text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Enter the exact passphrase received in your inbox or from your fleet administrator.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                New Password <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
@@ -232,7 +380,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                   placeholder="Enter new password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40"
                 />
                 <button
                   type="button"
@@ -245,8 +393,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                Confirm New Password
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Confirm New Password <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
@@ -256,12 +404,12 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                   placeholder="Confirm new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40"
                 />
               </div>
             </div>
 
-            {/* Checklist */}
+            {/* Password Policy Checklist */}
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-[11px] grid grid-cols-2 gap-1.5">
               <span className={hasMinLength ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-400'}>
                 ✓ 8+ Characters
@@ -280,23 +428,26 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
             <div className="pt-2 flex gap-3">
               <button
                 type="button"
-                onClick={() => setStep('request')}
+                onClick={() => {
+                  setActiveTab('request');
+                  handleResetModalState();
+                }}
                 className="w-1/3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                Back
+                Back to Request
               </button>
               <button
                 type="submit"
                 disabled={isLoading || !isPasswordValid}
-                className="w-2/3 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs shadow-md shadow-brand-900/30 disabled:opacity-50"
+                className="w-2/3 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-xs shadow-md shadow-red-900/30 disabled:opacity-50"
               >
-                {isLoading ? 'Updating...' : 'Set New Password'}
+                {isLoading ? 'Regenerating...' : 'Regenerate Password'}
               </button>
             </div>
           </form>
         )}
 
-        {/* STEP 3: Completed */}
+        {/* STEP 3: Completed State */}
         {step === 'completed' && (
           <div className="text-center py-4 space-y-4">
             <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800/80">
@@ -305,10 +456,10 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
             <div>
               <h4 className="text-lg font-bold text-slate-900 dark:text-white">
-                Password Successfully Reset
+                Password Successfully Regenerated
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                Your credentials have been securely updated and previous reset tokens invalidated. You may now sign in to Fleet OS.
+                Your account password has been updated and your credentials are active. You may now sign in using your new password.
               </p>
             </div>
 
@@ -316,7 +467,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               <button
                 type="button"
                 onClick={handleFinish}
-                className="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition-all shadow-md shadow-brand-900/30"
+                className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-all shadow-md shadow-red-900/30"
               >
                 Proceed to Sign In
               </button>

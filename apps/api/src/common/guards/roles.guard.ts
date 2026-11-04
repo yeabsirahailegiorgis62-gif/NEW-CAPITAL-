@@ -1,3 +1,5 @@
+// GUARD: Authorization check. Compares the authenticated user's role with @Roles(...).
+// SYSTEM_ADMIN is allowed through every role-restricted endpoint.
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '@prisma/client';

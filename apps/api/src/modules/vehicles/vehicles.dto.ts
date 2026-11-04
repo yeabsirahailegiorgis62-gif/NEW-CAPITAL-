@@ -1,3 +1,4 @@
+// DTO: Create/update payloads for fleet vehicles (validated with class-validator).
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsBoolean, Min } from 'class-validator';
 import { VehicleCategory, VehicleOperationalStatus } from '@prisma/client';

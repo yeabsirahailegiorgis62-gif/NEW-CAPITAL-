@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Booking } from '@/types';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -32,22 +32,22 @@ export const PrintableTransportFormModal: React.FC<PrintableTransportFormModalPr
   booking,
   defaultFormType,
 }) => {
-  if (!booking) return null;
+  const [formType, setFormType] = useState<'daily' | 'weekly'>('daily');
 
-  // Auto-determine whether this is a daily trip or weekly multi-day itinerary
-  const isMultiDay = (() => {
-    try {
-      const dep = new Date(booking.departureAt).getTime();
-      const ret = new Date(booking.expectedReturnAt).getTime();
-      return ret - dep > 24 * 60 * 60 * 1000;
-    } catch {
-      return false;
+  useEffect(() => {
+    if (booking) {
+      try {
+        const dep = new Date(booking.departureAt).getTime();
+        const ret = new Date(booking.expectedReturnAt).getTime();
+        const isMulti = ret - dep > 24 * 60 * 60 * 1000;
+        setFormType(defaultFormType || (isMulti ? 'weekly' : 'daily'));
+      } catch {
+        setFormType(defaultFormType || 'daily');
+      }
     }
-  })();
+  }, [booking, defaultFormType]);
 
-  const [formType, setFormType] = useState<'daily' | 'weekly'>(
-    defaultFormType || (isMultiDay ? 'weekly' : 'daily')
-  );
+  if (!booking) return null;
 
   const handlePrint = () => {
     window.print();

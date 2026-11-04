@@ -1,3 +1,4 @@
+// COMPONENT: Logistics assignment UI. Loads recommendations then POST /api/bookings/:id/assign.
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { Booking, Vehicle, VehicleRecommendation, DriverRecommendation } from '@/types';
@@ -27,6 +28,7 @@ import {
   Search,
   ArrowRight,
   RefreshCw,
+  RotateCw,
   XCircle,
   CalendarRange,
 } from 'lucide-react';
@@ -190,14 +192,12 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
     }
   }, [booking, isOpen]);
 
-  if (!booking) return null;
-
   const handleDriverModeChange = (mode: 'company' | 'self') => {
     setDriverMode(mode);
     if (mode === 'self') {
       setSelectedDriverId(null);
-      setDriverName(booking.requester?.name || 'Self-Driven (Staff)');
-      setDriverPhone(booking.requester?.phone || '');
+      setDriverName(booking?.requester?.name || 'Self-Driven (Staff)');
+      setDriverPhone(booking?.requester?.phone || '');
     } else {
       const topDriver = driverRecommendations.find((d) => d.isAvailable) || driverRecommendations[0];
       if (topDriver) {
@@ -224,8 +224,16 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
     e.preventDefault();
     setError(null);
 
+    if (!booking) return;
+
     if (!selectedVehicleId) {
       setError('Please select an eligible vehicle from the fleet to assign.');
+      return;
+    }
+
+    const chosenRec = vehicleRecommendations.find((item) => item.vehicle.id === selectedVehicleId);
+    if (chosenRec && (!chosenRec.isAvailable || (chosenRec as any).isEligible === false)) {
+      setError('This vehicle is already assigned to another trip during the selected time. Please select an available vehicle.');
       return;
     }
 
@@ -251,6 +259,22 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
         err?.message ||
           'Vehicle assignment failed: The selected vehicle or driver has a scheduling conflict or is no longer available.'
       );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleQuickAutoSelectAndAssign = async () => {
+    if (!booking) return;
+
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      await api.autoAssignBooking(booking.id);
+      onAssigned();
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || 'Automatic assignment failed. Please pick vehicle and driver manually below.');
     } finally {
       setIsSubmitting(false);
     }
@@ -334,10 +358,14 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
     }
   };
 
-  const tripDuration = calculateDuration(booking.departureAt, booking.expectedReturnAt);
+  const tripDuration = booking
+    ? calculateDuration(booking.departureAt, booking.expectedReturnAt)
+    : 'Standard Trip';
 
   // Status calculation for pre-confirmation block (Part 1.D)
   const isReadyForAssignment = Boolean(selectedVehicleId && (driverMode === 'self' || selectedDriverId || driverName.trim()));
+
+  if (!booking) return null;
 
   return (
     <Modal
@@ -436,6 +464,34 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
           </div>
         </div>
 
+        {/* 1.5 Auto-Allocate Quick Action Banner */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-brand-50 to-amber-50 dark:from-brand-950/30 dark:to-amber-950/20 border border-brand-200 dark:border-brand-800/60 gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
+              ⚡
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                Intelligent Fleet Auto-Allocation
+              </span>
+              <span className="text-[11px] text-slate-600 dark:text-slate-400">
+                1-Click auto-assignment matches the top conflict-free vehicle and qualified chauffeur instantly.
+              </span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={handleQuickAutoSelectAndAssign}
+            disabled={isSubmitting}
+            leftIcon={isSubmitting ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            className="shrink-0 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white font-bold text-xs h-9 px-4 rounded-xl shadow-xs"
+          >
+            {isSubmitting ? 'Allocating Fleet...' : '⚡ 1-Click Auto Assign & Confirm'}
+          </Button>
+        </div>
+
         {/* 2. Selection Layout (2 Columns) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Left Column: Vehicle Selection (Part 1.C: 1. SELECT AVAILABLE VEHICLE) */}
@@ -499,7 +555,7 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
 
                 {availableVehicles.length === 0 ? (
                   <div className="p-4 text-center bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl text-xs text-amber-800 dark:text-amber-300">
-                    No eligible vehicles currently available for this timeframe and capacity.
+                    No vehicles are currently available for the selected date and time. Please choose another time or check again later.
                   </div>
                 ) : (
                   availableVehicles.map((item) => {
@@ -589,7 +645,10 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                           return (
                             <div
                               key={v.id}
-                              className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-800/40 text-xs cursor-not-allowed"
+                              onClick={() => {
+                                setError('This vehicle is already assigned to another trip during the selected time. Please select an available vehicle.');
+                              }}
+                              className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-800/40 text-xs cursor-not-allowed transition-all hover:border-red-300 dark:hover:border-red-800"
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div>

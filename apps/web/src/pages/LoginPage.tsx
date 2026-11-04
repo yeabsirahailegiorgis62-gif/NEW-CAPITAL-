@@ -1,3 +1,4 @@
+// COMPONENT: Public login screen. Collects identifier + password and calls onLoginSubmit (App.handleLogin).
 import React, { useState, useEffect } from 'react';
 import {
   Shield,
@@ -28,6 +29,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { ForgotPasswordModal } from '@/features/auth/ForgotPasswordModal';
 
+// PROPS: Parent-provided callbacks. LoginPage does not call the API itself for sign-in.
 interface LoginPageProps {
   onLoginSubmit: (emailOrEmployeeId: string, password: string) => Promise<boolean>;
   onOpenVerification?: () => void;
@@ -251,8 +253,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [forgotPasswordInitialTab, setForgotPasswordInitialTab] = useState<'request' | 'reset'>('request');
+  const [forgotPasswordIdentifier, setForgotPasswordIdentifier] = useState<string>('');
+  const [forgotPasswordPassphrase, setForgotPasswordPassphrase] = useState<string>('');
   const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
   const [personaCategory, setPersonaCategory] = useState<'all' | 'driver' | 'admin' | 'department'>('all');
+
+  // Detect password reset / recovery action from URL params (e.g. from approved email links)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get('action');
+      const emailParam = params.get('email') || params.get('identifier');
+      const passphraseParam = params.get('passphrase') || params.get('token');
+
+      if (action === 'reset-password' || action === 'reset') {
+        setForgotPasswordInitialTab('reset');
+        if (emailParam) setForgotPasswordIdentifier(emailParam);
+        if (passphraseParam) setForgotPasswordPassphrase(passphraseParam);
+        setIsForgotPasswordOpen(true);
+      } else if (action === 'forgot-password' || action === 'forgot') {
+        setForgotPasswordInitialTab('request');
+        if (emailParam) setForgotPasswordIdentifier(emailParam);
+        setIsForgotPasswordOpen(true);
+      }
+    } catch {
+      // In case window or URLSearchParams is unavailable in test environments
+    }
+  }, []);
 
   // Dynamic Fleet Showcase State
   const [activeVehicleIndex, setActiveVehicleIndex] = useState(0);
@@ -664,7 +692,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsForgotPasswordOpen(true)}
+                  onClick={() => {
+                    setForgotPasswordInitialTab('request');
+                    setForgotPasswordIdentifier(identifier);
+                    setForgotPasswordPassphrase('');
+                    setIsForgotPasswordOpen(true);
+                  }}
                   className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 hover:underline"
                 >
                   Forgot Password?
@@ -849,10 +882,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       <ForgotPasswordModal
         isOpen={isForgotPasswordOpen}
-        onClose={() => setIsForgotPasswordOpen(false)}
+        initialTab={forgotPasswordInitialTab}
+        initialIdentifier={forgotPasswordIdentifier}
+        initialPassphrase={forgotPasswordPassphrase}
+        onClose={() => {
+          setIsForgotPasswordOpen(false);
+          try {
+            if (window.location.search.includes('action=')) {
+              window.history.replaceState({}, '', window.location.pathname);
+            }
+          } catch {}
+        }}
         onSuccess={() => {
           setIsForgotPasswordOpen(false);
           setError(null);
+          try {
+            if (window.location.search.includes('action=')) {
+              window.history.replaceState({}, '', window.location.pathname);
+            }
+          } catch {}
         }}
       />
     </div>

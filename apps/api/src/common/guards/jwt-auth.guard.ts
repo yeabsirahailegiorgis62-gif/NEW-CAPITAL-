@@ -1,3 +1,4 @@
+// GUARD: Authentication gate. Requires a valid JWT unless the route is marked @Public().
 import { Injectable, ExecutionContext } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';

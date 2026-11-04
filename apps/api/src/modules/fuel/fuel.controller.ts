@@ -1,3 +1,4 @@
+// CONTROLLER: Fuel purchase records and expenditure stats.
 import {
   Controller,
   Get,

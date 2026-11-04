@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 import { Booking } from '@/types';
 import { formatEthiopianDateTime } from '@/lib/utils';
@@ -17,12 +18,17 @@ import {
   Check,
   X,
   Phone,
+  Loader2,
+  AlertCircle,
+  FileQuestion,
 } from 'lucide-react';
 
 interface DigitalReceiptModalProps {
   isOpen: boolean;
   onClose: () => void;
   booking: Booking | null;
+  isLoading?: boolean;
+  error?: string | null;
   onVerifyBooking?: (reference: string) => void;
 }
 
@@ -30,6 +36,8 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
   isOpen,
   onClose,
   booking,
+  isLoading = false,
+  error = null,
   onVerifyBooking,
 }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -76,7 +84,71 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen || !booking) return null;
+  if (!isOpen) return null;
+
+  // 1. Loading State
+  if (isLoading) {
+    const loadingElement = (
+      <div
+        className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex min-h-[100dvh] items-center justify-center p-4 overscroll-contain"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="receipt-loading-title"
+      >
+        <div className="relative w-full max-w-md m-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-8 flex flex-col items-center text-center">
+          <div className="w-14 h-14 rounded-2xl bg-brand-50 dark:bg-brand-950/50 flex items-center justify-center text-brand-600 dark:text-brand-400 mb-4 animate-pulse">
+            <Loader2 className="w-7 h-7 animate-spin" />
+          </div>
+          <h3 id="receipt-loading-title" className="text-lg font-bold text-slate-900 dark:text-white">
+            Loading Verified Trip Receipt
+          </h3>
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 max-w-xs">
+            Retrieving authenticated booking and allocation records from the fleet database...
+          </p>
+          <div className="mt-6">
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+    return typeof document !== 'undefined'
+      ? createPortal(loadingElement, document.body)
+      : loadingElement;
+  }
+
+  // 2. Error or Missing State
+  if (error || !booking) {
+    const errorElement = (
+      <div
+        className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex min-h-[100dvh] items-center justify-center p-4 overscroll-contain"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="receipt-error-title"
+      >
+        <div className="relative w-full max-w-md m-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col items-center text-center">
+          <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4">
+            <FileQuestion className="w-7 h-7" />
+          </div>
+          <h3 id="receipt-error-title" className="text-lg font-bold text-slate-900 dark:text-white">
+            Receipt Not Available
+          </h3>
+          <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+            {error || 'No verified booking receipt could be found for this request. It may not exist, or you may not be authorized to view it.'}
+          </p>
+          <div className="mt-6 flex items-center gap-3">
+            <Button variant="primary" size="sm" onClick={onClose}>
+              Close Dialog
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+    return typeof document !== 'undefined'
+      ? createPortal(errorElement, document.body)
+      : errorElement;
+  }
 
   const assignment = booking.assignments?.[0] || booking.currentAssignment;
   const vehicle = assignment?.vehicle || booking.preferredVehicle;
@@ -118,7 +190,7 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
     }
   };
 
-  return (
+  const receiptElement = (
     <div
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex min-h-[100dvh] items-center justify-center p-2 sm:p-3 md:p-4 overscroll-contain"
       role="dialog"
@@ -566,4 +638,8 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(receiptElement, document.body)
+    : receiptElement;
 };

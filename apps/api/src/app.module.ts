@@ -1,3 +1,5 @@
+// MODULE: Root NestJS module. Registers every feature module so controllers and
+// services become part of one application.
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';

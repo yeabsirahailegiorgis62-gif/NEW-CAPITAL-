@@ -1,3 +1,4 @@
+// JWT: Passport strategy. Reads Bearer tokens, verifies signature, and loads the User row.
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';

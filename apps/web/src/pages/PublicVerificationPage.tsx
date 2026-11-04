@@ -1,3 +1,4 @@
+// COMPONENT: Unauthenticated QR landing (?verify=). Calls GET /api/bookings/verify/:reference.
 import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { api } from '@/lib/api';

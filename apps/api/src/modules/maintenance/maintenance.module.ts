@@ -1,3 +1,4 @@
+// MODULE: Workshop maintenance jobs.
 import { Module } from '@nestjs/common';
 import { MaintenanceController } from './maintenance.controller';
 import { MaintenanceService } from './maintenance.service';

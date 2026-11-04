@@ -1,3 +1,4 @@
+// CONTROLLER: Fleet inventory, availability, and recommendation endpoints.
 import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { VehiclesService } from './vehicles.service';
@@ -12,6 +13,7 @@ import { UserRole, VehicleCategory, VehicleOperationalStatus } from '@prisma/cli
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('vehicles')
 export class VehiclesController {
+  // DEPENDENCY INJECTION: VehiclesService implements availability and scoring rules.
   constructor(private readonly vehiclesService: VehiclesService) {}
 
   @Get()

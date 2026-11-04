@@ -1,3 +1,4 @@
+// EXCEPTION HANDLING: Global filter. Maps any thrown error to { statusCode, message, path }.
 import {
   ExceptionFilter,
   Catch,

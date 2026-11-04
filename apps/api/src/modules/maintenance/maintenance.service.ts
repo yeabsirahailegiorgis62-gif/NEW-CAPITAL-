@@ -1,3 +1,4 @@
+// SERVICE: Workshop jobs linked to Vehicle via vehicleId.
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMaintenanceDto, UpdateMaintenanceDto } from './maintenance.dto';

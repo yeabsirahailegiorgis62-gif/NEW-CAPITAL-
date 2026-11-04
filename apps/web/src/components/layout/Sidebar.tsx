@@ -1,3 +1,4 @@
+// COMPONENT: Role-based navigation. Tabs are filtered from currentUser.role (authorization in the UI).
 import React from 'react';
 import { User } from '@/types';
 import {
@@ -64,8 +65,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const logisticsLinks: NavItem[] = [
     { section: 'OVERVIEW', id: 'dashboard', label: 'Dashboard Overview', icon: LayoutDashboard },
     { section: 'TRANSPORT OPERATIONS', id: 'requests-queue', label: 'Transport Requests', icon: ClipboardList },
+    { section: 'TRANSPORT OPERATIONS', id: 'assign-queue', label: 'Assign Vehicles', icon: KeyRound },
     { section: 'TRANSPORT OPERATIONS', id: 'weekly-requests', label: 'Weekly Requests', icon: CalendarRange },
-    { section: 'TRANSPORT OPERATIONS', id: 'assign-queue', label: 'Vehicle Assignments', icon: KeyRound },
     { section: 'TRANSPORT OPERATIONS', id: 'availability', label: 'Schedule / Calendar', icon: CalendarDays },
     { section: 'FLEET MANAGEMENT', id: 'vehicles', label: 'Vehicles', icon: Car },
     { section: 'FLEET MANAGEMENT', id: 'maintenance', label: 'Maintenance & Issues', icon: Wrench },

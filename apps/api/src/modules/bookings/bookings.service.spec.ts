@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BookingsService } from './bookings.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { BookingStatus, UserRole } from '@prisma/client';
+import { BookingStatus, UserRole, VehicleOperationalStatus } from '@prisma/client';
 
 describe('BookingsService', () => {
   let service: BookingsService;
@@ -46,16 +46,34 @@ describe('BookingsService', () => {
             booking: {
               create: jest.fn().mockResolvedValue(mockBooking),
               findUnique: jest.fn(),
+              findFirst: jest.fn(),
               findMany: jest.fn(),
               update: jest.fn(),
               count: jest.fn().mockResolvedValue(0),
             },
+            vehicle: {
+              findUnique: jest.fn(),
+              findFirst: jest.fn(),
+              findMany: jest.fn(),
+            },
+            driver: {
+              findUnique: jest.fn(),
+              findFirst: jest.fn(),
+              findMany: jest.fn(),
+            },
+            vehicleMaintenance: {
+              findFirst: jest.fn().mockResolvedValue(null),
+              findMany: jest.fn().mockResolvedValue([]),
+            },
             bookingDay: {
               update: jest.fn(),
               updateMany: jest.fn(),
+              findMany: jest.fn().mockResolvedValue([]),
             },
             vehicleAssignment: {
+              create: jest.fn(),
               updateMany: jest.fn(),
+              findMany: jest.fn().mockResolvedValue([]),
             },
             user: {
               findMany: jest.fn().mockResolvedValue([
@@ -74,11 +92,13 @@ describe('BookingsService', () => {
             },
             auditLog: {
               create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+              findMany: jest.fn().mockResolvedValue([]),
             },
             systemSetting: {
               findMany: jest.fn().mockResolvedValue([]),
               findUnique: jest.fn(),
             },
+            $queryRaw: jest.fn().mockResolvedValue([]),
             $transaction: jest.fn().mockImplementation(async (cb) => {
               if (typeof cb === 'function') {
                 return cb(prisma);
@@ -92,6 +112,10 @@ describe('BookingsService', () => {
 
     service = module.get<BookingsService>(BookingsService);
     prisma = module.get<PrismaService>(PrismaService);
+
+    (prisma.booking.findFirst as jest.Mock).mockImplementation((args) =>
+      (prisma.booking.findUnique as jest.Mock)(args),
+    );
   });
 
   it('should be defined', () => {
@@ -416,6 +440,82 @@ describe('BookingsService', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('assignVehicle', () => {
+    const adminActor = {
+      id: 'admin-1',
+      name: 'Yared Logistics',
+      role: UserRole.LOGISTICS_ADMIN,
+    };
+
+    const employeeActor = {
+      id: 'emp-1',
+      name: 'Abebe Girma',
+      role: UserRole.EMPLOYEE,
+    };
+
+    it('should throw ForbiddenException if unauthorized employee attempts to assign vehicle', async () => {
+      await expect(
+        service.assignVehicle('booking-1', employeeActor, { vehicleId: 'veh-1' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw BadRequestException if booking is in PENDING_APPROVAL status', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        status: BookingStatus.PENDING_APPROVAL,
+      });
+
+      await expect(
+        service.assignVehicle('booking-1', adminActor, { vehicleId: 'veh-1' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if booking was REJECTED', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        status: BookingStatus.REJECTED,
+      });
+
+      await expect(
+        service.assignVehicle('booking-1', adminActor, { vehicleId: 'veh-1' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if booking was CANCELLED', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        status: BookingStatus.CANCELLED,
+      });
+
+      await expect(
+        service.assignVehicle('booking-1', adminActor, { vehicleId: 'veh-1' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if vehicle has insufficient passenger capacity', async () => {
+      (prisma.booking.findUnique as jest.Mock).mockResolvedValue({
+        ...mockBooking,
+        status: BookingStatus.APPROVED,
+        passengerCount: 5,
+        departureAt: new Date(Date.now() + 86400000),
+        expectedReturnAt: new Date(Date.now() + 86400000 + 3600000),
+      });
+
+      (prisma.vehicle.findUnique as jest.Mock).mockResolvedValue({
+        id: 'veh-1',
+        name: 'Small Sedan',
+        registrationNumber: 'AA-2-12345',
+        operationalStatus: VehicleOperationalStatus.ACTIVE,
+        hasSafetyAlert: false,
+        passengerCapacity: 3, // Less than 5 passengers
+      });
+
+      await expect(
+        service.assignVehicle('booking-1', adminActor, { vehicleId: 'veh-1' }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

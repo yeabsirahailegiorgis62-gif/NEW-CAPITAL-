@@ -1,3 +1,4 @@
+// COMPONENT / LAYOUT: Authenticated chrome — Navbar, Sidebar, notification poll, and page title.
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, InAppNotification, Booking } from '@/types';
 import { Navbar } from './Navbar';

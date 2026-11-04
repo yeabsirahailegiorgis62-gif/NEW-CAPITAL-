@@ -1,3 +1,4 @@
+// CONTROLLER: Company department directory used when assigning staff to a User.departmentId.
 import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DepartmentsService } from './departments.service';

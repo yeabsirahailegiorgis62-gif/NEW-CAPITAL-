@@ -1,3 +1,4 @@
+// CONTROLLER: In-app inbox for the authenticated user.
 import { Controller, Get, Patch, Param, UseGuards, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';

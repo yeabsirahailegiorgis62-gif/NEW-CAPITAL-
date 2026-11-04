@@ -1,3 +1,4 @@
+// SERVICE: User account business logic (create, update, strip passwordHash from responses).
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto, UpdateUserDto, UpdateProfileDto } from './users.dto';

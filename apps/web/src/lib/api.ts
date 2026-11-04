@@ -19,8 +19,10 @@ import {
   FuelStats,
   VehicleRecommendation,
   DriverRecommendation,
+  PasswordResetRequest,
 } from '@/types';
 
+// API CLIENT: Single HTTP layer. Browser calls `/api/...`; Vite proxies that to NestJS :4100.
 const API_BASE = '/api';
 
 class ApiClient {
@@ -45,6 +47,7 @@ class ApiClient {
     return this.token;
   }
 
+  // AUTHENTICATION: Attaches Authorization: Bearer <JWT> on every authenticated request.
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -224,6 +227,12 @@ class ApiClient {
     return this.request<VehicleAssignment>(`/bookings/${bookingId}/assign`, {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async autoAssignBooking(bookingId: string): Promise<VehicleAssignment> {
+    return this.request<VehicleAssignment>(`/bookings/${bookingId}/auto-assign`, {
+      method: 'POST',
     });
   }
 
@@ -455,17 +464,24 @@ class ApiClient {
   }
 
   // --- AUTH & PROFILE ---
-  async forgotPassword(identifier: string): Promise<{ success: boolean; message: string; resetToken?: string; expiresAt?: string }> {
+  async forgotPassword(
+    identifier: string,
+    reason?: string,
+  ): Promise<{ success: boolean; message: string; requestId?: string; alreadyPending?: boolean }> {
     return this.request('/auth/forgot-password', {
       method: 'POST',
-      body: JSON.stringify({ identifier }),
+      body: JSON.stringify({ identifier, reason }),
     });
   }
 
-  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  async resetPassword(
+    token: string,
+    newPassword: string,
+    identifier?: string,
+  ): Promise<{ success: boolean; message: string }> {
     return this.request('/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, newPassword }),
+      body: JSON.stringify({ token, newPassword, identifier }),
     });
   }
 
@@ -476,10 +492,69 @@ class ApiClient {
     });
   }
 
-  async adminResetPassword(userId: string, forcePasswordChange = true): Promise<{ success: boolean; message: string; resetToken?: string; expiresAt?: string }> {
+  async getResetRequests(status?: string): Promise<PasswordResetRequest[]> {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.request<PasswordResetRequest[]>(`/auth/admin/reset-requests${query}`);
+  }
+
+  async approveResetRequest(
+    requestId: string,
+    data?: {
+      expiresInMinutes?: number;
+      adminNotes?: string;
+      forcePasswordChange?: boolean;
+    },
+  ): Promise<{
+    success: boolean;
+    message: string;
+    emailDeliveryStatus?: string;
+    emailError?: string | null;
+    expiresAt?: string;
+    user?: { id: string; name: string; email: string };
+  }> {
+    return this.request(`/auth/admin/reset-requests/${requestId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  }
+
+  async resendResetPassphrase(
+    requestId: string,
+    data?: {
+      expiresInMinutes?: number;
+      adminNotes?: string;
+    },
+  ): Promise<{
+    success: boolean;
+    message: string;
+    emailDeliveryStatus?: string;
+    emailError?: string | null;
+    expiresAt?: string;
+  }> {
+    return this.request(`/auth/admin/reset-requests/${requestId}/resend`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  }
+
+  async rejectResetRequest(
+    requestId: string,
+    rejectReason?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.request(`/auth/admin/reset-requests/${requestId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejectReason }),
+    });
+  }
+
+  async adminResetPassword(
+    userId: string,
+    forcePasswordChange = true,
+    passphrase?: string,
+  ): Promise<{ success: boolean; message: string; resetToken?: string; passphrase?: string; expiresAt?: string }> {
     return this.request(`/auth/admin/reset-password/${userId}`, {
       method: 'POST',
-      body: JSON.stringify({ forcePasswordChange }),
+      body: JSON.stringify({ forcePasswordChange, passphrase }),
     });
   }
 

@@ -1,3 +1,4 @@
+// DECORATOR: Declares which UserRole values may call an endpoint. Read by RolesGuard.
 import { SetMetadata } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
