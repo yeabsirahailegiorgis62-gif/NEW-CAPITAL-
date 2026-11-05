@@ -78,6 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const adminLinks: NavItem[] = [
     { section: 'OVERVIEW', id: 'dashboard', label: 'Analytics & Command', icon: LayoutDashboard },
     { section: 'STAFF & STRUCTURE', id: 'users', label: 'Staff Directory', icon: Users },
+    { section: 'STAFF & STRUCTURE', id: 'reset-requests', label: 'Password Recovery', icon: KeyRound },
     { section: 'STAFF & STRUCTURE', id: 'departments', label: 'Departments', icon: Building },
     { section: 'STAFF & STRUCTURE', id: 'drivers', label: 'Chauffeurs', icon: UserCheck },
     { section: 'FLEET & LOGISTICS', id: 'vehicles', label: 'Fleet Inventory', icon: Car },

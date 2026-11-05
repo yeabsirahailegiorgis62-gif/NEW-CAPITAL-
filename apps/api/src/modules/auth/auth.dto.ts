@@ -3,13 +3,21 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'employee@capitalre.com',
     description: 'Corporate email or assigned employee ID (e.g. EMP-101)',
   })
-  @IsNotEmpty({ message: 'Email or Employee ID is required' })
+  @IsOptional()
   @IsString()
-  identifier: string;
+  identifier?: string;
+
+  @ApiPropertyOptional({
+    example: 'employee@capitalre.com',
+    description: 'Corporate email address',
+  })
+  @IsOptional()
+  @IsString()
+  email?: string;
 
   @ApiProperty({
     example: 'CapitalFleet2026!',
@@ -40,8 +48,16 @@ export class ForgotPasswordDto {
 
 export class ResetPasswordDto {
   @ApiPropertyOptional({
+    example: 'a1b2c3d4e5f6...',
+    description: 'Single-use cryptographic reset authorization token issued upon phrase verification',
+  })
+  @IsOptional()
+  @IsString()
+  resetAuthToken?: string;
+
+  @ApiPropertyOptional({
     example: 'CPTL-7482-XK91',
-    description: 'Passphrase or single-use reset token',
+    description: 'Passphrase or single-use reset token (legacy/fallback)',
   })
   @IsOptional()
   @IsString()
@@ -71,6 +87,24 @@ export class ResetPasswordDto {
   @IsOptional()
   @IsString()
   identifier?: string;
+}
+
+export class VerifyPassphraseDto {
+  @ApiProperty({
+    example: 'EMP-101',
+    description: 'Corporate email or employee ID of the account undergoing recovery',
+  })
+  @IsNotEmpty({ message: 'Employee identifier is required' })
+  @IsString()
+  identifier: string;
+
+  @ApiProperty({
+    example: 'CPTL-7482-XK91',
+    description: 'Administrator-issued recovery phrase',
+  })
+  @IsNotEmpty({ message: 'Recovery phrase is required' })
+  @IsString()
+  passphrase: string;
 }
 
 export class ChangePasswordDto {
@@ -112,6 +146,14 @@ export class AdminResetPasswordDto {
 }
 
 export class ApproveResetRequestDto {
+  @ApiPropertyOptional({
+    example: 'CPTL-8842-WK91',
+    description: 'Custom recovery phrase (format: CPTL-XXXX-XXXX). If omitted, a cryptographically secure random phrase is generated.',
+  })
+  @IsOptional()
+  @IsString()
+  passphrase?: string;
+
   @ApiPropertyOptional({
     example: 15,
     description: 'Passphrase validity duration in minutes (default: 15)',

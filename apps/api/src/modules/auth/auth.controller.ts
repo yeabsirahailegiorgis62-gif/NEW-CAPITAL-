@@ -11,6 +11,7 @@ import {
   ApproveResetRequestDto,
   ResendPassphraseDto,
   RejectResetRequestDto,
+  VerifyPassphraseDto,
 } from './auth.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -46,7 +47,17 @@ export class AuthController {
     return this.authService.forgotPassword(dto);
   }
 
-  // POST: Completes password reset using the admin-issued passphrase.
+  // POST: Verifies administrator-issued recovery phrase against employee active recovery request.
+  @Post('verify-passphrase')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify administrator-issued recovery phrase against employee recovery request' })
+  @ApiResponse({ status: 200, description: 'Passphrase verified and single-use reset authorization token issued' })
+  async verifyPassphrase(@Body() dto: VerifyPassphraseDto) {
+    return this.authService.verifyPassphrase(dto);
+  }
+
+  // POST: Completes password reset using the admin-issued passphrase or single-use reset authorization token.
   @Post('reset-password')
   @Public()
   @HttpCode(HttpStatus.OK)

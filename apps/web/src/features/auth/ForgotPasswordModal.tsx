@@ -15,6 +15,7 @@ import {
   Send,
   FileText,
   Key,
+  UserCheck,
 } from 'lucide-react';
 
 interface ForgotPasswordModalProps {
@@ -41,9 +42,17 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const [identifier, setIdentifier] = useState(initialIdentifier || '');
   const [reason, setReason] = useState('');
 
-  // Reset form state
+  // Two-Stage Reset form state
+  const [recoveryStage, setRecoveryStage] = useState<'verify' | 'new_password'>('verify');
   const [resetIdentifier, setResetIdentifier] = useState(initialIdentifier || '');
   const [passphrase, setPassphrase] = useState(initialPassphrase || '');
+  const [resetAuthToken, setResetAuthToken] = useState<string | null>(null);
+  const [verifiedEmployee, setVerifiedEmployee] = useState<{
+    name: string;
+    email: string;
+    employeeId?: string;
+  } | null>(null);
+
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -95,10 +104,41 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     }
   };
 
+  // Stage 1: Verify Recovery Phrase with backend
+  const handleVerifyPassphrase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = resetIdentifier.trim();
+    const phrase = passphrase.trim();
+
+    if (!id) {
+      setError('Please provide your Employee ID or Corporate Email.');
+      return;
+    }
+    if (!phrase) {
+      setError('Please enter the recovery phrase issued by your Administrator.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await api.verifyPassphrase(id, phrase);
+      setResetAuthToken(res.resetAuthToken);
+      setVerifiedEmployee(res.employee);
+      setRecoveryStage('new_password');
+    } catch (err: any) {
+      setError(err.message || 'Invalid recovery phrase or employee identifier.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Stage 2: Regenerate Password with verified single-use reset authorization token
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!passphrase.trim()) {
-      setError('Please provide the passphrase issued by your administrator.');
+    if (!resetAuthToken && !passphrase.trim()) {
+      setError('Authorization expired or missing. Please verify your recovery phrase again.');
+      setRecoveryStage('verify');
       return;
     }
     if (!isPasswordValid) {
@@ -113,10 +153,11 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
         passphrase.trim(),
         newPassword,
         resetIdentifier.trim() || undefined,
+        resetAuthToken || undefined,
       );
       setStep('completed');
     } catch (err: any) {
-      setError(err.message || 'Failed to regenerate password. Passphrase may be invalid or expired.');
+      setError(err.message || 'Failed to regenerate password. Authorization may have expired.');
     } finally {
       setIsLoading(false);
     }
@@ -130,11 +171,17 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const handleSwitchToReset = () => {
     setActiveTab('reset');
     setStep('form');
+    setRecoveryStage('verify');
+    setResetAuthToken(null);
+    setVerifiedEmployee(null);
     setError(null);
   };
 
   const handleResetModalState = () => {
     setStep('form');
+    setRecoveryStage('verify');
+    setResetAuthToken(null);
+    setVerifiedEmployee(null);
     setError(null);
     setInfoMessage(null);
   };
@@ -166,7 +213,9 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 ? 'Reset Request Submitted'
                 : activeTab === 'request'
                 ? 'Request Password Reset'
-                : 'Regenerate Password'}
+                : recoveryStage === 'verify'
+                ? 'Verify Recovery Phrase'
+                : 'Set New Password'}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Capital Real Estate Enterprise Security Portal
@@ -205,7 +254,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               }`}
             >
               <Key className="w-3.5 h-3.5" />
-              <span>2. Enter Passphrase</span>
+              <span>2. Recover Account</span>
             </button>
           </div>
         )}
@@ -225,7 +274,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               <div>
                 <p className="font-semibold">Administrator Verification Workflow</p>
                 <p className="mt-0.5 text-amber-800 dark:text-amber-300">
-                  Password resets must be authorized by a System Administrator. When you submit this request, the admin will verify your identity and send a secure single-use passphrase directly to your inbox.
+                  Password resets must be authorized by a System Administrator. When you submit this request, the administrator will verify your credentials and issue a secure single-use recovery phrase.
                 </p>
               </div>
             </div>
@@ -280,7 +329,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 onClick={handleSwitchToReset}
                 className="text-xs text-red-600 dark:text-red-400 hover:underline font-medium"
               >
-                Already received your passphrase? Enter it here →
+                Already received your recovery phrase? Enter it here →
               </button>
             </div>
           </form>
@@ -295,7 +344,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 <p className="font-bold text-sm">Request Submitted to System Administrator</p>
                 <p className="mt-1 leading-relaxed text-emerald-800 dark:text-emerald-300">
                   {infoMessage ||
-                    'Your password reset request has been received. The administrator has been notified and will issue a secure passphrase to your inbox.'}
+                    'Your password reset request has been received. The administrator has been notified and will issue a secure recovery phrase.'}
                 </p>
               </div>
             </div>
@@ -304,8 +353,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               <p className="font-semibold text-slate-800 dark:text-slate-200">What happens next?</p>
               <ol className="list-decimal list-inside space-y-1 text-slate-500 dark:text-slate-400">
                 <li>The administrator reviews your pending reset request in User Management.</li>
-                <li>The administrator generates and sends an official passphrase to your inbox.</li>
-                <li>You return here, enter the passphrase, and regenerate your password.</li>
+                <li>The administrator generates and conveys an official single-use phrase to you.</li>
+                <li>You return here, enter the phrase to verify your account, and set a new password.</li>
               </ol>
             </div>
 
@@ -315,7 +364,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 onClick={handleSwitchToReset}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-xs shadow-md shadow-red-900/30"
               >
-                <span>Enter Passphrase Now</span>
+                <span>Enter Recovery Phrase Now</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
@@ -323,23 +372,34 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 onClick={onClose}
                 className="py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                Close & Wait for Passphrase
+                Close & Wait for Phrase
               </button>
             </div>
           </div>
         )}
 
-        {/* TAB 2: Enter Passphrase and Regenerate Password */}
-        {step === 'form' && activeTab === 'reset' && (
-          <form onSubmit={handleResetPassword} className="space-y-4">
+        {/* TAB 2 - STAGE 1: Verify Recovery Phrase */}
+        {step === 'form' && activeTab === 'reset' && recoveryStage === 'verify' && (
+          <form onSubmit={handleVerifyPassphrase} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 flex items-start gap-2.5 leading-relaxed">
+              <ShieldCheck className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-slate-800 dark:text-slate-200">Stage 1 of 2: Phrase Verification</p>
+                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                  Enter your Employee ID or corporate email and the recovery phrase received from your Administrator. Once authenticated, you will be authorized to set a new password.
+                </p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                Corporate Email or Employee ID (Optional)
+                Corporate Email or Employee ID <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
                 <input
                   type="text"
+                  required
                   placeholder="e.g. employee@capitalre.com or EMP-101"
                   value={resetIdentifier}
                   onChange={(e) => setResetIdentifier(e.target.value)}
@@ -350,22 +410,66 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                Administrator-Issued Passphrase <span className="text-red-500">*</span>
+                Administrator-Issued Recovery Phrase <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Key className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
                 <input
                   type="text"
                   required
-                  placeholder="e.g. CPTL-8492-XK71"
+                  placeholder="CPTL-XXXX-XXXX"
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-mono text-sm tracking-wider uppercase text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm font-mono uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-red-500/40"
                 />
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                Enter the exact passphrase received in your inbox or from your fleet administrator.
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                Hyphens and spaces are handled automatically. Passphrases expire after 15 minutes.
               </p>
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('request');
+                  handleResetModalState();
+                }}
+                className="w-1/3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading || !resetIdentifier.trim() || !passphrase.trim()}
+                className="w-2/3 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-xs shadow-md shadow-red-900/30 disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isLoading ? (
+                  <span>Verifying Credentials...</span>
+                ) : (
+                  <>
+                    <span>Verify Recovery Phrase</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* TAB 2 - STAGE 2: Set New Password (Authorized only after Stage 1) */}
+        {step === 'form' && activeTab === 'reset' && recoveryStage === 'new_password' && (
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            {/* Verified Identity Badge */}
+            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-3">
+              <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-emerald-900 dark:text-emerald-200">
+                <p className="font-bold text-sm">Identity Authenticated</p>
+                <p className="mt-0.5 text-emerald-800 dark:text-emerald-300">
+                  Verified for <strong>{verifiedEmployee?.name}</strong>{' '}
+                  {verifiedEmployee?.employeeId ? `(${verifiedEmployee.employeeId})` : `(${verifiedEmployee?.email})`}. Please establish your new corporate password.
+                </p>
+              </div>
             </div>
 
             <div>
@@ -428,18 +532,15 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
             <div className="pt-2 flex gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('request');
-                  handleResetModalState();
-                }}
+                onClick={() => setRecoveryStage('verify')}
                 className="w-1/3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                Back to Request
+                Back
               </button>
               <button
                 type="submit"
                 disabled={isLoading || !isPasswordValid}
-                className="w-2/3 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-xs shadow-md shadow-red-900/30 disabled:opacity-50"
+                className="w-2/3 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-xs shadow-md shadow-red-900/30 disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
                 {isLoading ? 'Regenerating...' : 'Regenerate Password'}
               </button>

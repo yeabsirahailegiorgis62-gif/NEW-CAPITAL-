@@ -532,8 +532,8 @@ export function App() {
         <DepartmentsManagementView />
       )}
 
-      {activeTab === 'users' && isSystemAdmin && (
-        <UsersManagementView />
+      {(activeTab === 'users' || activeTab === 'reset-requests') && isSystemAdmin && (
+        <UsersManagementView initialTab={activeTab === 'reset-requests' ? 'resetRequests' : 'staff'} />
       )}
 
       {activeTab === 'audit-logs' && !isEmployee && (

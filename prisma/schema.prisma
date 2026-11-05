@@ -380,8 +380,11 @@ model PasswordResetToken {
   token          String                @unique // SHA-256 hash of token/passphrase
   expiresAt      DateTime
   usedAt         DateTime?
-  failedAttempts Int                   @default(0)
-  createdAt      DateTime              @default(now())
+  failedAttempts     Int                   @default(0)
+  resetAuthHash      String?               @unique
+  resetAuthExpiresAt DateTime?
+  resetAuthUsedAt    DateTime?
+  createdAt          DateTime              @default(now())
 
   user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   request        PasswordResetRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
@@ -389,6 +392,7 @@ model PasswordResetToken {
   @@index([userId])
   @@index([token])
   @@index([requestId])
+  @@index([resetAuthHash])
   @@map("password_reset_tokens")
 }
 

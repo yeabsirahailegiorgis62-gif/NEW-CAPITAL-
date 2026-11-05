@@ -44,11 +44,21 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-export const UsersManagementView: React.FC = () => {
+interface UsersManagementViewProps {
+  initialTab?: 'staff' | 'resetRequests';
+}
+
+export const UsersManagementView: React.FC<UsersManagementViewProps> = ({ initialTab }) => {
   const toast = useToast();
 
   // ── Active Tab ──
-  const [activeTab, setActiveTab] = useState<'staff' | 'resetRequests'>('staff');
+  const [activeTab, setActiveTab] = useState<'staff' | 'resetRequests'>(initialTab || 'staff');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -98,10 +108,13 @@ export const UsersManagementView: React.FC = () => {
   const [approveDurationMinutes, setApproveDurationMinutes] = useState(15);
   const [approveAdminNotes, setApproveAdminNotes] = useState('');
   const [approveForceChange, setApproveForceChange] = useState(true);
+  const [approveCustomPhrase, setApproveCustomPhrase] = useState('');
+  const [phraseCopied, setPhraseCopied] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [approveResult, setApproveResult] = useState<{
     expiresAt?: string;
     message?: string;
+    recoveryPhrase?: string;
     emailDeliveryStatus?: string;
     emailError?: string | null;
   } | null>(null);
@@ -173,10 +186,12 @@ export const UsersManagementView: React.FC = () => {
         adminNotes: approveAdminNotes.trim() || undefined,
         forcePasswordChange: approveForceChange,
         expiresInMinutes: approveDurationMinutes,
+        passphrase: approveCustomPhrase.trim() || undefined,
       });
       setApproveResult({
         expiresAt: res.expiresAt,
         message: res.message,
+        recoveryPhrase: res.recoveryPhrase,
         emailDeliveryStatus: res.emailDeliveryStatus,
         emailError: res.emailError,
       });
@@ -186,7 +201,7 @@ export const UsersManagementView: React.FC = () => {
           `A secure reset passphrase has been emailed to ${approvingRequest.userEmail}.`,
         );
       } else {
-        toast.warning('Email Notice', res.message);
+        toast.info('Passphrase Issued', 'Recovery phrase generated. Copy and convey it to the employee.');
       }
       await fetchResetRequests();
     } catch (err: any) {
@@ -305,7 +320,7 @@ export const UsersManagementView: React.FC = () => {
       setIsResetting(true);
       const res = await api.adminResetPassword(resetModalUser.id, forcePasswordChange);
       setResetResult({
-        token: res.resetToken,
+        token: res.resetToken || res.recoveryPhrase || res.passphrase,
         expiresAt: res.expiresAt,
         message: res.message,
       });
@@ -509,6 +524,38 @@ export const UsersManagementView: React.FC = () => {
 
       {activeTab === 'staff' && (
       <>
+      {/* Pending Reset Requests Warning Banner */}
+      {pendingCount > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-bold text-slate-900 dark:text-white block text-sm flex items-center gap-2">
+                <span>{pendingCount} Pending Password Recovery Request{pendingCount === 1 ? '' : 's'} Awaiting Authorization</span>
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+              </span>
+              <span className="text-slate-600 dark:text-slate-300 text-xs">
+                Staff members (including Abebe Molla) have submitted password recovery requests. Click below to review requests and issue single-use recovery passphrases.
+              </span>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setActiveTab('resetRequests');
+              setRequestStatusFilter('PENDING');
+            }}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shrink-0 shadow-xs"
+          >
+            <KeyRound className="w-3.5 h-3.5 mr-1.5" />
+            Review Requests ({pendingCount})
+          </Button>
+        </div>
+      )}
+
       {/* Staff Metrics Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -722,6 +769,12 @@ export const UsersManagementView: React.FC = () => {
                               {u.jobTitle}
                             </span>
                           )}
+                          {resetRequests.some((r) => r.userId === u.id && r.status === 'PENDING') && (
+                            <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
+                              <KeyRound className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                              Reset Requested
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -800,20 +853,43 @@ export const UsersManagementView: React.FC = () => {
                           <span className="hidden sm:inline">Edit</span>
                         </Button>
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setResetModalUser(u);
-                            setResetResult(null);
-                            setForcePasswordChange(true);
-                          }}
-                          title="Reset Password"
-                          leftIcon={<KeyRound className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
-                          className="h-[38px] px-2.5 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-transparent hover:border-amber-300"
-                        >
-                          <span className="hidden md:inline">Reset</span>
-                        </Button>
+                        {resetRequests.some((r) => r.userId === u.id && r.status === 'PENDING') ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => {
+                              const pending = resetRequests.find((r) => r.userId === u.id && r.status === 'PENDING');
+                              if (pending) {
+                                setApprovingRequest(pending);
+                                setApproveAdminNotes('');
+                                setApproveForceChange(true);
+                                setApproveDurationMinutes(15);
+                                setApproveResult(null);
+                              }
+                            }}
+                            title="Review Request & Issue Passphrase"
+                            leftIcon={<KeyRound className="w-3.5 h-3.5" />}
+                            className="h-[38px] px-2.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
+                          >
+                            <span className="hidden sm:inline">Issue Passphrase</span>
+                            <span className="sm:hidden">Passphrase</span>
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setResetModalUser(u);
+                              setResetResult(null);
+                              setForcePasswordChange(true);
+                            }}
+                            title="Reset Password"
+                            leftIcon={<KeyRound className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+                            className="h-[38px] px-2.5 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-transparent hover:border-amber-300"
+                          >
+                            <span className="hidden md:inline">Reset</span>
+                          </Button>
+                        )}
 
                         <Button
                           variant={u.isActive ? 'outline' : 'primary'}
@@ -997,10 +1073,11 @@ export const UsersManagementView: React.FC = () => {
                                     setApproveDurationMinutes(15);
                                     setApproveResult(null);
                                   }}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition-colors shadow-xs"
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-colors shadow-xs cursor-pointer"
+                                  title="View request details and issue recovery phrase"
                                 >
-                                  <Send className="w-3 h-3" />
-                                  Approve & Send
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View Details & Approve</span>
                                 </button>
                                 <button
                                   type="button"
@@ -1008,7 +1085,7 @@ export const UsersManagementView: React.FC = () => {
                                     setRejectingRequest(req);
                                     setRejectReason('');
                                   }}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 text-[11px] font-semibold hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors"
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 text-[11px] font-semibold hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors cursor-pointer"
                                 >
                                   <XCircle className="w-3 h-3" />
                                   Reject
@@ -1022,7 +1099,7 @@ export const UsersManagementView: React.FC = () => {
                                   setResendingRequest(req);
                                   setResendDurationMinutes(15);
                                 }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-[11px] font-semibold hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-colors shadow-xs"
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-[11px] font-semibold hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-colors shadow-xs cursor-pointer"
                               >
                                 <RotateCw className="w-3 h-3" />
                                 Resend Passphrase
@@ -1394,41 +1471,52 @@ export const UsersManagementView: React.FC = () => {
                 </div>
 
                 {resetResult.token && (
-                  <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                      Single-Use Reset Token:
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={resetResult.token}
-                        className="flex-1 font-mono text-xs py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white select-all focus:outline-none"
-                      />
-                      <Button
+                  <div className="p-4 rounded-2xl bg-slate-900 dark:bg-slate-950 border border-slate-700 text-white space-y-3 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <KeyRound className="w-4 h-4 text-emerald-400" />
+                        Issued Recovery Passphrase
+                      </span>
+                      {resetResult.expiresAt && (
+                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono">
+                          Expires: {formatEthiopianDateTime(resetResult.expiresAt)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between bg-black/60 rounded-xl p-3.5 border border-slate-800">
+                      <code className="text-lg sm:text-xl font-black tracking-widest text-emerald-400 font-mono select-all">
+                        {resetResult.token}
+                      </code>
+                      <button
                         type="button"
-                        variant="outline"
-                        size="sm"
                         onClick={() => {
                           if (resetResult.token) {
                             navigator.clipboard.writeText(resetResult.token);
                             setTokenCopied(true);
-                            setTimeout(() => setTokenCopied(false), 2000);
+                            toast.success('Copied', 'Recovery passphrase copied to clipboard.');
+                            setTimeout(() => setTokenCopied(false), 2500);
                           }
                         }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                       >
                         {tokenCopied ? (
                           <>
-                            <Check className="w-3.5 h-3.5 text-emerald-600 mr-1" />
-                            <span>Copied</span>
+                            <Check className="w-3.5 h-3.5" />
+                            Copied!
                           </>
                         ) : (
                           <>
-                            <Copy className="w-3.5 h-3.5 mr-1" />
-                            <span>Copy</span>
+                            <Copy className="w-3.5 h-3.5" />
+                            Copy Passphrase
                           </>
                         )}
-                      </Button>
+                      </button>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-[11px] text-slate-300 leading-relaxed">
+                      <strong>Delivery Instructions:</strong> Convey this recovery passphrase directly to{' '}
+                      <span className="text-white font-medium">{resetModalUser.name}</span> ({resetModalUser.email}). The user can enter this passphrase on the Forgot Password interface to establish a new password.
                     </div>
                   </div>
                 )}
@@ -1502,13 +1590,43 @@ export const UsersManagementView: React.FC = () => {
                   <div className="text-xs text-emerald-900 dark:text-emerald-200">
                     <p className="font-semibold">What happens when you approve?</p>
                     <ul className="mt-1 list-disc list-inside text-emerald-800 dark:text-emerald-300 space-y-0.5">
-                      <li>A cryptographically secure, unpredictable passphrase is generated</li>
-                      <li>The passphrase is sent directly to the staff member's registered email inbox</li>
-                      <li>The passphrase expires after the configured duration</li>
-                      <li>In accordance with security standards, the passphrase is never displayed in the dashboard</li>
+                      <li>A secure single-use recovery phrase is generated or validated (CPTL-XXXX-XXXX)</li>
+                      <li>Only its cryptographic hash is stored in the PostgreSQL database</li>
+                      <li>The phrase is displayed once to you to copy and convey to the employee</li>
+                      <li>If email service is active, automated delivery is dispatched simultaneously</li>
                       <li>This approval action is recorded in the Security Audit Log</li>
                     </ul>
                   </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Recovery Phrase (Optional)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+                        const b = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+                        setApproveCustomPhrase(`CPTL-${b()}-${b()}`);
+                      }}
+                      className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium flex items-center gap-1"
+                    >
+                      <RotateCw className="w-3 h-3" />
+                      Generate Random
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. CPTL-8842-WK91 (Leave blank to auto-generate)"
+                    value={approveCustomPhrase}
+                    onChange={(e) => setApproveCustomPhrase(e.target.value)}
+                    className="w-full text-xs font-mono py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                  />
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    Standard format: CPTL-XXXX-XXXX. Leave blank to generate cryptographically random blocks.
+                  </p>
                 </div>
 
                 <div>
@@ -1563,7 +1681,10 @@ export const UsersManagementView: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setApprovingRequest(null)}
+                    onClick={() => {
+                      setApprovingRequest(null);
+                      setApproveCustomPhrase('');
+                    }}
                     disabled={isApproving}
                   >
                     Cancel
@@ -1577,13 +1698,60 @@ export const UsersManagementView: React.FC = () => {
                     className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    Approve & Send Passphrase
+                    Approve & Issue Phrase
                   </Button>
                 </div>
               </>
             ) : (
               /* Approval Success View */
               <div className="space-y-4">
+                {approveResult.recoveryPhrase && (
+                  <div className="p-4 rounded-2xl bg-slate-900 dark:bg-slate-950 border border-slate-700 text-white space-y-3 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <KeyRound className="w-4 h-4 text-emerald-400" />
+                        Issued Recovery Phrase
+                      </span>
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono">
+                        Valid for {approveDurationMinutes} min
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-black/60 rounded-xl p-3.5 border border-slate-800">
+                      <code className="text-lg font-black tracking-widest text-emerald-400 font-mono select-all">
+                        {approveResult.recoveryPhrase}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(approveResult.recoveryPhrase!);
+                          setPhraseCopied(true);
+                          toast.success('Copied', 'Recovery phrase copied to clipboard.');
+                          setTimeout(() => setPhraseCopied(false), 2500);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                      >
+                        {phraseCopied ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            Copy Phrase
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-[11px] text-slate-300 leading-relaxed">
+                      <strong>Delivery Guidance:</strong> Communicate this phrase directly to{' '}
+                      <span className="text-white font-medium">{approvingRequest.userName}</span> ({approvingRequest.userEmail}). This phrase will never be shown again and only its secure cryptographic hash is persisted in the database.
+                    </div>
+                  </div>
+                )}
+
                 <div className={`p-4 rounded-xl border flex items-start gap-3 ${
                   approveResult.emailDeliveryStatus === 'SENT'
                     ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60 text-emerald-900 dark:text-emerald-200'
@@ -1598,7 +1766,7 @@ export const UsersManagementView: React.FC = () => {
                     <p className="font-bold text-sm">
                       {approveResult.emailDeliveryStatus === 'SENT'
                         ? 'Passphrase Dispatched to Email'
-                        : 'Approval Recorded (Email Delivery Issue)'}
+                        : 'Manual Delivery Mode (Automated Email Offline/Simulated)'}
                     </p>
                     <p className="mt-1">{approveResult.message}</p>
                     {approveResult.expiresAt && (
@@ -1615,7 +1783,7 @@ export const UsersManagementView: React.FC = () => {
                     Enterprise Security Protection
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Under corporate data security protocols, complete reset passphrases and passwords are never exposed in administrative dashboards or stored in plaintext in the database. The single-use passphrase has been dispatched securely to <strong>{approvingRequest.userEmail}</strong>.
+                    Under corporate data security protocols, complete reset passphrases are never stored in plaintext in the database. Once you close this window, the plaintext phrase cannot be retrieved.
                   </p>
                 </div>
 
@@ -1626,6 +1794,8 @@ export const UsersManagementView: React.FC = () => {
                     onClick={() => {
                       setApprovingRequest(null);
                       setApproveResult(null);
+                      setApproveCustomPhrase('');
+                      setPhraseCopied(false);
                     }}
                   >
                     Done

@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { UserRole } from '@prisma/client';
+import { UserRole, PasswordResetRequestStatus } from '@prisma/client';
 import { MailService } from '../mail/mail.service';
 
 describe('AuthService', () => {
@@ -31,52 +31,60 @@ describe('AuthService', () => {
   });
 
   beforeEach(async () => {
+    const mockPrisma: any = {
+      user: {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        update: jest.fn().mockResolvedValue(mockUser),
+      },
+      systemSetting: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
+      },
+      passwordResetToken: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      passwordResetRequest: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+        update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      notification: {
+        create: jest.fn(),
+        createMany: jest.fn(),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+      },
+      $transaction: jest.fn().mockImplementation(async (arg) => {
+        if (typeof arg === 'function') {
+          return arg(mockPrisma);
+        }
+        return Promise.all(arg);
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         {
           provide: PrismaService,
-          useValue: {
-            user: {
-              findFirst: jest.fn(),
-              findUnique: jest.fn(),
-              findMany: jest.fn(),
-              update: jest.fn().mockResolvedValue(mockUser),
-            },
-            systemSetting: {
-              findMany: jest.fn().mockResolvedValue([]),
-              findUnique: jest.fn(),
-            },
-            passwordResetToken: {
-              create: jest.fn(),
-              findFirst: jest.fn(),
-              findUnique: jest.fn(),
-              update: jest.fn(),
-              updateMany: jest.fn(),
-            },
-            passwordResetRequest: {
-              create: jest.fn(),
-              findFirst: jest.fn(),
-              findUnique: jest.fn(),
-              findMany: jest.fn(),
-              count: jest.fn().mockResolvedValue(0),
-              update: jest.fn(),
-              updateMany: jest.fn(),
-            },
-            notification: {
-              create: jest.fn(),
-              createMany: jest.fn(),
-            },
-            auditLog: {
-              create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
-            },
-            $transaction: jest.fn(),
-          },
+          useValue: mockPrisma,
         },
         {
           provide: JwtService,
           useValue: {
             sign: jest.fn().mockReturnValue('mock_jwt_token_xyz'),
+            verify: jest.fn().mockReturnValue({ sub: 'user-1' }),
           },
         },
         {
@@ -97,6 +105,20 @@ describe('AuthService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('normalizePassphrase', () => {
+    it('should trim outer whitespace, remove all internal spaces, and uppercase', () => {
+      expect(service.normalizePassphrase('  cptl - 8842 - wk91  ')).toBe('CPTL-8842-WK91');
+      expect(service.normalizePassphrase('cptl-abcd-1234')).toBe('CPTL-ABCD-1234');
+      expect(service.normalizePassphrase('CPTL -  7482 -   XK91')).toBe('CPTL-7482-XK91');
+    });
+
+    it('should validate format correctly', () => {
+      expect(service.validatePassphraseFormat('CPTL-8842-WK91')).toBe(true);
+      expect(service.validatePassphraseFormat('  cptl - 8842 - wk91 ')).toBe(true);
+      expect(service.validatePassphraseFormat('INVALID-FORMAT')).toBe(false);
+    });
   });
 
   describe('validateUser', () => {
@@ -181,7 +203,7 @@ describe('AuthService', () => {
       expect(prisma.notification.createMany).toHaveBeenCalled();
     });
 
-    it('should allow admin to approve request and dispatch passphrase to user email inbox', async () => {
+    it('should allow admin to approve request, return recovery phrase once, and update status', async () => {
       const mockReq = {
         id: 'req-1',
         userId: mockUser.id,
@@ -192,37 +214,99 @@ describe('AuthService', () => {
       };
       (prisma.passwordResetRequest.findUnique as jest.Mock).mockResolvedValue(mockReq);
       (prisma.passwordResetToken.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
-      (prisma.$transaction as jest.Mock).mockImplementation(async (fns) => {
-        return Promise.all(fns);
-      });
 
       const res = await service.approveResetRequest('admin-1', 'Admin Super', 'req-1', {
         expiresInMinutes: 15,
+        passphrase: 'CPTL-8842-WK91',
       });
 
       expect(res.success).toBe(true);
+      expect(res.recoveryPhrase).toBe('CPTL-8842-WK91');
       expect(res.emailDeliveryStatus).toBe('SENT');
-      expect(res.message).toContain('dispatched');
     });
 
-    it('should regenerate password using issued passphrase', async () => {
+    it('should verify recovery phrase and issue single-use reset authorization token', async () => {
       const passphrase = 'CPTL-TEST-1234';
-      const tokenHash = (service as any).hashPassphrase(passphrase);
+      const tokenHash = service.hashPassphrase(passphrase);
       const mockToken = {
         id: 'tok-1',
         token: tokenHash,
         userId: mockUser.id,
-        user: mockUser,
         expiresAt: new Date(Date.now() + 100000),
         usedAt: null,
       };
-      (prisma.passwordResetToken.findUnique as jest.Mock).mockResolvedValue(mockToken);
-      (prisma.$transaction as jest.Mock).mockImplementation(async (fns) => {
-        return Promise.all(fns);
+      const mockActiveReq = {
+        id: 'req-1',
+        userId: mockUser.id,
+        status: PasswordResetRequestStatus.APPROVED,
+        passphraseHash: tokenHash,
+        expiresAt: new Date(Date.now() + 100000),
+        failedAttempts: 0,
+        tokens: [mockToken],
+      };
+
+      (prisma.user.findFirst as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.passwordResetRequest.findFirst as jest.Mock).mockResolvedValue(mockActiveReq);
+
+      const result = await service.verifyPassphrase({
+        identifier: 'EMP-101',
+        passphrase: '  cptl - test - 1234  ', // With whitespace and lowercase
       });
 
+      expect(result.valid).toBe(true);
+      expect(result.resetAuthToken).toBeDefined();
+      expect(result.employee.name).toBe(mockUser.name);
+    });
+
+    it('should reject invalid phrase and increment failed attempts counter', async () => {
+      const validHash = service.hashPassphrase('CPTL-CORRECT-1111');
+      const mockActiveReq = {
+        id: 'req-1',
+        userId: mockUser.id,
+        status: PasswordResetRequestStatus.APPROVED,
+        passphraseHash: validHash,
+        expiresAt: new Date(Date.now() + 100000),
+        failedAttempts: 1,
+        tokens: [{ id: 'tok-1', token: validHash, usedAt: null, expiresAt: new Date(Date.now() + 100000) }],
+      };
+
+      (prisma.user.findFirst as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.passwordResetRequest.findFirst as jest.Mock).mockResolvedValue(mockActiveReq);
+      (prisma.passwordResetRequest.update as jest.Mock).mockResolvedValue({
+        ...mockActiveReq,
+        failedAttempts: 2,
+      });
+
+      await expect(
+        service.verifyPassphrase({
+          identifier: 'EMP-101',
+          passphrase: 'CPTL-WRONG-9999',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should regenerate password using verified resetAuthToken', async () => {
+      const mockToken = {
+        id: 'tok-1',
+        token: 'hashed_token',
+        userId: mockUser.id,
+        user: mockUser,
+        resetAuthHash: service.hashResetAuthToken('valid_auth_token_123'),
+        resetAuthExpiresAt: new Date(Date.now() + 100000),
+        resetAuthUsedAt: null,
+        expiresAt: new Date(Date.now() + 100000),
+        usedAt: null,
+        request: {
+          id: 'req-1',
+          status: PasswordResetRequestStatus.APPROVED,
+        },
+      };
+
+      (prisma.passwordResetToken.findFirst as jest.Mock).mockResolvedValue(mockToken);
+      (prisma.passwordResetToken.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
       const res = await service.resetPassword({
-        token: passphrase,
+        resetAuthToken: 'valid_auth_token_123',
         newPassword: 'BrandNewPassword2026!',
       });
 
