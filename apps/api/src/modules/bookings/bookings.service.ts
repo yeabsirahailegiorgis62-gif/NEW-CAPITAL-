@@ -1562,6 +1562,36 @@ export class BookingsService {
       throw new BadRequestException(`Cannot start trip. Booking is in ${booking.status} status. It must be ASSIGNED.`);
     }
 
+    const activeAssignment = booking.assignments[0];
+
+    // Authorization: Only assigned driver or administrator can initiate departure
+    if (actor.role === UserRole.DRIVER && activeAssignment?.driverId && activeAssignment.driverId !== actor.id) {
+      throw new ForbiddenException('Only the assigned chauffeur or logistics administrator can initiate trip departure.');
+    }
+
+    // Enforce driver acceptance lifecycle: driver must confirm before start
+    if (activeAssignment?.driverId && activeAssignment.status !== 'CONFIRMED') {
+      throw new BadRequestException(
+        'Cannot start trip: the assigned driver must accept and confirm the assignment before departure.',
+      );
+    }
+
+    // Validate vehicle operational status
+    if (activeAssignment?.vehicle && activeAssignment.vehicle.operationalStatus !== VehicleOperationalStatus.ACTIVE) {
+      throw new BadRequestException(
+        `Cannot start trip: assigned vehicle ${activeAssignment.vehicle.name} is currently ${activeAssignment.vehicle.operationalStatus}.`,
+      );
+    }
+
+    // Validate start odometer if provided
+    if (dto.startOdometer != null && activeAssignment?.vehicle?.mileage != null) {
+      if (dto.startOdometer < activeAssignment.vehicle.mileage) {
+        throw new BadRequestException(
+          `Start odometer (${dto.startOdometer} km) cannot be less than current recorded vehicle mileage (${activeAssignment.vehicle.mileage} km).`,
+        );
+      }
+    }
+
     const actualDeparture = dto.actualDepartureAt ? new Date(dto.actualDepartureAt) : new Date();
 
     const updated = await this.prisma.booking.update({
@@ -1703,8 +1733,24 @@ export class BookingsService {
       throw new BadRequestException(`Cannot complete trip. Booking status is ${booking.status}. Trip must be IN_PROGRESS.`);
     }
 
+    const activeAssignment = booking.assignments[0];
+
+    // Authorization: Only assigned driver or administrator can complete trip
+    if (actor.role === UserRole.DRIVER && activeAssignment?.driverId && activeAssignment.driverId !== actor.id) {
+      throw new ForbiddenException('Only the assigned chauffeur or logistics administrator can complete this trip.');
+    }
+
+    // Validate odometer reading: endOdometer must be >= startOdometer
+    if (dto.endOdometer != null && booking.startOdometer != null) {
+      if (dto.endOdometer < booking.startOdometer) {
+        throw new BadRequestException(
+          `End odometer reading (${dto.endOdometer} km) cannot be less than start odometer reading (${booking.startOdometer} km).`,
+        );
+      }
+    }
+
     const actualReturn = dto.actualReturnAt ? new Date(dto.actualReturnAt) : new Date();
-    const assignedVehicle = booking.assignments[0]?.vehicle;
+    const assignedVehicle = activeAssignment?.vehicle;
 
     await this.prisma.$transaction(async (tx) => {
       // 1. Update booking to COMPLETED

@@ -268,6 +268,12 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({
 
   const handleConfirmReturnSubmit = async () => {
     if (!confirmReturnBooking) return;
+    if (odometerEndInput && odometerStartInput) {
+      if (Number(odometerEndInput) < Number(odometerStartInput)) {
+        alert(`End odometer reading (${odometerEndInput} km) cannot be less than start odometer reading (${odometerStartInput} km).`);
+        return;
+      }
+    }
     try {
       setIsSubmittingReturn(true);
       await api.completeTrip(confirmReturnBooking.id, {
@@ -616,30 +622,42 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({
 
                           <div className="flex flex-wrap items-center gap-2">
                             {/* Step 1: Confirm assignment if pending */}
-                            {isPendingConfirm && (
-                              <Button
-                                size="sm"
-                                variant="success"
-                                onClick={() => handleConfirmAssignment(b)}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                              >
-                                Accept Assignment
-                              </Button>
-                            )}
-
-                            {/* Step 2: Start Trip */}
-                            {isAssigned && !isInProgress && (
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                onClick={() => {
-                                  setStartTripBooking(b);
-                                  setStartOdometerInput(assignment?.vehicle?.mileage ? String(assignment.vehicle.mileage) : '');
-                                }}
-                                className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
-                              >
-                                Start Trip
-                              </Button>
+                            {isPendingConfirm ? (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setDeclineBooking(b)}
+                                  className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-semibold"
+                                >
+                                  Decline
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="success"
+                                  onClick={() => handleConfirmAssignment(b)}
+                                  leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs"
+                                >
+                                  Accept Assignment
+                                </Button>
+                              </div>
+                            ) : (
+                              /* Step 2: Start Trip (ONLY enabled after driver confirmed) */
+                              isAssigned && !isInProgress && (
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  onClick={() => {
+                                    setStartTripBooking(b);
+                                    setStartOdometerInput(assignment?.vehicle?.mileage ? String(assignment.vehicle.mileage) : '');
+                                  }}
+                                  leftIcon={<Navigation className="w-4 h-4" />}
+                                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs"
+                                >
+                                  Start Journey
+                                </Button>
+                              )
                             )}
 
                             {/* Step 3: In Progress actions */}

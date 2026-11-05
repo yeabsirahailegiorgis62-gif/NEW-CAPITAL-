@@ -591,8 +591,8 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                                 </span>
                               </div>
 
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
-                                Available ({item.score}% Match)
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                AVAILABLE
                               </span>
                             </div>
 
@@ -664,9 +664,15 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                                     Capacity: {v.passengerCapacity} Passengers
                                   </span>
                                 </div>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 shrink-0">
-                                  Unavailable
-                                </span>
+                                {v.operationalStatus === 'MAINTENANCE' || item.reasons.some((r) => r.toLowerCase().includes('maintenance')) ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0">
+                                    UNDER MAINTENANCE
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shrink-0">
+                                    ASSIGNED
+                                  </span>
+                                )}
                               </div>
                               {item.reasons.length > 0 && (
                                 <div className="mt-1 text-[11px] text-red-700 dark:text-red-400">
@@ -779,8 +785,8 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                                   <span className="font-semibold text-slate-900 dark:text-white truncate">
                                     {dRec.driver.name}
                                   </span>
-                                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-md shrink-0">
-                                    Available
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                                    AVAILABLE
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
@@ -824,8 +830,8 @@ export const AssignVehicleModal: React.FC<AssignVehicleModalProps> = ({
                                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                                     {dRec.driver.name}
                                   </span>
-                                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/60 px-1.5 py-0.5 rounded-md">
-                                    Unavailable
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shrink-0">
+                                    ASSIGNED
                                   </span>
                                 </div>
                                 <div className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">

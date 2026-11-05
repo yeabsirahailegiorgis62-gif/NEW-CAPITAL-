@@ -474,14 +474,34 @@ class ApiClient {
     });
   }
 
+  async verifyPassphrase(
+    identifier: string,
+    passphrase: string,
+  ): Promise<{
+    valid: boolean;
+    message: string;
+    resetAuthToken: string;
+    employee: {
+      name: string;
+      email: string;
+      employeeId?: string;
+    };
+  }> {
+    return this.request('/auth/verify-passphrase', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, passphrase }),
+    });
+  }
+
   async resetPassword(
     token: string,
     newPassword: string,
     identifier?: string,
+    resetAuthToken?: string,
   ): Promise<{ success: boolean; message: string }> {
     return this.request('/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, newPassword, identifier }),
+      body: JSON.stringify({ token, passphrase: token, newPassword, identifier, resetAuthToken }),
     });
   }
 
@@ -503,10 +523,12 @@ class ApiClient {
       expiresInMinutes?: number;
       adminNotes?: string;
       forcePasswordChange?: boolean;
+      passphrase?: string;
     },
   ): Promise<{
     success: boolean;
     message: string;
+    recoveryPhrase?: string;
     emailDeliveryStatus?: string;
     emailError?: string | null;
     expiresAt?: string;
@@ -527,6 +549,7 @@ class ApiClient {
   ): Promise<{
     success: boolean;
     message: string;
+    recoveryPhrase?: string;
     emailDeliveryStatus?: string;
     emailError?: string | null;
     expiresAt?: string;
@@ -551,7 +574,7 @@ class ApiClient {
     userId: string,
     forcePasswordChange = true,
     passphrase?: string,
-  ): Promise<{ success: boolean; message: string; resetToken?: string; passphrase?: string; expiresAt?: string }> {
+  ): Promise<{ success: boolean; message: string; resetToken?: string; passphrase?: string; recoveryPhrase?: string; expiresAt?: string }> {
     return this.request(`/auth/admin/reset-password/${userId}`, {
       method: 'POST',
       body: JSON.stringify({ forcePasswordChange, passphrase }),
